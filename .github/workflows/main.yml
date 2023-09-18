@@ -17,7 +17,6 @@ jobs:
 
       - name: Build project
         run: |
-          stack setup
           stack build
 
       - name: Run tests
@@ -27,6 +26,7 @@ jobs:
       - name: Push to main
         if: github.ref == 'refs/heads/dev' && github.event_name != 'pull_request' && success()
         run: |
+          stack clean
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git config --global user.name "GitHub Actions"
           git checkout main
