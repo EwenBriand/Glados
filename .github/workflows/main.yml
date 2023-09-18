@@ -10,22 +10,26 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: haskell:8.10.4
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
 
       - name: Build project
         run: |
+          stack setup
           stack build
 
       - name: Run tests
         run: |
+          needs: Build project
           stack test
+
 
       - name: Push to main
         if: github.ref == 'refs/heads/dev' && github.event_name != 'pull_request' && success()
         run: |
+          needs: Run tests
           stack clean
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git config --global user.name "GitHub Actions"
