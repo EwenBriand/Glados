@@ -1,6 +1,6 @@
 cabal-version: 1.12
 
--- This file has been generated from package.yaml by hpack version 0.35.1.
+-- This file has been generated from package.yaml by hpack version 0.35.2.
 --
 -- see: https://github.com/sol/hpack
 
@@ -25,14 +25,17 @@ source-repository head
 
 library
   exposed-modules:
+      Lexer
       Lib
+      Tokenizer
   other-modules:
       Paths_GlaDOS
   hs-source-dirs:
       src
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints
   build-depends:
-      base >=4.7 && <5
+      HUnit
+    , base >=4.7 && <5
   default-language: Haskell2010
 
 executable GlaDOS-exe
@@ -44,6 +47,7 @@ executable GlaDOS-exe
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       GlaDOS
+    , HUnit
     , base >=4.7 && <5
   default-language: Haskell2010
 
@@ -57,5 +61,6 @@ test-suite GlaDOS-test
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       GlaDOS
+    , HUnit
     , base >=4.7 && <5
   default-language: Haskell2010
