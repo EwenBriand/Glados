@@ -1,38 +1,53 @@
-name: Mirror Repository
+name: Check Project Makefile and Tests
 
 on:
   push:
     branches:
       - dev
+      - main
   pull_request:
     branches:
       - dev
+      - main
 
 jobs:
   build:
-    runs-on: haskell:8.10.4
+    runs-on: ubuntu-latest
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
 
+      - name: Set up Haskell environment
+        uses: actions/setup-haskell@v1
+        with:
+          ghc-version: '8.10.3'
+          cabal-version: '3.2'
+          enable-stack: true
+          stack-version: 'latest'
+
+      - name: Install GMP library
+        run: |
+          sudo apt-get update
+          sudo apt-get install libgmp-dev -y
+
       - name: Build project
         run: |
-          stack setup
-          stack build
+          make
+
+      - name: Check if a file exists
+        run: |
+          if [ -f "./glados" ]; then
+            echo "Binary exists."
+          else
+            echo "Binary does not exist, check."
+            exit 1  # Exit with a non-zero status code to indicate failure
+          fi
+
+      - name: Delete binary
+        run: |
+          make fclean
 
       - name: Run tests
         run: |
-          needs: Build project
           stack test
-
-
-      - name: Push to main
-        if: github.ref == 'refs/heads/dev' && github.event_name != 'pull_request' && success()
-        run: |
-          needs: Run tests
-          stack clean
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git config --global user.name "GitHub Actions"
-          git checkout main
-          git merge dev
-          git push origin main
