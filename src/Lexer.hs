@@ -1,51 +1,90 @@
 module Lexer (
-    Expr(..),
-    TokorExpr(..),
-    tokWordToExpr
+    -- Expr(..),
+    -- TokorExpr(..),
+    TokorNode(..),
+    ASTNode(..),
+    tokOrExprToASTNode,
+    tryToMatch,
+    buildASTIterate,
+    buildAST
 ) where
 
 import Tokenizer
-import qualified Control.Applicative as ExprDeclareSymbol
 
-data TokorExpr = T TokenInfo
-               | E Expr
-               deriving (Eq, Show)
+data TokorNode = T TokenInfo
+               | A ASTNode
+                deriving (Eq, Show)
 
-data Expr = ExprInteger
-          | ExprSymbol
-          | ExprDeclareSymbol
-          | ExprEmpty
-          | ExprSum
-          | ExprSub
-          | ExprMul
-          | ExprDiv
-          | ExprMod
-          | ExprError
-          deriving (Eq, Show)
-
-newtype ASTNode = Node(Expr, [ASTNode]) deriving (Eq, Show)
-data NodeorTE = ASTN ASTNode | ASTTmp TokorExpr deriving (Eq, Show)
-
--- Takes an array of Token and / or expressions and tries to collapse it into
--- a single expression. Returns ExprError upon failure to do so.
-tokWordToExpr :: [TokorExpr] -> Expr
-tokWordToExpr [] = ExprEmpty
-tokWordToExpr [T (TokenInfo TokSymbol _)] = ExprSymbol -- a symbol is a variable name, function name, etc.
-tokWordToExpr [T (TokenInfo TokOpenParen _), E e, T (TokenInfo TokCloseParen _)] = e -- an expression between parentheses stays an expression
-tokWordToExpr [T (TokenInfo TokInteger _)] = ExprInteger -- an int, has the val of the number iT TokenInfo contains
-tokWordToExpr [T (TokenInfo TokOpenParen _), T (TokenInfo TokKeyworddefine _), T (TokenInfo TokSymbol _), E _, T (TokenInfo TokCloseParen _)] = ExprDeclareSymbol -- (define name expr) (define x 2), declares the existence of a symbol and takes the val of thaT TokenInfo symbol.
-tokWordToExpr [T (TokenInfo TokOpenParen _), T (TokenInfo TokOperatorPlus _), E _, E _, T (TokenInfo TokCloseParen _) ] = ExprSum -- (+ 1 2), sums the two expressions. Takes the val of the sum's result.
-tokWordToExpr [T (TokenInfo TokOpenParen _), T (TokenInfo TokOperatorMinus _), E _, E _, T (TokenInfo TokCloseParen _) ] = ExprSub -- (- 1 2), substracts the two expressions. Takes the val of the substraction's result.
-tokWordToExpr [T (TokenInfo TokOpenParen _), T (TokenInfo TokOperatorMul _), E _, E _, T (TokenInfo TokCloseParen _) ] = ExprMul -- (* 1 2), multiplies the two expressions. Takes the val of the multiplication's result.
-tokWordToExpr [T (TokenInfo TokOpenParen _), T (TokenInfo TokOperatorDiv _), E _, E _, T (TokenInfo TokCloseParen _) ] = ExprDiv -- (/ 1 2), divides the two expressions. Takes the val of the division's result.
-tokWordToExpr [T (TokenInfo TokOpenParen _), T (TokenInfo TokOperatorMod _), E _, E _, T (TokenInfo TokCloseParen _) ] = ExprMod -- (% 1 2), takes the modulo of the two expressions. Takes the value of the modulo's result.
-tokWordToExpr _ = ExprError
-
--- nteCollapse :: [NodeorTE] -> NodeorTE
+data ASTNode = ASTNodeError {astnerrToken :: TokenInfo}
+             | ASTNodeInteger {astniValue :: Integer}
+--  The sum can have an arbitrary number of parameters
+             | ASTNodeSum {astnsChildren :: [ASTNode]}
+             | ASTNodeSub {astnsChildren :: [ASTNode]}
+             | ASTNodeMul {astnsChildren :: [ASTNode]}
+             | ASTNodeDiv {astnsChildren :: [ASTNode]}
+             | ASTNodeMod {astnsChildren :: [ASTNode]}
+             | ASTNodeDebug {astndChildren :: [TokorNode]}
+    deriving (Eq, Show)
 
 -- | @params:
---     tokArray: the array of tokens to build a tree from
--- @return: a tree of expressions that represent the information contained in the array.
--- buildAST :: [NodeorTE]  -> [ASTNode]
--- buildAST [] = []
--- buildAST (x:xs) =
+--     l: the word which will be compared to the different constructors for nodes.
+-- @return: a node corresponding to the pattern given in argument, or an error
+-- if the pattern does not match.
+tokOrExprToASTNode :: [TokorNode] -> ASTNode
+-- error: empty
+tokOrExprToASTNode [] = ASTNodeError (TokenInfo TokError "")
+-- an integer
+tokOrExprToASTNode [T (TokenInfo TokInteger val)] = ASTNodeInteger (read val)
+-- a sum of expressions
+tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokOperatorPlus _), A n1, A n2, T (TokenInfo TokCloseParen _)] = ASTNodeSum [n1, n2]
+-- a sub of expressions
+tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokOperatorMinus _), A n1, A n2, T (TokenInfo TokCloseParen _)] = ASTNodeSub [n1, n2]
+-- a mul of expressions
+tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokOperatorMul _), A n1, A n2, T (TokenInfo TokCloseParen _)] = ASTNodeMul [n1, n2]
+-- a div of expressions
+tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokOperatorDiv _), A n1, A n2, T (TokenInfo TokCloseParen _)] = ASTNodeDiv [n1, n2]
+-- a mod of expressions
+tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokOperatorMod _), A n1, A n2, T (TokenInfo TokCloseParen _)] = ASTNodeMod [n1, n2]
+-- error
+tokOrExprToASTNode _ = ASTNodeError (TokenInfo TokError "")
+
+
+
+-- | @params:
+--     currWord: the current Array which we are trying to reduce to a single node
+--     lastmatch: the last valid match. First call the function with ASTNodeError
+--     arr: the rest of the array
+-- @return: a node, and the rest of the array that has not been consumed
+tryToMatch :: [TokorNode] -> TokorNode -> [TokorNode] -> (TokorNode, [TokorNode])
+tryToMatch [] _ [] = (A (ASTNodeError (TokenInfo TokError "")), [])
+tryToMatch _ lastmatch [] = (lastmatch, [])
+tryToMatch currWord lastmatch (x:xs) = case (tokOrExprToASTNode (currWord ++ [x])) of
+    ASTNodeError _ -> tryToMatch (currWord ++ [x]) (lastmatch) xs
+    anynode -> (A anynode, xs)
+
+-- calls tryToMatch on every index of the array, while updating it
+-- with the response to remove the consumed elements
+-- | @params:
+--     l: the array to reduce
+-- @return: an array of tokens and / or nodes
+buildASTIterate :: [TokorNode] -> [TokorNode]
+buildASTIterate [] = []
+buildASTIterate (l:ls) = case tryToMatch [] (T (TokenInfo TokError "")) (l:ls) of
+    (A (ASTNodeError _), _) -> l : buildASTIterate ls
+    (T (TokenInfo TokError _), []) -> l : buildASTIterate ls
+    (something, xs) -> something : buildASTIterate xs
+
+
+-- calls buildASTIterate in a loop to progressively reduce the array
+-- to a single node
+-- | @params:
+--     l: the array to reduce
+-- @return: the root node of the AST
+buildAST :: [TokorNode] -> ASTNode
+buildAST [] = ASTNodeError (TokenInfo TokError "empty")
+buildAST l = case buildASTIterate l of
+    [A n] -> n
+    [] -> ASTNodeError (TokenInfo TokError "empty")
+    (n:ns) -> if l == n:ns
+                then ASTNodeError (TokenInfo TokError "cannot resolve input")
+                else buildAST (n:ns)

@@ -49,15 +49,39 @@ testTokenize = TestList [
     "Tokenize Symbol" ~: tokenize "abc" ~?= [TokenInfo TokSymbol "abc"],
     "Tokenize variable definition" ~: tokenize "define oui 123" ~?= [TokenInfo TokKeyworddefine "define", TokenInfo TokSymbol "oui" , TokenInfo TokInteger "123"]]
 
-testLexertokWordtoExpr :: Test
-testLexertokWordtoExpr = TestList [
-    "tokWordToExpr empty string" ~: tokWordToExpr [] ~?= ExprEmpty,
-    "tokWordToExpr Symbol" ~: tokWordToExpr [T (TokenInfo TokSymbol "abc")] ~?= ExprSymbol,
-    "tokWordToExpr integer" ~: tokWordToExpr [T (TokenInfo TokInteger "123")] ~?= ExprInteger,
-    "tokWordToExpr plus" ~: tokWordToExpr [T (TokenInfo TokOpenParen "("), T (TokenInfo TokOperatorPlus "+"), E ExprInteger, E ExprInteger, T (TokenInfo TokCloseParen ")")] ~?= ExprSum,
-    "tokWordToExpr minus" ~: tokWordToExpr [T (TokenInfo TokOpenParen "("), T (TokenInfo TokOperatorMinus "-"), E ExprInteger, E ExprInteger, T (TokenInfo TokCloseParen ")")] ~?= ExprSub,
-    "tokWordToExpr div" ~: tokWordToExpr [T (TokenInfo TokOpenParen "("), T (TokenInfo TokOperatorDiv "/"), E ExprInteger, E ExprInteger, T (TokenInfo TokCloseParen ")")] ~?= ExprDiv]
+testTokOrExprToNode :: Test
+testTokOrExprToNode = TestList [
+    "node error" ~: tokOrExprToASTNode [] ~?= ASTNodeError (TokenInfo TokError ""),
+    "node integer" ~: tokOrExprToASTNode [T (TokenInfo TokInteger "123")] ~?= ASTNodeInteger 123,
+    "node sum" ~: tokOrExprToASTNode [T (TokenInfo TokOpenParen "("), T (TokenInfo TokOperatorPlus "+"), A (ASTNodeInteger 1), A (ASTNodeInteger 2), T (TokenInfo TokCloseParen ")")] ~?= ASTNodeSum [ASTNodeInteger 1, ASTNodeInteger 2]]
 
+testTryToMatch :: Test
+testTryToMatch = TestList [
+    "no match" ~: tryToMatch [] (T (TokenInfo TokError "")) [] ~?=  (A (ASTNodeError (TokenInfo TokError "")), []),
+    "node match integer 0" ~: tryToMatch [] (T (TokenInfo TokError "")) [T (TokenInfo TokInteger "123")] ~?= (A (ASTNodeInteger {astniValue = 123}),[]),
+    "node match integer 1" ~: tryToMatch [] (T (TokenInfo TokError "")) [T (TokenInfo TokInteger "123"), T (TokenInfo TokInteger "567")] ~?= (A (ASTNodeInteger {astniValue = 123}), [T (TokenInfo TokInteger "567")]),
+    "node match integer 2" ~: tryToMatch [] (T (TokenInfo TokError "")) [T (TokenInfo TokInteger "123"), T (TokenInfo TokInteger "567"), T (TokenInfo TokInteger "000")] ~?= (A (ASTNodeInteger {astniValue = 123}), [T (TokenInfo TokInteger "567"), T (TokenInfo TokInteger "000")]),
+    "node match simple sum" ~: tryToMatch [] (T (TokenInfo TokError "")) [T (TokenInfo TokOpenParen "("), T (TokenInfo TokOperatorPlus "+"), A (ASTNodeInteger 123), A (ASTNodeInteger 678), T (TokenInfo TokCloseParen ")")] ~?= (A (ASTNodeSum [ASTNodeInteger 123, ASTNodeInteger 678]),[])]
+
+-- try to parse the tokens that make the following expression: (+ 1 (+ 2 3))
+-- the test should return a sum node that contains an integer node and another sum node
+testBuildASTIterate :: Test
+testBuildASTIterate = TestList [
+    "build ast sum" ~: buildASTIterate [T (TokenInfo TokOpenParen "("), T (TokenInfo TokOperatorPlus "+"), A (ASTNodeInteger 123), A (ASTNodeInteger 678), T (TokenInfo TokCloseParen ")")] ~?= [A (ASTNodeSum [ASTNodeInteger 123, ASTNodeInteger 678])],
+    "build ast integer 1" ~: buildASTIterate [T (TokenInfo TokInteger "123"), T (TokenInfo TokInteger "567")] ~?= [A (ASTNodeInteger 123) , A (ASTNodeInteger 567)],
+    "build middle index" ~: buildASTIterate [T (TokenInfo TokInteger "123"), T (TokenInfo TokInteger "678"), T (TokenInfo TokCloseParen ")")] ~?= [A (ASTNodeInteger 123), A (ASTNodeInteger 678), T (TokenInfo TokCloseParen ")")],
+    "incomplete iteration" ~: buildASTIterate [T (TokenInfo TokOpenParen "("), T (TokenInfo TokOperatorPlus "+"), T (TokenInfo TokInteger "123"), T (TokenInfo TokInteger "678"), T (TokenInfo TokCloseParen ")")] ~?= [T (TokenInfo TokOpenParen "("), T (TokenInfo TokOperatorPlus "+"), A (ASTNodeInteger 123), A (ASTNodeInteger 678), T (TokenInfo TokCloseParen ")")]]
+
+testBuildAST :: Test
+testBuildAST = TestList [
+    -- (+ 123 678)
+    "build ast sum" ~: buildAST[T (TokenInfo TokOpenParen "("), T (TokenInfo TokOperatorPlus "+"), T (TokenInfo TokInteger "123"), T (TokenInfo TokInteger "678"), T (TokenInfo TokCloseParen ")")] ~?= ASTNodeSum [ASTNodeInteger 123, ASTNodeInteger 678],
+    -- (+ 123 (+ 678 000))
+    "build ast nested sum 1" ~: buildAST [T (TokenInfo TokOpenParen "("), T (TokenInfo TokOperatorPlus "+"), T (TokenInfo TokInteger "123"), T (TokenInfo TokOpenParen "("), T (TokenInfo TokOperatorPlus "+"), T (TokenInfo TokInteger "678"), T (TokenInfo TokInteger "000"), T (TokenInfo TokCloseParen ")"), T (TokenInfo TokCloseParen ")")] ~?= ASTNodeSum [ASTNodeInteger 123, ASTNodeSum [ASTNodeInteger 678, ASTNodeInteger 0]],
+    -- (+ (+ 123 678) 000)
+    "build ast nested sum 2" ~: buildAST [T (TokenInfo TokOpenParen "("), T (TokenInfo TokOperatorPlus "+"), T (TokenInfo TokOpenParen "("), T (TokenInfo TokOperatorPlus "+"), T (TokenInfo TokInteger "123"), T (TokenInfo TokInteger "678"), T (TokenInfo TokCloseParen ")"), T (TokenInfo TokInteger "000"), T (TokenInfo TokCloseParen ")")] ~?= ASTNodeSum [ ASTNodeSum [ ASTNodeInteger 123, ASTNodeInteger 678], ASTNodeInteger 0],
+    -- (+ (+ 123) 2)
+    "build ast error invalid expr" ~: buildAST [T (TokenInfo TokOpenParen "("), T (TokenInfo TokOperatorPlus "+"), T (TokenInfo TokOpenParen "("), T (TokenInfo TokOperatorPlus "+"), T (TokenInfo TokInteger "123"), T (TokenInfo TokCloseParen ")"), T (TokenInfo TokInteger "2"), T (TokenInfo TokCloseParen ")")] ~?= ASTNodeError (TokenInfo TokError "cannot resolve input")]
 
 
 main :: IO ()
@@ -65,5 +89,8 @@ main = do
     _ <- runTestTT testTryTokenizeOne
     _ <- runTestTT testWordToToken
     _ <- runTestTT testTokenize
-    _ <- runTestTT testLexertokWordtoExpr
+    _ <- runTestTT testTokOrExprToNode
+    _ <- runTestTT testTryToMatch
+    _ <- runTestTT testBuildASTIterate
+    _ <- runTestTT testBuildAST
     return ()
