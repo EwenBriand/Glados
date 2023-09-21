@@ -6,7 +6,8 @@ module Lexer (
     tokOrExprToASTNode,
     tryToMatch,
     buildASTIterate,
-    buildAST
+    buildAST,
+    strToAST
 ) where
 
 import Tokenizer
@@ -17,13 +18,15 @@ data TokorNode = T TokenInfo
 
 data ASTNode = ASTNodeError {astnerrToken :: TokenInfo}
              | ASTNodeInteger {astniValue :: Integer}
+             | ASTNodeSymbol {astnsName :: String}
+             | ASTNodeDefine {astndName :: ASTNode, astndChildren :: [ASTNode]}
 --  The sum can have an arbitrary number of parameters
              | ASTNodeSum {astnsChildren :: [ASTNode]}
              | ASTNodeSub {astnsChildren :: [ASTNode]}
              | ASTNodeMul {astnsChildren :: [ASTNode]}
              | ASTNodeDiv {astnsChildren :: [ASTNode]}
              | ASTNodeMod {astnsChildren :: [ASTNode]}
-             | ASTNodeDebug {astndChildren :: [TokorNode]}
+             | ASTNodeDebug {astndChildrenDebug :: [TokorNode]}
     deriving (Eq, Show)
 
 -- | @params:
@@ -35,6 +38,8 @@ tokOrExprToASTNode :: [TokorNode] -> ASTNode
 tokOrExprToASTNode [] = ASTNodeError (TokenInfo TokError "")
 -- an integer
 tokOrExprToASTNode [T (TokenInfo TokInteger val)] = ASTNodeInteger (read val)
+-- a symbol
+tokOrExprToASTNode [T (TokenInfo TokSymbol val)] = ASTNodeSymbol val
 -- a sum of expressions
 tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokOperatorPlus _), A n1, A n2, T (TokenInfo TokCloseParen _)] = ASTNodeSum [n1, n2]
 -- a sub of expressions
@@ -45,6 +50,8 @@ tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokOperatorMul _)
 tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokOperatorDiv _), A n1, A n2, T (TokenInfo TokCloseParen _)] = ASTNodeDiv [n1, n2]
 -- a mod of expressions
 tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokOperatorMod _), A n1, A n2, T (TokenInfo TokCloseParen _)] = ASTNodeMod [n1, n2]
+-- declaration of a variable
+tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokKeyworddefine _), A (ASTNodeSymbol sym), A n, T (TokenInfo TokCloseParen _)] = ASTNodeDefine (ASTNodeSymbol sym) [n]
 -- error
 tokOrExprToASTNode _ = ASTNodeError (TokenInfo TokError "")
 
@@ -87,4 +94,11 @@ buildAST l = case buildASTIterate l of
     [] -> ASTNodeError (TokenInfo TokError "empty")
     (n:ns) -> if l == n:ns
                 then ASTNodeError (TokenInfo TokError "cannot resolve input")
+                -- then ASTNodeDebug (n:ns)
                 else buildAST (n:ns)
+
+-- | @params:
+--     str: the string to convert to an AST
+-- @return: the root node of the AST
+strToAST :: String -> ASTNode
+strToAST str = buildAST (map T (tokenize str))

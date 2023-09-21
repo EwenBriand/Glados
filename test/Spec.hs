@@ -83,6 +83,14 @@ testBuildAST = TestList [
     -- (+ (+ 123) 2)
     "build ast error invalid expr" ~: buildAST [T (TokenInfo TokOpenParen "("), T (TokenInfo TokOperatorPlus "+"), T (TokenInfo TokOpenParen "("), T (TokenInfo TokOperatorPlus "+"), T (TokenInfo TokInteger "123"), T (TokenInfo TokCloseParen ")"), T (TokenInfo TokInteger "2"), T (TokenInfo TokCloseParen ")")] ~?= ASTNodeError (TokenInfo TokError "cannot resolve input")]
 
+testStrToAST :: Test
+testStrToAST = TestList [
+    -- (+ 123 678)
+    "build str to ast sum" ~: strToAST "(+ 123 678)" ~?= ASTNodeSum [ASTNodeInteger 123, ASTNodeInteger 678],
+    -- (+ (+ 123) 2)
+    "build str to ast invalid" ~: strToAST "(+ (+ 123) 2)" ~?= ASTNodeError (TokenInfo TokError "cannot resolve input"),
+    -- (define foo 123)
+    "declare var foo with value 123" ~: strToAST "(define foo 123)" ~?= ASTNodeDefine (ASTNodeSymbol "foo") [ASTNodeInteger 123]]
 
 main :: IO ()
 main = do
@@ -93,4 +101,5 @@ main = do
     _ <- runTestTT testTryToMatch
     _ <- runTestTT testBuildASTIterate
     _ <- runTestTT testBuildAST
+    _ <- runTestTT testStrToAST
     return ()

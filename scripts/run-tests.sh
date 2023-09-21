@@ -20,3 +20,5 @@ else
   echo -e "${RED}Tests failed.${NC}"
   exit 1
 fi
+
+stack clean

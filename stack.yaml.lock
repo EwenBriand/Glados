@@ -11,9 +11,16 @@ packages:
       size: 41224
   original:
     hackage: Cabal-3.2.1.0
+- completed:
+    hackage: llvm-hs-9.0.0@sha256:ee6ec2eb8cba4daf2a43586388a87dbfd6a2ec6d81d1f9965896ac187acad286,8700
+    pantry-tree:
+      sha256: 537616dec1351bd9f7905182f82f132359cf3058ebbb059c03b4edcef04b2689
+      size: 13599
+  original:
+    hackage: llvm-hs-9.0.0
 snapshots:
 - completed:
-    sha256: adbc602422dde10cc330175da7de8609e70afc41449a7e2d6e8b1827aa0e5008
-    size: 649342
-    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/20/11.yaml
-  original: lts-20.11
+    sha256: 22d24d0dacad9c1450b9a174c28d203f9bb482a2a8da9710a2f2a9f4afee2887
+    size: 585817
+    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/18/5.yaml
+  original: lts-18.5
