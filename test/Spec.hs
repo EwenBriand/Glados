@@ -1,6 +1,22 @@
 import Test.HUnit
 import Tokenizer
+    ( tokenize,
+      tryTokenizeOne,
+      wordToTok,
+      Token(TokError, TokEmpty, TokComment, TokOperatorDiv,
+            TokOperatorMinus, TokKeyworddefine, TokSymbol, TokOpenParen,
+            TokOperatorPlus, TokInteger, TokCloseParen),
+      TokenInfo(TokenInfo) )
 import Lexer
+    ( buildAST,
+      buildASTIterate,
+      strToAST,
+      tokOrExprToASTNode,
+      tryToMatch,
+      ASTNode(ASTNodeInteger, ASTNodeSum, ASTNodeError, ASTNodeDefine,
+              ASTNodeSymbol, astniValue),
+      TokorNode(T, A) )
+import VM( regGet, regInc, newContext, Register(EAX) )
 
 -- testTokenize :: Test
 -- testTokenize = TestList [
@@ -92,6 +108,25 @@ testStrToAST = TestList [
     -- (define foo 123)
     "declare var foo with value 123" ~: strToAST "(define foo 123)" ~?= ASTNodeDefine (ASTNodeSymbol "foo") [ASTNodeInteger 123]]
 
+testIncRegisterImpl :: Bool
+testIncRegisterImpl =
+    regGet context EAX == Just 1
+    where
+        context = regInc (Just newContext) EAX
+
+testIncRegister :: Test
+testIncRegister = TestCase (assertBool "inc register" testIncRegisterImpl)
+
+testIncRegisterInvalidContextImpl :: Bool
+testIncRegisterInvalidContextImpl =
+    case regInc Nothing EAX of
+        Nothing -> True
+        _ -> False
+
+testIncRegisterInvalidContext :: Test
+testIncRegisterInvalidContext = TestCase (assertBool "inc register invalid context" testIncRegisterInvalidContextImpl)
+
+
 main :: IO ()
 main = do
     _ <- runTestTT testTryTokenizeOne
@@ -102,4 +137,6 @@ main = do
     _ <- runTestTT testBuildASTIterate
     _ <- runTestTT testBuildAST
     _ <- runTestTT testStrToAST
+    _ <- runTestTT testIncRegister
+    _ <- runTestTT testIncRegisterInvalidContext
     return ()

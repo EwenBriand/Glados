@@ -18,6 +18,13 @@ packages:
       size: 13599
   original:
     hackage: llvm-hs-9.0.0
+- completed:
+    hackage: containers-0.6.2.1@sha256:550b39286f70c39402a21e61f0f8a8b19e0f2b9270197d8524b8f3cbe4f43ee1,2561
+    pantry-tree:
+      sha256: 0463a6f54ce2fcddb0def77c78a013a982f84aa88c923ab1f6ffe3c51aaa0775
+      size: 2823
+  original:
+    hackage: containers-0.6.2.1
 snapshots:
 - completed:
     sha256: 22d24d0dacad9c1450b9a174c28d203f9bb482a2a8da9710a2f2a9f4afee2887

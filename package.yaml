@@ -23,6 +23,7 @@ dependencies:
 - base >= 4.7 && < 5
 - HUnit
 - llvm-hs-pure >= 9.0.0
+- containers >= 0.6.2.1
 
 ghc-options:
 - -Wall

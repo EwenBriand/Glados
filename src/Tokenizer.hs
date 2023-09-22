@@ -6,8 +6,7 @@ module Tokenizer (
     TokenInfo(..)
 ) where
 
-import Data.Char (isAlpha, isAlphaNum, isDigit, isSpace)
-
+import Data.Char (isAlpha, isDigit)
 -- | A token is a representation of a word in the language.
 -- For example, "define" is a token, "123" is a token, etc.
 -- When creating or deleting a token, do not forget to update the wordToTok function
