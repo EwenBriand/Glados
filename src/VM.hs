@@ -14,6 +14,7 @@ module VM (
     , regAnd
     , regOr
     , regXor
+    , regNot
     , Stack(..)
     , newStack
     , stackPush
@@ -108,13 +109,13 @@ regMul (Just context) register value = Just context { registers = Registers (Map
 
 -- | Divides the value of a register by a value.
 regDiv :: Maybe Context -> Register -> Int -> Maybe Context
-regDiv Nothing _ 0 = Nothing
+regDiv _ _ 0 = Nothing
 regDiv Nothing _ _ = Nothing
 regDiv (Just context) register value = Just context { registers = Registers (Map.adjust (`div` value) register (regs (registers context))) }
 
 -- | Modulo the value of a register by a value.
 regMod :: Maybe Context -> Register -> Int -> Maybe Context
-regMod Nothing _ 0 = Nothing
+regMod _ _ 0 = Nothing
 regMod Nothing _ _ = Nothing
 regMod (Just context) register value = Just context { registers = Registers (Map.adjust (`mod` value) register (regs (registers context))) }
 
@@ -133,7 +134,10 @@ regXor :: Maybe Context -> Register -> Int -> Maybe Context
 regXor Nothing _ _ = Nothing
 regXor (Just context) register value = Just context { registers = Registers (Map.adjust (`xor` value) register (regs (registers context))) }
 
-
+-- | Bitwise NOT the value of a register.
+regNot :: Maybe Context -> Register -> Maybe Context
+regNot Nothing _ = Nothing
+regNot (Just context) register = Just context { registers = Registers (Map.adjust complement register (regs (registers context))) }
 
 -------------------------------------------------------------------------------
 -- STACK
@@ -200,11 +204,22 @@ newtype Heap = Heap { mem :: Map.Map Int Int } deriving (Show)
 newHeap :: Heap
 newHeap = Heap Map.empty
 
+addressDoesntExist :: Map.Map Int Int -> Int -> Bool
+addressDoesntExist m address = case Map.lookup address m of
+    Nothing -> True
+    Just _ -> False
+
 -- | Sets the value of a symbol in the heap.
+-- @params:
+--     context: the context of the VM
+--     address: the address of the symbol
+--     value: the value to set
+-- @return: the new context, or Nothing if the address is negative or if the
+-- address is not allocated.
 heapSet :: Maybe Context -> Int -> Int -> Maybe Context
 heapSet Nothing _ _ = Nothing
 heapSet (Just context) address value | address < 0 = Nothing
-    | Map.lookup address (mem (heap context)) == Nothing = Nothing
+    | addressDoesntExist (mem (heap context)) address = Nothing
     | otherwise = Just context { heap = Heap (Map.insert address value (mem (heap context)))}
 
 -- | Gets the value of a symbol in the heap. If the address isnt allocated, it
@@ -213,12 +228,19 @@ heapGet :: Maybe Context -> Int -> Maybe Int
 heapGet Nothing _ = Nothing
 heapGet (Just context) address = Map.lookup address (mem (heap context))
 
--- | Allocates a new symbol in the heap, and returns its address.
-heapAlloc :: Maybe Context -> Int -> Maybe (Int, Maybe Context)
-heapAlloc Nothing _ = Nothing
-heapAlloc (Just context) value = case Map.lookupMax (mem (heap context)) of
-    Nothing -> Just (0, Just context { heap = Heap (Map.insert 0 value (mem (heap context))) })
-    Just (address, _) -> Just (address + 1, Just context { heap = Heap (Map.insert (address + 1) value (mem (heap context))) })
+-- | Returns the maximum address of the given map.
+maxKey :: Map.Map Int Int -> Maybe Int
+maxKey m = case Map.keys m of
+    [] -> Nothing
+    keys -> Just (maximum keys)
+
+-- | Allocates a new symbol in the heap, and returns its address. If the alloc fails, it returns 0. (null)
+heapAlloc :: Maybe Context -> Maybe (Int, Maybe Context)
+heapAlloc Nothing = Nothing
+heapAlloc (Just context) = Just (addr, Just context { heap = Heap (Map.insert addr 0 (mem (heap context))) })
+    where addr = case maxKey (mem (heap context)) of
+            Nothing -> 1
+            Just key -> key + 1
 
 -- | Frees a symbol in the heap.
 heapFree :: Maybe Context -> Int -> Maybe Context
@@ -249,14 +271,9 @@ symGet Nothing _ = Nothing
 symGet (Just context) name = Map.lookup name (symTable (symbolTable context))
 
 -- | Allocates a new symbol in the symbol table, and returns its address.
-symAlloc :: Maybe Context -> String -> Maybe (Int, Maybe Context)
+symAlloc :: Maybe Context -> String -> Maybe Context
 symAlloc Nothing _ = Nothing
-symAlloc (Just context) name = Just (idx, Just ctx { symbolTable = SymTable (Map.insert name idx (symTable (symbolTable ctx)))})
-    where
-        (idx, ctx) = case heapAlloc (Just context) 0 of
-            Nothing -> (0, context)
-            Just (a, Just b) -> (a, b)
-            Just (a, Nothing) -> (a, context)
+symAlloc (Just context) name = Just context {symbolTable = SymTable (Map.insert name (length (mem (heap context))) (symTable (symbolTable context)))}
 
 -- | Frees a symbol in the symbol table.
 symFree :: Maybe Context -> String -> Maybe Context
@@ -387,5 +404,3 @@ ipInc (Just context) = if instructionPointer context + 1 >= length (instructions
 -- ipNext (Just context) = case instructionPointer context + 1 >= length (instructions context) of
 --     True -> Nothing
 --     False -> Just context { instructionPointer = instructionPointer context + 1 }
-
-
