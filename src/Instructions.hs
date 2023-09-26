@@ -22,7 +22,64 @@ module Instructions
   )
  where
 
-import VM
+import VM(
+    Register(..),
+    Registers (..),
+    newRegisters,
+    regSet,
+    regGet,
+    regInc,
+    regDec,
+    regAdd,
+    regSub,
+    regMul,
+    regDiv,
+    regMod,
+    regAnd,
+    regOr,
+    regXor,
+    Stack (..),
+    newStack,
+    stackPush,
+    stackPop,
+    stackPeek,
+    stackDup,
+    stackSwap,
+    stackRot,
+    Heap (..),
+    newHeap,
+    heapSet,
+    heapGet,
+    heapAlloc,
+    heapFree,
+    SymTable (..),
+    newSymTable,
+    symSet,
+    symGet,
+    symAlloc,
+    symFree,
+    Labels (..),
+    newLabels,
+    labelSet,
+    labelGet,
+    -- labelAlloc,
+    labelFree,
+    Flag (..),
+    Flags (..),
+    newFlags,
+    flagSet,
+    flagGet,
+    Instruction (..),
+    Context (..),
+    newContext,
+    ipSet,
+    ipGet,
+    ipInc,
+    Param (..),
+    setTrueValueFromParam,
+    getTrueValueFromParam)
+import Data.Bits
+import Data.Maybe
 
 instructionTable :: Maybe Context -> Instruction -> Maybe Context
 instructionTable Nothing _ = Nothing
@@ -46,18 +103,48 @@ instructionTable ctx (Inc r1) = myInc ctx r1 (regGet ctx r1)
 instructionTable ctx (Dec r1) = myDec ctx r1 (regGet ctx r1)
 instructionTable ctx (Neg r1) = myNeg ctx r1 (regGet ctx r1)
 instructionTable ctx (Add r1 r2) = allAdd ctx r1 r2
+instructionTable ctx (Push r1) = pushImpl ctx r1
+instructionTable ctx (Xor r1 r2) = xorImpl ctx r1 r2
 instructionTable _ _ = Nothing
+
+--
+-- PUSH SECTION
+--
+
+pushImpl :: Maybe Context -> Param -> Maybe Context
+pushImpl Nothing _ = Nothing
+pushImpl ctx ri = case getTrueValueFromParam ctx ri of
+  Nothing -> Nothing
+  Just val -> stackPush ctx val
+
+--
+-- POP SECTION
+--
+
+popImpl :: Maybe Context -> Param -> Maybe Context
+popImpl Nothing _ = Nothing
+popImpl _ (Immediate _) = Nothing
+popImpl ctx param = case stackPop ctx of
+  Just (val, c) -> setTrueValueFromParam c param val
+  _ -> Nothing
 
 --
 -- MOVE SECTION
 --
 
-allMov :: Maybe Context -> MyParam -> MyParam -> Maybe Context
+movImpl :: Maybe Context -> Param -> Param -> Maybe Context
+movImpl Nothing _ _ = Nothing
+movImpl _ (Immediate _) _ = Nothing
+movImpl ctx to from = case getTrueValueFromParam ctx from of
+  Just val -> setTrueValueFromParam ctx to val
+  _ -> Nothing
+
+allMov :: Maybe Context -> Register -> Param -> Maybe Context
 allMov Nothing _ _ = Nothing
-allMov ctx (Reg r1) (Reg r2) = myMovReg ctx r1 (regGet ctx r2)
-allMov ctx (Reg r1) (Immediate r2) = myMovInt ctx r1 r2
-allMov ctx (Reg r1) (Memory r2) = myMovMem ctx r1 r2
-allMov ctx (Reg r1) (Symbol r2) = myMovSym ctx r1 r2
+allMov ctx r1 (Reg r2) = myMovReg ctx r1 (regGet ctx r2)
+allMov ctx r1 (Immediate r2) = myMovInt ctx r1 r2
+allMov ctx r1 (Memory r2) = myMovMem ctx r1 r2
+allMov ctx r1 (Symbol r2) = myMovSym ctx r1 r2
 allMov _ _ _ = Nothing
 
 -- | @params: register
@@ -89,7 +176,7 @@ myMovSym ctx r1 r2 = case symGet ctx r2 of
 -- Comp SECTION
 --
 
-allCmp :: Maybe Context -> MyParam -> MyParam -> Maybe Context
+allCmp :: Maybe Context -> Param -> Param -> Maybe Context
 allCmp Nothing _ _ = Nothing
 allCmp ctx (Reg r1) (Reg r2) = myCmp ctx (regGet ctx r1) (regGet ctx r2)
 allCmp ctx (Reg r1) (Immediate r2) = myCmp ctx (regGet ctx r1) (Just r2)
@@ -103,13 +190,13 @@ myCmp _ Nothing _ = Nothing
 myCmp _ _ Nothing = Nothing
 myCmp ctx (Just val1) (Just val2) = do
   let res = val1 - val2
-  _ <- flagSet ctx ZF (res == 0)
-  _ <- flagSet ctx SF (res < 0)
-  _ <- flagSet ctx OF (val1 < 0 && val2 > 0 && res > 0 || val1 > 0 && val2 < 0 && res < 0)
-  _ <- flagSet ctx CF (val1 < val2)
-  ctx
+  c1 <- flagSet ctx ZF (res == 0)
+  c2 <- flagSet (Just c1) SF (res < 0)
+  c3 <- flagSet (Just c2) OF (val1 < 0 && val2 > 0 && res > 0 || val1 > 0 && val2 < 0 && res < 0)
+  c4 <- flagSet (Just c3) CF (val1 < val2)
+  Just c4
 
-allTest :: Maybe Context -> MyParam -> MyParam -> Maybe Context
+allTest :: Maybe Context -> Param -> Param -> Maybe Context
 allTest Nothing _ _ = Nothing
 allTest ctx (Reg r1) (Reg r2) = myTest ctx (regGet ctx r1) (regGet ctx r2)
 allTest ctx (Reg r1) (Immediate r2) = myTest ctx (regGet ctx r1) (Just r2)
@@ -122,11 +209,11 @@ myTest Nothing _ _ = Nothing
 myTest _ Nothing _ = Nothing
 myTest ctx (Just val1) (Just val2) = do
   let res = val1 .&. val2
-  _ <- flagSet ctx ZF (res == 0)
-  _ <- flagSet ctx SF (res < 0)
-  _ <- flagSet ctx OF False
-  _ <- flagSet ctx CF False
-  ctx
+  c1 <- flagSet ctx ZF (res == 0)
+  c2 <- flagSet (Just c1) SF (res < 0)
+  c3 <- flagSet (Just c2) OF False
+  c4 <- flagSet (Just c3) CF False
+  Just c4
 myTest _ _ _ = Nothing
 
 --
@@ -206,7 +293,7 @@ myNeg Nothing _ _ = Nothing
 myNeg _ _ Nothing = Nothing
 myNeg ctx r (Just r1) = regSet ctx r (- r1)
 
-allAdd :: Maybe Context -> Register -> MyParam -> Maybe Context
+allAdd :: Maybe Context -> Register -> Param -> Maybe Context
 allAdd Nothing _ _ = Nothing
 allAdd ctx r1 (Reg r2) = myAdd ctx r1 (regGet ctx r1) (regGet ctx r2)
 allAdd ctx r1 (Immediate r2) = myAdd ctx r1 (regGet ctx r1) (Just r2)
@@ -223,50 +310,68 @@ myAdd _ _ Nothing _ = Nothing
 myAdd _ _ _ Nothing = Nothing
 myAdd ctx r (Just r1) (Just r2) = regSet ctx r (r1 + r2)
 
-xorImpl :: Context -> Param -> Param -> Maybe Context
-xorImpl _ Immediate _ = Nothing
-xorImpl _ _ Immediate = Nothing
-xorImpl _ Symbol _ = Nothing
-xorImpl _ _ Symbol = Nothing
-xorImpl ctx p1 p2 = Just c
+--
+-- XOR SECTION
+--
+
+xorImpl :: Maybe Context -> Param -> Param -> Maybe Context
+xorImpl _ (Immediate _) _ = Nothing
+xorImpl _ _ (Immediate _) = Nothing
+xorImpl _ (Symbol _) _ = Nothing
+xorImpl _ _ (Symbol _) = Nothing
+xorImpl ctx p1 p2 = c
     where
-        c = setTrueValueFromParam Just ctx1 p1 xoredVal
-        xoredVal = (getTrueValueFromParam ctx1 p1) `xor` (getTrueValueFromParam ctx1 p2)
+        c = setTrueValueFromParam ctx p1 xoredVal
+        xoredVal = fromMaybe 0 (xor <$> getTrueValueFromParam ctx p1 <*> getTrueValueFromParam ctx p2)
+
+--
+-- Enter SECTION
+--
 
 -- | The enter instruction is equivalent to the following pseudo-code:
 -- push ebp
 -- mov ebp, esp
 enterImpl :: Context -> Maybe Context
-enterImpl ctx = Just c
-    where
-        c = pushImpl ctx (Register EBP) (Register ESP)
-        ctx1 = movImpl c (Register EBP) (Register ESP)
+enterImpl ctx = movImpl c (Reg EBP) (Reg ESP)
+  where c = pushImpl (Just ctx) (Reg EBP)
+
+--
+-- Leave SECTION
+--
 
 -- | The leave instruction is equivalent to the following pseudo-code:
 -- mov esp, ebp
 -- pop ebp
-leaveImpl :: Context -> Maybe Context
-leaveImpl ctx = Just c
+leaveImpl :: Maybe Context -> Maybe Context
+leaveImpl ctx = ctx1
     where
-        c = movImpl ctx (Register ESP) (Register EBP)
-        ctx1 = popImpl c (Register EBP)
+        ctx1 = popImpl c (Reg EBP)
+        c = movImpl ctx (Reg ESP) (Reg EBP)
+
+--
+-- Add SECTION
+--
 
 -- | When the Add instrcution is called, it updates the flags as follows:
 --updates the sign flag (SF) to the most significant bit of the result
 --updates the zero flag (ZF) if the result is zero
 --updates the overflow flag (OF) if the result is too large a positive number or too small a negative number (excluding the sign-bit) to fit in the destination operand
-updateFlagsAdd :: Context -> Param -> Param -> Int -> Context
-updateFlagsAdd ctx p1 p2 addedVal = ctx4
-    where
-        ctx1 = setFlag ctx ZF (addedVal == 0)
-        ctx2 = setFlag ctx1 SF (addedVal < 0)
-        ctx3 = setFlag ctx2 OF (addedVal < (getTrueValueFromParam ctx1 p1))
-        ctx4 = setFlag ctx3 CF (addedVal < (getTrueValueFromParam ctx1 p1))
 
-addImpl :: Context -> Param -> Param -> Maybe Context
-addImpl _ Immediate _ = Nothing
-addImpl ctx p1 p2 = Just c
-    where
-        c = updateFlagsAdd ctx1 p1 p2 addedVal
-        tmpCtx = setTrueValueFromParam Just ctx1 p1 addedVal
-        addedVal = (getTrueValueFromParam ctx1 p1) + (getTrueValueFromParam ctx1 p2)
+-- updateFlagsAdd :: Maybe Context -> Param -> Param -> Maybe Int -> Maybe Context
+-- updateFlagAdd _ _ _ Nothing = Nothing
+-- updateFlagsAdd ctx p1 p2 addedVal = ctx4
+--     where
+--         ctx4 = flagSet ctx3 CF (addedVal < (getTrueValueFromParam ctx1 p1))
+--         ctx3 = flagSet ctx2 OF (addedVal < (getTrueValueFromParam ctx1 p1))
+--         ctx2 = flagSet ctx1 SF (addedVal < 0)
+--         ctx1 = flagSet ctx ZF (addedVal == 0)
+
+-- addImpl :: Maybe Context -> Param -> Param -> Maybe Context
+-- addImpl _ (Immediate _) _ = Nothing
+-- addImpl ctx1 p1 p2 = c
+--     where
+--         c = updateFlagsAdd ctx1 p1 p2 (Just addedVal)
+--         tmpCtx = case addedVal of
+--           Nothing -> Nothing
+--           Just v -> setTrueValueFromParam ctx1 p1 v
+--         addedVal = fromMaybe (getTrueValueFromParam ctx1 p1) + fromMaybe (getTrueValueFromParam ctx1 p2)
