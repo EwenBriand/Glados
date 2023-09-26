@@ -313,7 +313,13 @@ labelFree (Just context) name = Just context { labels = Labels (Map.delete name 
 --------------------------------------------------------------------------------
 
 -- | The flags of the VM. It holds all the flags that can be set or unset.
-data Flag = ZF | SF | OF | CF | PF | AF
+data Flag = 
+    ZF      -- Zero flag
+    | SF    -- Sign flag
+    | OF    -- Overflow flag
+    | CF    -- Carry flag
+    | PF    -- Parity flag
+    | AF    -- Auxiliary flag
     deriving (Eq, Ord, Show)
 
 newtype Flags = Flags { flagMap :: Map.Map Flag Bool } deriving (Show)
@@ -343,14 +349,12 @@ data Param =
     | Symbol String             -- The name of the symbol containing the value in the symbol table
     deriving (Eq, Ord, Show)
 
--- | A Param stores its type and its value.
--- data Param = Param {
---     paramType :: ParamType
---     , paramValue :: Int
--- } deriving (Eq, Ord, Show)
-
 data Instruction = Mov Param Param
             | Push Param
+            | Xor Param Param
+            | Add Param Param
+            | Enter
+            | Leave
     deriving (Eq, Ord, Show)
 
 -- | Returns the real value contained after resolving the param.
