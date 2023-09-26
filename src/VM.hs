@@ -39,7 +39,6 @@ module VM (
     , newLabels
     , labelSet
     , labelGet
-    , labelAlloc
     , labelFree
     , Flag(..)
     , Flags(..)
@@ -303,12 +302,6 @@ labelGet :: Maybe Context -> String -> Maybe Int
 labelGet Nothing _ = Nothing
 labelGet (Just context) name = Map.lookup name (labelMap (labels context))
 
--- | Allocates a new label in the label pile, and returns its address.
-labelAlloc :: Maybe Context -> String -> Maybe Context
-labelAlloc Nothing _ = Nothing
-labelAlloc (Just context) name = Just context { labels = Labels (Map.insert name (length (instructions context)) (labelMap (labels context)))}
-
-
 -- | Frees a label in the label pile.
 labelFree :: Maybe Context -> String -> Maybe Context
 labelFree Nothing _ = Nothing
@@ -404,3 +397,20 @@ ipInc (Just context) = if instructionPointer context + 1 >= length (instructions
 -- ipNext (Just context) = case instructionPointer context + 1 >= length (instructions context) of
 --     True -> Nothing
 --     False -> Just context { instructionPointer = instructionPointer context + 1 }
+
+
+-- | Evaluates one instruction and returns the resulting context. Does not increase the instruction count.
+evalOneInstruction :: Context -> Instruction -> Maybe Context
+evalOneInstruction _ _ = Nothing
+
+-- | Executes all the instructions until the instruction pointer reaches the end of the program.
+-- Increases the instruction pointer after each call.
+execInstructions :: Maybe Context -> Maybe Context
+execInstructions Nothing = Nothing
+execInstructions ctx = execInstructions (ipInc c)
+    where c = case ctx of
+            Nothing -> Nothing
+            Just context -> if instructionPointer context + 1 >= length (instructions context) then
+                    Nothing
+                else
+                    evalOneInstruction context (instructions context !! instructionPointer context)

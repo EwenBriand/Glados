@@ -20,7 +20,9 @@ import VM( regGet, regSet, regInc, newContext, Register(EAX), regDec, regAdd,
            regSub, regMul, regDiv, regMod,
            regAnd, regOr, regXor, regNot,
            newStack, stackPush, stackPop, stackPeek, stackDup, stackSwap,
-           stackRot, newHeap, heapSet, heapGet, heapAlloc, heapFree )
+           stackRot, newHeap, heapSet, heapGet, heapAlloc, heapFree,
+           newLabels, labelSet, labelGet, labelFree,
+           newFlags, flagSet, flagGet, Flag(ZF))
 import qualified Data.Maybe as Data
 
 
@@ -443,6 +445,25 @@ testHeapSetGetImpl =
             Just (_, Just two) -> Just two
             Just (_, Nothing) -> Nothing
 
+testLabelSetGetImpl :: Bool
+testLabelSetGetImpl =
+    value == Just 42
+    where
+        value = labelGet c "ouioui"
+        c = labelSet (Just newContext) "ouioui" 42
+
+testLabelSetGet :: Test
+testLabelSetGet = TestCase (assertBool "label set get" testLabelSetGetImpl)
+
+testFlagGetSetImpl :: Bool
+testFlagGetSetImpl =
+    value == Just True
+    where
+        value = flagGet c ZF
+        c = flagSet (Just newContext) ZF True
+
+testFlagGetSet :: Test
+testFlagGetSet = TestCase (assertBool "flag get set" testFlagGetSetImpl)
 
 main :: IO ()
 main = do
@@ -486,4 +507,6 @@ main = do
     _ <- runTestTT testHeapAlloc
     _ <- runTestTT testHeapAllocBis
     _ <- runTestTT testHeapSetGet
+    _ <- runTestTT testLabelSetGet
+    _ <- runTestTT testFlagGetSet
     return ()
