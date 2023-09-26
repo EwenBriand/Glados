@@ -51,7 +51,7 @@ module VM
     ipSet,
     ipGet,
     ipInc,
-    MyParam (..),
+    Param (..),
   )
 where
 
@@ -334,7 +334,7 @@ flagGet (Just context) flag = case Map.lookup flag (flagMap (flags context)) of
 -- INSTRUCTIONS
 --------------------------------------------------------------------------------
 
-data MyParam
+data Param
   = Reg Register
   | Immediate Int
   | Memory Int
@@ -343,10 +343,10 @@ data MyParam
 
 -- | A Param stores its type and its value.
 data Instruction
-  = Mov MyParam MyParam
-  | Push MyParam
-  | Cmp MyParam MyParam
-  | Test MyParam MyParam
+  = Mov Param Param
+  | Push Param
+  | Cmp Param Param
+  | Test Param Param
   | Jmp String
   | Je String
   | Jne String
@@ -363,7 +363,7 @@ data Instruction
   | Inc Register
   | Dec Register
   | Neg Register
-  | Add Register MyParam
+  | Add Register Param
   deriving (Eq, Ord, Show)
 
 -- | Returns the real value contained after resolving the param.
@@ -371,25 +371,25 @@ data Instruction
 -- contained in the register. An immediate will return its value, Memory will
 -- return the value contained at the address in the heap, and Symbol will return
 -- the value contained in the symbol table.
--- getTrueValueFromParam :: Maybe Context -> Param -> Maybe Int
--- getTrueValueFromParam Nothing _ = Nothing
--- getTrueValueFromParam (Just context) param = case param of
---   Reg register -> regGet (Just context) register
---   Immediate value -> Just value
---   Memory address -> heapGet (Just context) address
---   Symbol name -> case symGet (Just context) name of
---     Nothing -> Nothing
---     Just address -> heapGet (Just context) address
+getTrueValueFromParam :: Maybe Context -> Param -> Maybe Int
+getTrueValueFromParam Nothing _ = Nothing
+getTrueValueFromParam (Just context) param = case param of
+  Reg register -> regGet (Just context) register
+  Immediate value -> Just value
+  Memory address -> heapGet (Just context) address
+  Symbol name -> case symGet (Just context) name of
+    Nothing -> Nothing
+    Just address -> heapGet (Just context) address
 
--- setTrueValueFromParam :: Maybe Context -> Param -> Int -> Maybe Context
--- setTrueValueFromParam Nothing _ _ = Nothing
--- setTrueValueFromParam (Just context) param value = case param of
---   Reg register -> regSet (Just context) register value
---   Immediate _ -> Nothing
---   Memory address -> heapSet (Just context) address value
---   Symbol name -> case symGet (Just context) name of
---     Nothing -> Nothing
---     Just address -> heapSet (Just context) address value
+setTrueValueFromParam :: Maybe Context -> Param -> Int -> Maybe Context
+setTrueValueFromParam Nothing _ _ = Nothing
+setTrueValueFromParam (Just context) param value = case param of
+  Reg register -> regSet (Just context) register value
+  Immediate _ -> Nothing
+  Memory address -> heapSet (Just context) address value
+  Symbol name -> case symGet (Just context) name of
+    Nothing -> Nothing
+    Just address -> heapSet (Just context) address value
 
 --------------------------------------------------------------------------------
 -- CONTEXT

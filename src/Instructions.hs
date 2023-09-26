@@ -53,7 +53,7 @@ instructionTable _ _ = Nothing
 -- MOVE SECTION
 --
 
-allMov :: Maybe Context -> MyParam -> MyParam -> Maybe Context
+allMov :: Maybe Context -> Param -> Param -> Maybe Context
 allMov Nothing _ _ = Nothing
 allMov ctx (Reg r1) (Reg r2) = myMovReg ctx r1 (regGet ctx r2)
 allMov ctx (Reg r1) (Immediate r2) = myMovInt ctx r1 r2
@@ -90,7 +90,7 @@ myMovSym ctx r1 r2 = case symGet ctx r2 of
 -- Comp SECTION
 --
 
-allCmp :: Maybe Context -> MyParam -> MyParam -> Maybe Context
+allCmp :: Maybe Context -> Param -> Param -> Maybe Context
 allCmp Nothing _ _ = Nothing
 allCmp ctx (Reg r1) (Reg r2) = myCmp ctx (regGet ctx r1) (regGet ctx r2)
 allCmp ctx (Reg r1) (Immediate r2) = myCmp ctx (regGet ctx r1) (Just r2)
@@ -110,7 +110,7 @@ myCmp ctx (Just val1) (Just val2) = do
   _ <- flagSet ctx CF (val1 < val2)
   ctx
 
-allTest :: Maybe Context -> MyParam -> MyParam -> Maybe Context
+allTest :: Maybe Context -> Param -> Param -> Maybe Context
 allTest Nothing _ _ = Nothing
 allTest ctx (Reg r1) (Reg r2) = myTest ctx (regGet ctx r1) (regGet ctx r2)
 allTest ctx (Reg r1) (Immediate r2) = myTest ctx (regGet ctx r1) (Just r2)
@@ -207,7 +207,7 @@ myNeg Nothing _ _ = Nothing
 myNeg _ _ Nothing = Nothing
 myNeg ctx r (Just r1) = regSet ctx r (- r1)
 
-allAdd :: Maybe Context -> Register -> MyParam -> Maybe Context
+allAdd :: Maybe Context -> Register -> Param -> Maybe Context
 allAdd Nothing _ _ = Nothing
 allAdd ctx r1 (Reg r2) = myAdd ctx r1 (regGet ctx r1) (regGet ctx r2)
 allAdd ctx r1 (Immediate r2) = myAdd ctx r1 (regGet ctx r1) (Just r2)
