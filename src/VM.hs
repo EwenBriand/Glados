@@ -38,7 +38,6 @@ module VM
     newLabels,
     labelSet,
     labelGet,
-    -- labelAlloc,
     labelFree,
     Flag (..),
     Flags (..),
@@ -52,6 +51,9 @@ module VM
     ipGet,
     ipInc,
     Param (..),
+    setTrueValueFromParam,
+    getTrueValueFromParam,
+    regNot
   )
 where
 
@@ -76,6 +78,11 @@ newRegisters = Registers (Map.fromList [(EAX, 0), (EBX, 0), (ECX, 0), (EDX, 0), 
 regSet :: Maybe Context -> Register -> Int -> Maybe Context
 regSet Nothing _ _ = Nothing
 regSet (Just context) register value = Just context {registers = Registers (Map.insert register value (regs (registers context)))}
+
+regNot :: Maybe Context -> Register -> Maybe Context
+regNot Nothing _ = Nothing
+regNot (Just context) register = Just context {registers = Registers (Map.adjust complement register (regs (registers context)))}
+
 
 -- | Gets the value of a register.
 regGet :: Maybe Context -> Register -> Maybe Int
@@ -309,7 +316,7 @@ labelFree (Just context) name = Just context {labels = Labels (Map.delete name (
 --------------------------------------------------------------------------------
 
 -- | The flags of the VM. It holds all the flags that can be set or unset.
-data Flag = 
+data Flag =
     ZF      -- Zero flag
     | SF    -- Sign flag
     | OF    -- Overflow flag
@@ -347,10 +354,9 @@ data Param
   | Symbol String
   deriving (Eq, Ord, Show)
 
-data Instruction = Mov Param Param
+data Instruction = Mov Register Param
             | Push Param
             | Xor Param Param
-            | Add Param Param
             | Enter
             | Leave
             | Cmp Param Param

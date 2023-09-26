@@ -17,7 +17,7 @@ $(NAME):
 	mv $(NAME)-exe $(NAME)
 
 clean:
-	rm $(NAME)
+	rm $(NAME) -f
 
 fclean: clean
 	stack clean

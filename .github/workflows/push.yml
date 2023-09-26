@@ -1,4 +1,4 @@
-name: Check Project Makefile and Tests
+name: Check main and prepare to push
 
 on:
   push:
