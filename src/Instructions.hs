@@ -1,4 +1,5 @@
 module Instructions where
+
 -- myVariable :: Definition
 -- myVariable = GlobalDefinition globalVariableDefaults
 --     { name = Name "myVariable"

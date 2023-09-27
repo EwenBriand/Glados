@@ -341,7 +341,7 @@ data ParamType = Register | Immediate | Memory | Symbol
 -- | A Param stores its type and its value.
 data Param = Param {
     paramType :: ParamType
-    , paramValue :: Int
+    , paramValueRegister :: Register
 } deriving (Eq, Ord, Show)
 
 data Instruction = Mov Param Param
