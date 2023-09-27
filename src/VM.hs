@@ -357,6 +357,9 @@ data Instruction
   = Mov Register Param
   | Push Param
   | Xor Param Param
+  | Or Param Param
+  | And Param Param
+  | Not Param
   | Enter
   | Leave
   | Cmp Param Param
@@ -378,6 +381,10 @@ data Instruction
   | Dec Register
   | Neg Register
   | Add Register Param
+  | Sub Param Param
+  | Mult Param Param
+  | Div Param Param
+  | Mod Param Param
   deriving (Eq, Ord, Show)
 
 -- | Returns the real value contained after resolving the param.

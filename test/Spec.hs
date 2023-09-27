@@ -1,5 +1,6 @@
 import Data.Bits
 import qualified Data.Maybe as Data
+import Foreign (Bits (complement))
 import Instructions
 import Lexer
   ( ASTNode
@@ -886,6 +887,166 @@ testXor =
       "Xor with Im" ~: testXorImpl1 39 129 ~?= 39 `xor` 129
     ]
 
+testSubImpl :: Int -> Int -> Int
+testSubImpl a b =
+  Data.fromMaybe 0 (regGet context2 EBX)
+  where
+    context2 = instructionTable context1 (Sub (Reg EBX) (Reg EAX))
+    context1 = instructionTable context (Mov EAX (Immediate b))
+    context = instructionTable (Just newContext) (Mov EBX (Immediate a))
+
+testSubImpl1 :: Int -> Int -> Int
+testSubImpl1 a b =
+  Data.fromMaybe 0 (regGet context2 EBX)
+  where
+    context2 = instructionTable context (Sub (Reg EBX) (Immediate b))
+    context = instructionTable (Just newContext) (Mov EBX (Immediate a))
+
+testSub :: Test
+testSub =
+  TestList
+    [ "Sub with reg" ~: testSubImpl 12 42 ~?= 12 - 42,
+      "Sub with reg" ~: testSubImpl 56 42 ~?= 56 - 42,
+      "Sub with Im" ~: testSubImpl1 39 129 ~?= 39 - 129
+    ]
+
+testMultImpl :: Int -> Int -> Int
+testMultImpl a b =
+  Data.fromMaybe 0 (regGet context2 EBX)
+  where
+    context2 = instructionTable context1 (Mult (Reg EBX) (Reg EAX))
+    context1 = instructionTable context (Mov EAX (Immediate b))
+    context = instructionTable (Just newContext) (Mov EBX (Immediate a))
+
+testMultImpl1 :: Int -> Int -> Int
+testMultImpl1 a b =
+  Data.fromMaybe 0 (regGet context2 EBX)
+  where
+    context2 = instructionTable context (Mult (Reg EBX) (Immediate b))
+    context = instructionTable (Just newContext) (Mov EBX (Immediate a))
+
+testMult :: Test
+testMult =
+  TestList
+    [ "Mult with reg" ~: testMultImpl 12 42 ~?= 12 * 42,
+      "Mult with reg" ~: testMultImpl 56 42 ~?= 56 * 42,
+      "Mult with Im" ~: testMultImpl1 39 129 ~?= 39 * 129
+    ]
+
+testDivImpl :: Int -> Int -> Int
+testDivImpl a b =
+  Data.fromMaybe 0 (regGet context2 EBX)
+  where
+    context2 = instructionTable context1 (Div (Reg EBX) (Reg EAX))
+    context1 = instructionTable context (Mov EAX (Immediate b))
+    context = instructionTable (Just newContext) (Mov EBX (Immediate a))
+
+testDivImpl1 :: Int -> Int -> Int
+testDivImpl1 a b =
+  Data.fromMaybe 0 (regGet context2 EBX)
+  where
+    context2 = instructionTable context (Div (Reg EBX) (Immediate b))
+    context = instructionTable (Just newContext) (Mov EBX (Immediate a))
+
+testDiv :: Test
+testDiv =
+  TestList
+    [ "Div with reg" ~: testDivImpl 12 42 ~?= 12 `div` 42,
+      "Div with reg" ~: testDivImpl 56 42 ~?= 56 `div` 42,
+      "Div with Im" ~: testDivImpl1 39 129 ~?= 39 `div` 129
+    ]
+
+testModImpl :: Int -> Int -> Int
+testModImpl a b =
+  Data.fromMaybe 0 (regGet context2 EBX)
+  where
+    context2 = instructionTable context1 (Mod (Reg EBX) (Reg EAX))
+    context1 = instructionTable context (Mov EAX (Immediate b))
+    context = instructionTable (Just newContext) (Mov EBX (Immediate a))
+
+testModImpl1 :: Int -> Int -> Int
+testModImpl1 a b =
+  Data.fromMaybe 0 (regGet context2 EBX)
+  where
+    context2 = instructionTable context (Mod (Reg EBX) (Immediate b))
+    context = instructionTable (Just newContext) (Mov EBX (Immediate a))
+
+testMod :: Test
+testMod =
+  TestList
+    [ "Mod with reg" ~: testModImpl 12 42 ~?= 12 `mod` 42,
+      "Mod with reg" ~: testModImpl 56 42 ~?= 56 `mod` 42,
+      "Mod with Im" ~: testModImpl1 39 129 ~?= 39 `mod` 129
+    ]
+
+testAndImpl :: Int -> Int -> Int
+testAndImpl a b =
+  Data.fromMaybe 0 (regGet context2 EBX)
+  where
+    context2 = instructionTable context1 (And (Reg EBX) (Reg EAX))
+    context1 = instructionTable context (Mov EAX (Immediate b))
+    context = instructionTable (Just newContext) (Mov EBX (Immediate a))
+
+testAndImpl1 :: Int -> Int -> Int
+testAndImpl1 a b =
+  Data.fromMaybe 0 (regGet context2 EBX)
+  where
+    context2 = instructionTable context (And (Reg EBX) (Immediate b))
+    context = instructionTable (Just newContext) (Mov EBX (Immediate a))
+
+testAnd :: Test
+testAnd =
+  TestList
+    [ "And with reg" ~: testAndImpl 12 42 ~?= 12 .&. 42,
+      "And with reg" ~: testAndImpl 56 42 ~?= 56 .&. 42,
+      "And with Im" ~: testAndImpl1 39 129 ~?= 39 .&. 129
+    ]
+
+testOrImpl :: Int -> Int -> Int
+testOrImpl a b =
+  Data.fromMaybe 0 (regGet context2 EBX)
+  where
+    context2 = instructionTable context1 (Or (Reg EBX) (Reg EAX))
+    context1 = instructionTable context (Mov EAX (Immediate b))
+    context = instructionTable (Just newContext) (Mov EBX (Immediate a))
+
+testOrImpl1 :: Int -> Int -> Int
+testOrImpl1 a b =
+  Data.fromMaybe 0 (regGet context2 EBX)
+  where
+    context2 = instructionTable context (Or (Reg EBX) (Immediate b))
+    context = instructionTable (Just newContext) (Mov EBX (Immediate a))
+
+testOr :: Test
+testOr =
+  TestList
+    [ "Or with reg" ~: testOrImpl 12 42 ~?= 12 .|. 42,
+      "Or with reg" ~: testOrImpl 56 42 ~?= 56 .|. 42,
+      "Or with Im" ~: testOrImpl1 39 129 ~?= 39 .|. 129
+    ]
+
+testNotImpl :: Int -> Int
+testNotImpl a =
+  Data.fromMaybe 0 (regGet context2 EBX)
+  where
+    context2 = instructionTable context (Not (Reg EBX))
+    context = instructionTable (Just newContext) (Mov EBX (Immediate a))
+
+testNotImpl1 :: Int -> Int
+testNotImpl1 a =
+  Data.fromMaybe 0 (regGet context2 EBX)
+  where
+    context2 = instructionTable context (Not (Reg EBX))
+    context = instructionTable (Just newContext) (Mov EBX (Immediate a))
+
+testNot :: Test
+testNot =
+  TestList
+    [ "Not with reg" ~: testNotImpl 12 ~?= complement 12 .&. 0xFF,
+      "Not with reg" ~: testNotImpl 56 ~?= complement 56 .&. 0xFF,
+      "Not with Im" ~: testNotImpl1 39 ~?= complement 39 .&. 0xFF
+    ]
+
 main :: IO ()
 main = do
   _ <- runTestTT testTryTokenizeOne
@@ -931,9 +1092,16 @@ main = do
   _ <- runTestTT testLabelSetGet
   _ <- runTestTT testFlagGetSet
   _ <- runTestTT testMov
-  _ <- runTestTT testAdd
   _ <- runTestTT testCmp
   _ <- runTestTT testInc
   _ <- runTestTT testJmp
+  _ <- runTestTT testAdd
+  _ <- runTestTT testSub
+  _ <- runTestTT testMult
+  _ <- runTestTT testDiv
+  _ <- runTestTT testMod
   _ <- runTestTT testXor
+  _ <- runTestTT testAnd
+  _ <- runTestTT testOr
+  _ <- runTestTT testNot
   return ()
