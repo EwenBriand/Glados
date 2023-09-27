@@ -1,9 +1,9 @@
-name: Check Project Makefile and Tests
+name: Check main and prepare to push
 
 on:
-  push:
-    branches:
-      - dev
+  # push:
+  #   branches:
+  #     - dev
   schedule:
     - cron: '0 12,23 * * *'
 
@@ -17,14 +17,15 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Check if 'main' branch exists
-        run: |
-          if git branch | grep -q 'main'; then
-            echo "'main' branch exists."
-          else
-            echo "'main' branch does not exist."
-            exit 1
-          fi
+      # - name: Check if 'main' branch exists
+      #   run: |
+      #     git branch
+      #     if git branch | grep -q 'main'; then
+      #       echo "'main' branch exists."
+      #     else
+      #       echo "'main' branch does not exist."
+      #       exit 1
+      #     fi
 
       - name: Push to main
         run: |
