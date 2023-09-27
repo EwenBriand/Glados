@@ -53,7 +53,7 @@ module VM
     Param (..),
     setTrueValueFromParam,
     getTrueValueFromParam,
-    regNot
+    regNot,
   )
 where
 
@@ -82,7 +82,6 @@ regSet (Just context) register value = Just context {registers = Registers (Map.
 regNot :: Maybe Context -> Register -> Maybe Context
 regNot Nothing _ = Nothing
 regNot (Just context) register = Just context {registers = Registers (Map.adjust complement register (regs (registers context)))}
-
 
 -- | Gets the value of a register.
 regGet :: Maybe Context -> Register -> Maybe Int
@@ -316,14 +315,14 @@ labelFree (Just context) name = Just context {labels = Labels (Map.delete name (
 --------------------------------------------------------------------------------
 
 -- | The flags of the VM. It holds all the flags that can be set or unset.
-data Flag =
-    ZF      -- Zero flag
-    | SF    -- Sign flag
-    | OF    -- Overflow flag
-    | CF    -- Carry flag
-    | PF    -- Parity flag
-    | AF    -- Auxiliary flag
-    deriving (Eq, Ord, Show)
+data Flag
+  = ZF -- Zero flag
+  | SF -- Sign flag
+  | OF -- Overflow flag
+  | CF -- Carry flag
+  | PF -- Parity flag
+  | AF -- Auxiliary flag
+  deriving (Eq, Ord, Show)
 
 newtype Flags = Flags {flagMap :: Map.Map Flag Bool} deriving (Show)
 
@@ -354,31 +353,32 @@ data Param
   | Symbol String
   deriving (Eq, Ord, Show)
 
-data Instruction = Mov Register Param
-            | Push Param
-            | Xor Param Param
-            | Enter
-            | Leave
-            | Cmp Param Param
-            | Test Param Param
-            | Jmp String
-            | Je String
-            | Jne String
-            | Js String
-            | Jns String
-            | Jg String
-            | Jge String
-            | Jl String
-            | Jle String
-            | Ja String
-            | Jae String
-            | Jb String
-            | Jbe String
-            | Inc Register
-            | Dec Register
-            | Neg Register
-            | Add Register Param
-            deriving (Eq, Ord, Show)
+data Instruction
+  = Mov Register Param
+  | Push Param
+  | Xor Param Param
+  | Enter
+  | Leave
+  | Cmp Param Param
+  | Test Param Param
+  | Jmp String
+  | Je String
+  | Jne String
+  | Js String
+  | Jns String
+  | Jg String
+  | Jge String
+  | Jl String
+  | Jle String
+  | Ja String
+  | Jae String
+  | Jb String
+  | Jbe String
+  | Inc Register
+  | Dec Register
+  | Neg Register
+  | Add Register Param
+  deriving (Eq, Ord, Show)
 
 -- | Returns the real value contained after resolving the param.
 -- For exemple if the param is a register, this function will return the value
@@ -431,7 +431,8 @@ newContext = Context newRegisters newStack newHeap [] newSymTable newLabels newF
 ipSet :: Maybe Context -> Int -> Maybe Context
 ipSet Nothing _ = Nothing
 ipSet (Just context) value =
-  if value < 0 || value >= length (instructions context)
+  --   if value < 0 || value >= length (instructions context) -- to decoment when we have the real instructions count
+  if value < 0
     then Nothing
     else Just context {instructionPointer = value}
 
@@ -450,11 +451,17 @@ ipInc (Just context) =
 
 -- | Executes the next instruction.
 -- TODO CALL THE ACTUAL INSTRUCTION
+-- TODO ADD NEW INSTRUCTION TO THE PILE
 -- ipNext :: Maybe Context -> Maybe Context
 -- ipNext Nothing = Nothing
 -- ipNext (Just context) = case instructionPointer context + 1 >= length (instructions context) of
 --     True -> Nothing
 --     False -> Just context { instructionPointer = instructionPointer context + 1 }
+
+-- | Push instruction on the ins pile
+insPush :: Maybe Context -> Instruction -> Maybe Context
+insPush Nothing _ = Nothing
+insPush (Just context) instruction = Just context {instructions = instruction : instructions context}
 
 -- | Evaluates one instruction and returns the resulting context. Does not increase the instruction count.
 evalOneInstruction :: Context -> Instruction -> Maybe Context
