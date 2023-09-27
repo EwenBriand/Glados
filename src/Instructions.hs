@@ -19,6 +19,9 @@ module Instructions
     myNeg,
     instructionTable,
     allTest,
+    execInstructions,
+    nbInstructions,
+    evalOneInstruction,
   )
 where
 
@@ -26,63 +29,63 @@ where
 
 import Data.Bits
 import Data.Maybe
-import LLVM.Prelude (Maybe (Nothing))
 import VM
-  ( Context (..),
-    Flag (..),
-    Flags (..),
-    Heap (..),
-    Instruction (..),
-    Labels (..),
-    Param (..),
-    Register (..),
-    Registers (..),
-    Stack (..),
-    SymTable (..),
-    flagGet,
-    flagSet,
-    getTrueValueFromParam,
-    heapAlloc,
-    heapFree,
-    heapGet,
-    heapSet,
-    ipGet,
-    ipInc,
-    ipSet,
-    labelFree,
-    labelGet,
-    labelSet,
-    newContext,
-    newFlags,
-    newHeap,
-    newLabels,
-    newRegisters,
-    newStack,
-    newSymTable,
-    regAdd,
-    regAnd,
-    regDec,
-    regDiv,
-    regGet,
-    regInc,
-    regMod,
-    regMul,
-    regOr,
-    regSet,
-    regSub,
-    regXor,
-    setTrueValueFromParam,
-    stackDup,
-    stackPeek,
-    stackPop,
-    stackPush,
-    stackRot,
-    stackSwap,
-    symAlloc,
-    symFree,
-    symGet,
-    symSet,
-  )
+
+-- ( Context (..),
+--   Flag (..),
+--   Flags (..),
+--   Heap (..),
+--   Instruction (..),
+--   Labels (..),
+--   Param (..),
+--   Register (..),
+--   Registers (..),
+--   Stack (..),
+--   SymTable (..),
+--   flagGet,
+--   flagSet,
+--   getTrueValueFromParam,
+--   heapAlloc,
+--   heapFree,
+--   heapGet,
+--   heapSet,
+--   ipGet,
+--   ipInc,
+--   ipSet,
+--   labelFree,
+--   labelGet,
+--   labelSet,
+--   newContext,
+--   newFlags,
+--   newHeap,
+--   newLabels,
+--   newRegisters,
+--   newStack,
+--   newSymTable,
+--   regAdd,
+--   regAnd,
+--   regDec,
+--   regDiv,
+--   regGet,
+--   regInc,
+--   regMod,
+--   regMul,
+--   regOr,
+--   regSet,
+--   regSub,
+--   regXor,
+--   setTrueValueFromParam,
+--   stackDup,
+--   stackPeek,
+--   stackPop,
+--   stackPush,
+--   stackRot,
+--   stackSwap,
+--   symAlloc,
+--   symFree,
+--   symGet,
+--   symSet,
+-- )
 
 instructionTable :: Maybe Context -> Instruction -> Maybe Context
 instructionTable Nothing _ = Nothing
@@ -116,6 +119,28 @@ instructionTable ctx (And r1 r2) = andImpl ctx r1 r2
 instructionTable ctx (Or r1 r2) = orImpl ctx r1 r2
 instructionTable ctx (Not r1) = notImpl ctx r1
 instructionTable _ _ = Nothing
+
+-- | Evaluates one instruction and returns the resulting context. Does not increase the instruction count.
+evalOneInstruction :: Context -> Instruction -> Maybe Context
+evalOneInstruction ctx = instructionTable (Just ctx)
+
+-- | Executes all the instructions until the instruction pointer reaches the end of the program.
+-- Increases the instruction pointer after each call.
+execInstructions :: Maybe Context -> Maybe Context
+execInstructions Nothing = Nothing
+execInstructions (Just context) =
+  case c of
+    Nothing -> Nothing
+    Just ct -> if instructionPointer ct + 1 > length (instructions ct) then Just ct else execInstructions (ipInc (Just ct))
+  where
+    c =
+      if instructionPointer context + 1 > length (instructions context)
+        then Just context
+        else evalOneInstruction context (instructions context !! instructionPointer context)
+
+nbInstructions :: Maybe Context -> Int
+nbInstructions Nothing = -1
+nbInstructions (Just context) = length (instructions context)
 
 --
 -- PUSH SECTION

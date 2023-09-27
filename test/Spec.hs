@@ -1,7 +1,9 @@
 import Data.Bits
 import qualified Data.Maybe as Data
 import Foreign (Bits (complement))
+import GHC.Base (IP (ip))
 import Instructions
+import Instructions (evalOneInstruction, instructionTable, nbInstructions)
 import Lexer
   ( ASTNode
       ( ASTNodeDefine,
@@ -39,7 +41,7 @@ import Tokenizer
     wordToTok,
   )
 import VM
-  ( Context (instructionPointer),
+  ( Context (..),
     Flag (..),
     Instruction (..),
     Param (..),
@@ -50,6 +52,7 @@ import VM
     heapFree,
     heapGet,
     heapSet,
+    insPush,
     ipGet,
     ipSet,
     labelFree,
@@ -1047,6 +1050,36 @@ testNot =
       "Not with Im" ~: testNotImpl1 39 ~?= complement 39 .&. 0xFF
     ]
 
+testPush :: Int
+testPush =
+  nbInstructions c
+  where
+    c = insPush context1 (Mov EBX (Immediate 42))
+    context1 = insPush context (Mov EBX (Immediate 42))
+    context = insPush (Just newContext) (Mov EBX (Immediate 42))
+
+testExec :: Int
+testExec =
+  Data.fromMaybe (-1) (regGet c EBX)
+  where
+    c = evalOneInstruction newContext (Mov EBX (Immediate 42))
+
+testPushExec :: Int
+testPushExec =
+  Data.fromMaybe (-1) (regGet context2 EBX)
+  where
+    context2 = execInstructions context1
+    context1 = instructionTable context (Mov EBX (Immediate 4))
+    context = insPush (Just newContext) (Mov EBX (Immediate 42))
+
+testPushInstr :: Test
+testPushInstr =
+  TestList
+    [ "push 3 instruction" ~: testPush ~?= 3,
+      "Eval One instruction" ~: testExec ~?= 42,
+      "push and execute one instruction" ~: testPushExec ~?= 42
+    ]
+
 main :: IO ()
 main = do
   _ <- runTestTT testTryTokenizeOne
@@ -1104,4 +1137,5 @@ main = do
   _ <- runTestTT testAnd
   _ <- runTestTT testOr
   _ <- runTestTT testNot
+  _ <- runTestTT testPushInstr
   return ()
