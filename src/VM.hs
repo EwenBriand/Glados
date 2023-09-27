@@ -1,61 +1,64 @@
-module VM (
-    Register(..)
-    , Registers(..)
-    , newRegisters
-    , regSet
-    , regGet
-    , regInc
-    , regDec
-    , regAdd
-    , regSub
-    , regMul
-    , regDiv
-    , regMod
-    , regAnd
-    , regOr
-    , regXor
-    , regNot
-    , Stack(..)
-    , newStack
-    , stackPush
-    , stackPop
-    , stackPeek
-    , stackDup
-    , stackSwap
-    , stackRot
-    , Heap(..)
-    , newHeap
-    , heapSet
-    , heapGet
-    , heapAlloc
-    , heapFree
-    , SymTable(..)
-    , newSymTable
-    , symSet
-    , symGet
-    , symAlloc
-    , symFree
-    , Labels(..)
-    , newLabels
-    , labelSet
-    , labelGet
-    , labelFree
-    , Flag(..)
-    , Flags(..)
-    , newFlags
-    , flagSet
-    , flagGet
-    , ParamType(..)
-    , Param(..)
-    , Instruction(..)
-    , Context(..)
-    , newContext
-    , ipSet
-    , ipGet
-    , ipInc) where
+module VM
+  ( Register (..),
+    Registers (..),
+    newRegisters,
+    regSet,
+    regGet,
+    regInc,
+    regDec,
+    regAdd,
+    regSub,
+    regMul,
+    regDiv,
+    regMod,
+    regAnd,
+    regOr,
+    regXor,
+    Stack (..),
+    newStack,
+    stackPush,
+    stackPop,
+    stackPeek,
+    stackDup,
+    stackSwap,
+    stackRot,
+    Heap (..),
+    newHeap,
+    heapSet,
+    heapGet,
+    heapAlloc,
+    heapFree,
+    SymTable (..),
+    newSymTable,
+    symSet,
+    symGet,
+    symAlloc,
+    symFree,
+    Labels (..),
+    newLabels,
+    labelSet,
+    labelGet,
+    labelFree,
+    Flag (..),
+    Flags (..),
+    newFlags,
+    flagSet,
+    flagGet,
+    Instruction (..),
+    Context (..),
+    newContext,
+    ipSet,
+    ipGet,
+    ipInc,
+    Param (..),
+    setTrueValueFromParam,
+    getTrueValueFromParam,
+    regNot
+  )
+where
 
-import qualified Data.Map as Map
 import Data.Bits
+import qualified Data.Map as Map
 
 -------------------------------------------------------------------------------
 -- REGISTERS
@@ -63,9 +66,9 @@ import Data.Bits
 
 -- | The registers of the VM. Cf assembly registers.
 data Register = EAX | EBX | ECX | EDX | ESI | EDI | EBP | ESP
-    deriving (Eq, Ord, Show)
+  deriving (Eq, Ord, Show)
 
-newtype Registers = Registers { regs:: Map.Map Register Int } deriving (Show)
+newtype Registers = Registers {regs :: Map.Map Register Int} deriving (Show)
 
 -- | Creates a new empty set of registers.
 newRegisters :: Registers
@@ -74,7 +77,12 @@ newRegisters = Registers (Map.fromList [(EAX, 0), (EBX, 0), (ECX, 0), (EDX, 0), 
 -- | Sets the value of a register.
 regSet :: Maybe Context -> Register -> Int -> Maybe Context
 regSet Nothing _ _ = Nothing
-regSet (Just context) register value = Just context { registers = Registers (Map.insert register value (regs (registers context))) }
+regSet (Just context) register value = Just context {registers = Registers (Map.insert register value (regs (registers context)))}
+
+regNot :: Maybe Context -> Register -> Maybe Context
+regNot Nothing _ = Nothing
+regNot (Just context) register = Just context {registers = Registers (Map.adjust complement register (regs (registers context)))}
+
 
 -- | Gets the value of a register.
 regGet :: Maybe Context -> Register -> Maybe Int
@@ -84,65 +92,60 @@ regGet (Just context) register = Map.lookup register (regs (registers context))
 -- | Increments the value of a register.
 regInc :: Maybe Context -> Register -> Maybe Context
 regInc Nothing _ = Nothing
-regInc (Just context) register = Just context { registers = Registers (Map.adjust (+1) register (regs (registers context))) }
+regInc (Just context) register = Just context {registers = Registers (Map.adjust (+ 1) register (regs (registers context)))}
 
 -- | Decrements the value of a register.
 regDec :: Maybe Context -> Register -> Maybe Context
 regDec Nothing _ = Nothing
-regDec (Just context) register = Just context { registers = Registers (Map.adjust (subtract 1) register (regs (registers context))) }
+regDec (Just context) register = Just context {registers = Registers (Map.adjust (subtract 1) register (regs (registers context)))}
 
 -- | Adds a value to the value of a register.
 regAdd :: Maybe Context -> Register -> Int -> Maybe Context
 regAdd Nothing _ _ = Nothing
-regAdd (Just context) register value = Just context { registers = Registers (Map.adjust (+value) register (regs (registers context))) }
+regAdd (Just context) register value = Just context {registers = Registers (Map.adjust (+ value) register (regs (registers context)))}
 
 -- | Subtracts a value from the value of a register.
 regSub :: Maybe Context -> Register -> Int -> Maybe Context
 regSub Nothing _ _ = Nothing
-regSub (Just context) register value = Just context { registers = Registers (Map.adjust (subtract value) register (regs (registers context))) }
+regSub (Just context) register value = Just context {registers = Registers (Map.adjust (subtract value) register (regs (registers context)))}
 
 -- | Multiplies the value of a register by a value.
 regMul :: Maybe Context -> Register -> Int -> Maybe Context
 regMul Nothing _ _ = Nothing
-regMul (Just context) register value = Just context { registers = Registers (Map.adjust (*value) register (regs (registers context))) }
+regMul (Just context) register value = Just context {registers = Registers (Map.adjust (* value) register (regs (registers context)))}
 
 -- | Divides the value of a register by a value.
 regDiv :: Maybe Context -> Register -> Int -> Maybe Context
 regDiv _ _ 0 = Nothing
 regDiv Nothing _ _ = Nothing
-regDiv (Just context) register value = Just context { registers = Registers (Map.adjust (`div` value) register (regs (registers context))) }
+regDiv (Just context) register value = Just context {registers = Registers (Map.adjust (`div` value) register (regs (registers context)))}
 
 -- | Modulo the value of a register by a value.
 regMod :: Maybe Context -> Register -> Int -> Maybe Context
 regMod _ _ 0 = Nothing
 regMod Nothing _ _ = Nothing
-regMod (Just context) register value = Just context { registers = Registers (Map.adjust (`mod` value) register (regs (registers context))) }
+regMod (Just context) register value = Just context {registers = Registers (Map.adjust (`mod` value) register (regs (registers context)))}
 
 -- | Bitwise AND the value of a register by a value.
 regAnd :: Maybe Context -> Register -> Int -> Maybe Context
 regAnd Nothing _ _ = Nothing
-regAnd (Just context) register value = Just context { registers = Registers (Map.adjust (.&. value) register (regs (registers context))) }
+regAnd (Just context) register value = Just context {registers = Registers (Map.adjust (.&. value) register (regs (registers context)))}
 
 -- | Bitwise OR the value of a register by a value.
 regOr :: Maybe Context -> Register -> Int -> Maybe Context
 regOr Nothing _ _ = Nothing
-regOr (Just context) register value = Just context { registers = Registers (Map.adjust (.|. value) register (regs (registers context))) }
+regOr (Just context) register value = Just context {registers = Registers (Map.adjust (.|. value) register (regs (registers context)))}
 
 -- | Bitwise XOR the value of a register by a value.
 regXor :: Maybe Context -> Register -> Int -> Maybe Context
 regXor Nothing _ _ = Nothing
-regXor (Just context) register value = Just context { registers = Registers (Map.adjust (`xor` value) register (regs (registers context))) }
-
--- | Bitwise NOT the value of a register.
-regNot :: Maybe Context -> Register -> Maybe Context
-regNot Nothing _ = Nothing
-regNot (Just context) register = Just context { registers = Registers (Map.adjust complement register (regs (registers context))) }
+regXor (Just context) register value = Just context {registers = Registers (Map.adjust (`xor` value) register (regs (registers context)))}
 
 -------------------------------------------------------------------------------
 -- STACK
 -------------------------------------------------------------------------------
 
-newtype Stack = Stack { pile :: [Int] } deriving (Show)
+newtype Stack = Stack {pile :: [Int]} deriving (Show)
 
 -- | Creates a new empty stack.
 newStack :: Stack
@@ -151,45 +154,44 @@ newStack = Stack []
 -- | Pushes a value on the stack.
 stackPush :: Maybe Context -> Int -> Maybe Context
 stackPush Nothing _ = Nothing
-stackPush (Just context) value = Just context { stack = Stack (value : pile (stack context)) }
+stackPush (Just context) value = Just context {stack = Stack (value : pile (stack context))}
 
 -- | Pops a value from the stack.
 stackPop :: Maybe Context -> Maybe (Int, Maybe Context)
 stackPop Nothing = Nothing
 stackPop (Just context) = case pile (stack context) of
-    [] -> Nothing
-    (x:xs) -> Just (x, Just context { stack = Stack xs })
+  [] -> Nothing
+  (x : xs) -> Just (x, Just context {stack = Stack xs})
 
 -- | Peeks a value from the stack.
 stackPeek :: Maybe Context -> Maybe (Int, Maybe Context)
 stackPeek Nothing = Nothing
 stackPeek (Just context) = case pile (stack context) of
-    [] -> Nothing
-    (x:_) -> Just (x, Just context)
+  [] -> Nothing
+  (x : _) -> Just (x, Just context)
 
 -- | Duplicates the top value of the stack.
 stackDup :: Maybe Context -> Maybe Context
 stackDup Nothing = Nothing
 stackDup (Just context) = case pile (stack context) of
-    [] -> Nothing
-    (x:xs) -> Just context { stack = Stack (x:x:xs) }
+  [] -> Nothing
+  (x : xs) -> Just context {stack = Stack (x : x : xs)}
 
 -- | Swaps the two top values of the stack.
 stackSwap :: Maybe Context -> Maybe Context
 stackSwap Nothing = Nothing
 stackSwap (Just context) = case pile (stack context) of
-    [] -> Nothing
-    (x:y:xs) -> Just context { stack = Stack (y:x:xs) }
-    (_:_) -> Nothing
+  [] -> Nothing
+  (x : y : xs) -> Just context {stack = Stack (y : x : xs)}
+  (_ : _) -> Nothing
 
 -- | Rotates the three top values of the stack.
 stackRot :: Maybe Context -> Maybe Context
 stackRot Nothing = Nothing
 stackRot (Just context) = case pile (stack context) of
-    [] -> Nothing
-    (x:y:z:xs) -> Just context { stack = Stack (z:x:y:xs) }
-    (_:_) -> Nothing
-
+  [] -> Nothing
+  (x : y : z : xs) -> Just context {stack = Stack (z : x : y : xs)}
+  (_ : _) -> Nothing
 
 --------------------------------------------------------------------------------
 -- HEAP
@@ -197,7 +199,7 @@ stackRot (Just context) = case pile (stack context) of
 
 -- | The heap of the VM. It holds all the created symbols that can be referenced
 -- by their address, and maps them to their value.
-newtype Heap = Heap { mem :: Map.Map Int Int } deriving (Show)
+newtype Heap = Heap {mem :: Map.Map Int Int} deriving (Show)
 
 -- | Creates a new empty heap.
 newHeap :: Heap
@@ -205,8 +207,8 @@ newHeap = Heap Map.empty
 
 addressDoesntExist :: Map.Map Int Int -> Int -> Bool
 addressDoesntExist m address = case Map.lookup address m of
-    Nothing -> True
-    Just _ -> False
+  Nothing -> True
+  Just _ -> False
 
 -- | Sets the value of a symbol in the heap.
 -- @params:
@@ -217,9 +219,10 @@ addressDoesntExist m address = case Map.lookup address m of
 -- address is not allocated.
 heapSet :: Maybe Context -> Int -> Int -> Maybe Context
 heapSet Nothing _ _ = Nothing
-heapSet (Just context) address value | address < 0 = Nothing
-    | addressDoesntExist (mem (heap context)) address = Nothing
-    | otherwise = Just context { heap = Heap (Map.insert address value (mem (heap context)))}
+heapSet (Just context) address value
+  | address < 0 = Nothing
+  | Map.lookup address (mem (heap context)) == Nothing = Nothing
+  | otherwise = Just context {heap = Heap (Map.insert address value (mem (heap context)))}
 
 -- | Gets the value of a symbol in the heap. If the address isnt allocated, it
 -- returns Nothing.
@@ -230,21 +233,22 @@ heapGet (Just context) address = Map.lookup address (mem (heap context))
 -- | Returns the maximum address of the given map.
 maxKey :: Map.Map Int Int -> Maybe Int
 maxKey m = case Map.keys m of
-    [] -> Nothing
-    keys -> Just (maximum keys)
+  [] -> Nothing
+  keys -> Just (maximum keys)
 
 -- | Allocates a new symbol in the heap, and returns its address. If the alloc fails, it returns 0. (null)
 heapAlloc :: Maybe Context -> Maybe (Int, Maybe Context)
 heapAlloc Nothing = Nothing
-heapAlloc (Just context) = Just (addr, Just context { heap = Heap (Map.insert addr 0 (mem (heap context))) })
-    where addr = case maxKey (mem (heap context)) of
-            Nothing -> 1
-            Just key -> key + 1
+heapAlloc (Just context) = Just (addr, Just context {heap = Heap (Map.insert addr 0 (mem (heap context)))})
+  where
+    addr = case maxKey (mem (heap context)) of
+      Nothing -> 1
+      Just key -> key + 1
 
 -- | Frees a symbol in the heap.
 heapFree :: Maybe Context -> Int -> Maybe Context
 heapFree Nothing _ = Nothing
-heapFree (Just context) address = Just context { heap = Heap (Map.delete address (mem (heap context))) }
+heapFree (Just context) address = Just context {heap = Heap (Map.delete address (mem (heap context)))}
 
 --------------------------------------------------------------------------------
 -- SYMBOL TABLE
@@ -252,7 +256,7 @@ heapFree (Just context) address = Just context { heap = Heap (Map.delete address
 
 -- | The symbol table of the VM. It holds all the created symbols that can be
 -- referenced by their name, and maps them to their address in the heap.
-newtype SymTable = SymTable { symTable :: Map.Map String Int } deriving (Show)
+newtype SymTable = SymTable {symTable :: Map.Map String Int} deriving (Show)
 
 -- | Creates a new empty symbol table.
 newSymTable :: SymTable
@@ -261,7 +265,7 @@ newSymTable = SymTable Map.empty
 -- | Sets the address of a symbol in the symbol table.
 symSet :: Maybe Context -> String -> Int -> Maybe Context
 symSet Nothing _ _ = Nothing
-symSet (Just context) name address = Just context { symbolTable = SymTable (Map.insert name address (symTable (symbolTable context))) }
+symSet (Just context) name address = Just context {symbolTable = SymTable (Map.insert name address (symTable (symbolTable context)))}
 
 -- | Gets the address of a symbol in the symbol table. If the symbol isnt
 -- allocated, it returns Nothing.
@@ -277,7 +281,7 @@ symAlloc (Just context) name = Just context {symbolTable = SymTable (Map.insert 
 -- | Frees a symbol in the symbol table.
 symFree :: Maybe Context -> String -> Maybe Context
 symFree Nothing _ = Nothing
-symFree (Just context) name = Just context { symbolTable = SymTable (Map.delete name (symTable (symbolTable context))) }
+symFree (Just context) name = Just context {symbolTable = SymTable (Map.delete name (symTable (symbolTable context)))}
 
 --------------------------------------------------------------------------------
 -- LABELS
@@ -285,7 +289,7 @@ symFree (Just context) name = Just context { symbolTable = SymTable (Map.delete 
 
 -- | The labels of the VM. It holds all the created labels that refer to an
 -- instruction, and maps them to their address in the instruction pile.
-newtype Labels = Labels { labelMap :: Map.Map String Int } deriving (Show)
+newtype Labels = Labels {labelMap :: Map.Map String Int} deriving (Show)
 
 -- | Creates a new empty label pile.
 newLabels :: Labels
@@ -294,7 +298,7 @@ newLabels = Labels Map.empty
 -- | Sets the address of a label in the label pile.
 labelSet :: Maybe Context -> String -> Int -> Maybe Context
 labelSet Nothing _ _ = Nothing
-labelSet (Just context) name address = Just context { labels = Labels (Map.insert name address (labelMap (labels context))) }
+labelSet (Just context) name address = Just context {labels = Labels (Map.insert name address (labelMap (labels context)))}
 
 -- | Gets the address of a label in the label pile. If the label isnt
 -- allocated, it returns Nothing.
@@ -305,17 +309,23 @@ labelGet (Just context) name = Map.lookup name (labelMap (labels context))
 -- | Frees a label in the label pile.
 labelFree :: Maybe Context -> String -> Maybe Context
 labelFree Nothing _ = Nothing
-labelFree (Just context) name = Just context { labels = Labels (Map.delete name (labelMap (labels context))) }
+labelFree (Just context) name = Just context {labels = Labels (Map.delete name (labelMap (labels context)))}
 
 --------------------------------------------------------------------------------
 -- Flags
 --------------------------------------------------------------------------------
 
 -- | The flags of the VM. It holds all the flags that can be set or unset.
-data Flag = ZF | SF | OF | CF | PF | AF
+data Flag =
+    ZF      -- Zero flag
+    | SF    -- Sign flag
+    | OF    -- Overflow flag
+    | CF    -- Carry flag
+    | PF    -- Parity flag
+    | AF    -- Auxiliary flag
     deriving (Eq, Ord, Show)
 
-newtype Flags = Flags { flagMap :: Map.Map Flag Bool } deriving (Show)
+newtype Flags = Flags {flagMap :: Map.Map Flag Bool} deriving (Show)
 
 -- | Creates a new empty set of flags.
 newFlags :: Flags
@@ -324,29 +334,76 @@ newFlags = Flags (Map.fromList [(ZF, False), (SF, False), (OF, False), (CF, Fals
 -- | Sets the value of a flag.
 flagSet :: Maybe Context -> Flag -> Bool -> Maybe Context
 flagSet Nothing _ _ = Nothing
-flagSet (Just context) flag value = Just context { flags = Flags (Map.insert flag value (flagMap (flags context))) }
+flagSet (Just context) flag value = Just context {flags = Flags (Map.insert flag value (flagMap (flags context)))}
 
 -- | Gets the value of a flag.
-flagGet :: Maybe Context -> Flag -> Maybe Bool
-flagGet Nothing _ = Nothing
-flagGet (Just context) flag = Map.lookup flag (flagMap (flags context))
+flagGet :: Maybe Context -> Flag -> Bool
+flagGet Nothing _ = False
+flagGet (Just context) flag = case Map.lookup flag (flagMap (flags context)) of
+  Nothing -> False
+  Just value -> value
 
 --------------------------------------------------------------------------------
 -- INSTRUCTIONS
 --------------------------------------------------------------------------------
 
-data ParamType = Register | Immediate | Memory | Symbol
-    deriving (Eq, Ord, Show)
+data Param
+  = Reg Register
+  | Immediate Int
+  | Memory Int
+  | Symbol String
+  deriving (Eq, Ord, Show)
 
--- | A Param stores its type and its value.
-data Param = Param {
-    paramType :: ParamType
-    , paramValueRegister :: Register
-} deriving (Eq, Ord, Show)
-
-data Instruction = Mov Param Param
+data Instruction = Mov Register Param
             | Push Param
-    deriving (Eq, Ord, Show)
+            | Xor Param Param
+            | Enter
+            | Leave
+            | Cmp Param Param
+            | Test Param Param
+            | Jmp String
+            | Je String
+            | Jne String
+            | Js String
+            | Jns String
+            | Jg String
+            | Jge String
+            | Jl String
+            | Jle String
+            | Ja String
+            | Jae String
+            | Jb String
+            | Jbe String
+            | Inc Register
+            | Dec Register
+            | Neg Register
+            | Add Register Param
+            deriving (Eq, Ord, Show)
+
+-- | Returns the real value contained after resolving the param.
+-- For exemple if the param is a register, this function will return the value
+-- contained in the register. An immediate will return its value, Memory will
+-- return the value contained at the address in the heap, and Symbol will return
+-- the value contained in the symbol table.
+getTrueValueFromParam :: Maybe Context -> Param -> Maybe Int
+getTrueValueFromParam Nothing _ = Nothing
+getTrueValueFromParam (Just context) param = case param of
+  Reg register -> regGet (Just context) register
+  Immediate value -> Just value
+  Memory address -> heapGet (Just context) address
+  Symbol name -> case symGet (Just context) name of
+    Nothing -> Nothing
+    Just address -> heapGet (Just context) address
+
+setTrueValueFromParam :: Maybe Context -> Param -> Int -> Maybe Context
+setTrueValueFromParam Nothing _ _ = Nothing
+setTrueValueFromParam (Just context) param value = case param of
+  Reg register -> regSet (Just context) register value
+  Immediate _ -> Nothing
+  Memory address -> heapSet (Just context) address value
+  Symbol name -> case symGet (Just context) name of
+    Nothing -> Nothing
+    Just address -> heapSet (Just context) address value
 
 --------------------------------------------------------------------------------
 -- CONTEXT
@@ -354,16 +411,17 @@ data Instruction = Mov Param Param
 
 -- | The context of the VM.
 -- It contains the registries, the stack, the heap, and a pile of instructions.
-data Context = Context {
-    registers :: Registers
-    , stack :: Stack
-    , heap :: Heap
-    , instructions :: [Instruction]
-    , symbolTable :: SymTable
-    , labels :: Labels
-    , flags :: Flags
-    , instructionPointer :: Int
-} deriving (Show)
+data Context = Context
+  { registers :: Registers,
+    stack :: Stack,
+    heap :: Heap,
+    instructions :: [Instruction],
+    symbolTable :: SymTable,
+    labels :: Labels,
+    flags :: Flags,
+    instructionPointer :: Int
+  }
+  deriving (Show)
 
 -- | Creates a new empty context.
 newContext :: Context
@@ -372,10 +430,10 @@ newContext = Context newRegisters newStack newHeap [] newSymTable newLabels newF
 -- | Sets the value of the instruction pointer.
 ipSet :: Maybe Context -> Int -> Maybe Context
 ipSet Nothing _ = Nothing
-ipSet (Just context) value = if value < 0 || value >= length (instructions context) then
-        Nothing
-    else
-        Just context { instructionPointer = value }
+ipSet (Just context) value =
+  if value < 0 || value >= length (instructions context)
+    then Nothing
+    else Just context {instructionPointer = value}
 
 -- | Gets the value of the instruction pointer.
 ipGet :: Maybe Context -> Maybe Int
@@ -385,10 +443,10 @@ ipGet (Just context) = Just (instructionPointer context)
 -- | Increments the value of the instruction pointer.
 ipInc :: Maybe Context -> Maybe Context
 ipInc Nothing = Nothing
-ipInc (Just context) = if instructionPointer context + 1 >= length (instructions context) then
-        Nothing
-    else
-        Just context { instructionPointer = instructionPointer context + 1 }
+ipInc (Just context) =
+  if instructionPointer context + 1 >= length (instructions context)
+    then Nothing
+    else Just context {instructionPointer = instructionPointer context + 1}
 
 -- | Executes the next instruction.
 -- TODO CALL THE ACTUAL INSTRUCTION
@@ -397,7 +455,6 @@ ipInc (Just context) = if instructionPointer context + 1 >= length (instructions
 -- ipNext (Just context) = case instructionPointer context + 1 >= length (instructions context) of
 --     True -> Nothing
 --     False -> Just context { instructionPointer = instructionPointer context + 1 }
-
 
 -- | Evaluates one instruction and returns the resulting context. Does not increase the instruction count.
 evalOneInstruction :: Context -> Instruction -> Maybe Context
@@ -408,9 +465,10 @@ evalOneInstruction _ _ = Nothing
 execInstructions :: Maybe Context -> Maybe Context
 execInstructions Nothing = Nothing
 execInstructions ctx = execInstructions (ipInc c)
-    where c = case ctx of
-            Nothing -> Nothing
-            Just context -> if instructionPointer context + 1 >= length (instructions context) then
-                    Nothing
-                else
-                    evalOneInstruction context (instructions context !! instructionPointer context)
+  where
+    c = case ctx of
+      Nothing -> Nothing
+      Just context ->
+        if instructionPointer context + 1 >= length (instructions context)
+          then Nothing
+          else evalOneInstruction context (instructions context !! instructionPointer context)
