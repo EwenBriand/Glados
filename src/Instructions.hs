@@ -111,8 +111,7 @@ instructionTable ctx (Neg r1) = myNeg ctx r1 (regGet ctx r1)
 instructionTable ctx (Add r1 r2) = allAdd ctx r1 r2
 instructionTable ctx (Sub r1 r2) = subImpl ctx r1 r2
 instructionTable ctx (Mult r1 r2) = multImpl ctx r1 r2
-instructionTable ctx (Div r1 r2) = divImpl ctx r1 r2
-instructionTable ctx (Mod r1 r2) = modImpl ctx r1 r2
+instructionTable ctx (Div r1 ) = divImpl ctx r1
 instructionTable ctx (Push r1) = pushImpl ctx r1
 instructionTable ctx (Pop r1) = popImpl ctx r1
 instructionTable ctx (Xor r1 r2) = xorImpl ctx r1 r2
@@ -329,13 +328,14 @@ xorImpl ctx p1 p2 = c
     c = setTrueValueFromParam ctx p1 xoredVal
     xoredVal = fromMaybe 0 (xor <$> getTrueValueFromParam ctx p1 <*> getTrueValueFromParam ctx p2)
 
-divImpl :: Maybe Context -> Param -> Param -> Maybe Context
-divImpl _ (Immediate _) _ = Nothing
-divImpl Nothing _ _ = Nothing
-divImpl ctx p1 p2 = c
+divImpl :: Maybe Context -> Param -> Maybe Context
+divImpl Nothing _ = Nothing
+divImpl ctx p2 = c
   where
-    c = setTrueValueFromParam ctx p1 divVal
-    divVal = fromMaybe 0 (div <$> getTrueValueFromParam ctx p1 <*> getTrueValueFromParam ctx p2)
+    c = setTrueValueFromParam c1 (Reg EDX) modVal
+    c1 = setTrueValueFromParam ctx (Reg EAX) divVal
+    divVal = fromMaybe 0 (div <$> getTrueValueFromParam ctx (Reg EAX) <*> getTrueValueFromParam ctx p2)
+    modVal = fromMaybe 0 (getTrueValueFromParam ctx (Reg EAX)) `mod` fromMaybe 0 (getTrueValueFromParam ctx p2)
 
 multImpl :: Maybe Context -> Param -> Param -> Maybe Context
 multImpl _ (Immediate _) _ = Nothing
@@ -352,14 +352,6 @@ subImpl ctx p1 p2 = c
   where
     c = setTrueValueFromParam ctx p1 multVal
     multVal = fromMaybe 0 (getTrueValueFromParam ctx p1) - fromMaybe 0 (getTrueValueFromParam ctx p2)
-
-modImpl :: Maybe Context -> Param -> Param -> Maybe Context
-modImpl _ (Immediate _) _ = Nothing
-modImpl Nothing _ _ = Nothing
-modImpl ctx p1 p2 = c
-  where
-    c = setTrueValueFromParam ctx p1 modVal
-    modVal = fromMaybe 0 (getTrueValueFromParam ctx p1) `mod` fromMaybe 0 (getTrueValueFromParam ctx p2)
 
 andImpl :: Maybe Context -> Param -> Param -> Maybe Context
 andImpl _ (Immediate _) _ = Nothing

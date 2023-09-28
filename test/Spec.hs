@@ -886,18 +886,18 @@ testMult =
 
 testDivImpl :: Int -> Int -> Int
 testDivImpl a b =
-  Data.fromMaybe 0 (regGet context2 EBX)
+  Data.fromMaybe 0 (regGet context2 EAX)
   where
-    context2 = instructionTable context1 (Div (Reg EBX) (Reg EAX))
-    context1 = instructionTable context (Mov (Reg EAX) (Immediate b))
-    context = instructionTable (Just newContext) (Mov (Reg EBX) (Immediate a))
+    context2 = instructionTable context1 (Div (Reg EBX))
+    context1 = instructionTable context (Mov (Reg EBX) (Immediate b))
+    context = instructionTable (Just newContext) (Mov (Reg EAX) (Immediate a))
 
 testDivImpl1 :: Int -> Int -> Int
 testDivImpl1 a b =
-  Data.fromMaybe 0 (regGet context2 EBX)
+  Data.fromMaybe (-1) (regGet context2 EAX)
   where
-    context2 = instructionTable context (Div (Reg EBX) (Immediate b))
-    context = instructionTable (Just newContext) (Mov (Reg EBX) (Immediate a))
+    context2 = instructionTable context (Div (Immediate b))
+    context = instructionTable (Just newContext) (Mov (Reg EAX) (Immediate a))
 
 testDiv :: Test
 testDiv =
@@ -909,18 +909,18 @@ testDiv =
 
 testModImpl :: Int -> Int -> Int
 testModImpl a b =
-  Data.fromMaybe 0 (regGet context2 EBX)
+  Data.fromMaybe 0 (regGet context2 EDX)
   where
-    context2 = instructionTable context1 (Mod (Reg EBX) (Reg EAX))
-    context1 = instructionTable context (Mov (Reg EAX) (Immediate b))
-    context = instructionTable (Just newContext) (Mov (Reg EBX) (Immediate a))
+    context2 = instructionTable context1 (Div (Reg EBX))
+    context1 = instructionTable context (Mov (Reg EBX) (Immediate b))
+    context = instructionTable (Just newContext) (Mov (Reg EAX) (Immediate a))
 
 testModImpl1 :: Int -> Int -> Int
 testModImpl1 a b =
-  Data.fromMaybe 0 (regGet context2 EBX)
+  Data.fromMaybe (-1) (regGet context2 EDX)
   where
-    context2 = instructionTable context (Mod (Reg EBX) (Immediate b))
-    context = instructionTable (Just newContext) (Mov (Reg EBX) (Immediate a))
+    context2 = instructionTable context (Div (Immediate b))
+    context = instructionTable (Just newContext) (Mov (Reg EAX) (Immediate a))
 
 testMod :: Test
 testMod =
@@ -1069,17 +1069,17 @@ testAstPushExec4 =
   Data.fromMaybe (-1) (regGet context2 EAX)
   where
     context2 = execInstructions c
-    c = instructionFromAST (ASTNodeDiv [ASTNodeInteger 2, ASTNodeInteger 100]) (Just newContext)
+    c = instructionFromAST (ASTNodeDiv [ASTNodeInteger 100, ASTNodeInteger 2]) (Just newContext)
 
--- (/ 2 100)
+-- (/ 100 2)
 testAstPushExec5 :: Int
 testAstPushExec5 =
   Data.fromMaybe (-1) (regGet context2 EAX)
   where
     context2 = execInstructions c
-    c = instructionFromAST (ASTNodeMod [ASTNodeInteger 4, ASTNodeInteger 10]) (Just newContext)
+    c = instructionFromAST (ASTNodeMod [ASTNodeInteger 10, ASTNodeInteger 4]) (Just newContext)
 
--- (% 2 100)
+-- (% 10 4)
 
 testAstToInstr :: Test
 testAstToInstr =

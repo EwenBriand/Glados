@@ -402,8 +402,7 @@ data Instruction
   | Add Register Param
   | Sub Param Param
   | Mult Param Param
-  | Div Param Param
-  | Mod Param Param
+  | Div Param
   | Intinstruction Int
   deriving (Eq, Ord, Show)
 
