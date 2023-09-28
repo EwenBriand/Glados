@@ -485,8 +485,8 @@ testMovImpl =
     regGet context2 EBX == Just 42
     where
         -- context2 = regSet (Just newContext)
-        context2 = instructionTable context ( (Mov EBX (Reg EAX)))
-        context = instructionTable (Just newContext) ( (Mov EAX (Immediate 42)))
+        context2 = instructionTable context (Mov (Reg EBX) (Reg EAX))
+        context = instructionTable (Just newContext) (Mov (Reg EAX) (Immediate 42))
 
 testMov :: Test
 testMov = TestCase (assertBool "mov" testMovImpl)
@@ -498,8 +498,8 @@ testAddImpl =
         -- context2 = regSet (Just newContext)
         context3 = instructionTable context2 ( (Add EBX (Reg EAX)))
         context2 = instructionTable context1 ( (Add EBX (Immediate 1)))
-        context1 = instructionTable context ( (Mov EBX (Immediate 0)))
-        context = instructionTable (Just newContext) ( (Mov EAX (Immediate 42)))
+        context1 = instructionTable context ( (Mov (Reg EBX) (Immediate 0)))
+        context = instructionTable (Just newContext) ( (Mov (Reg EAX) (Immediate 42)))
 
 testAdd :: Test
 testAdd = TestCase (assertBool "add" testAddImpl)
@@ -509,64 +509,64 @@ testCmpImpl1 =
     if (flagGet c ZF == True) then True else False
     where
         c = instructionTable context1 ( (Cmp (Reg EBX) (Reg EAX)))
-        context1 = instructionTable context ( (Mov EBX (Immediate 42)))
-        context = instructionTable (Just newContext) ( (Mov EAX (Immediate 42)))
+        context1 = instructionTable context ( (Mov (Reg EBX) (Immediate 42)))
+        context = instructionTable (Just newContext) ( (Mov (Reg EAX) (Immediate 42)))
 
 testCmpImpl2 :: Bool
 testCmpImpl2 =
     if (flagGet c ZF == True) then True else False
     where
         c = instructionTable context ( (Cmp (Reg EAX) (Immediate 42)))
-        context = instructionTable (Just newContext) ( (Mov EAX (Immediate 42)))
+        context = instructionTable (Just newContext) ( (Mov (Reg EAX) (Immediate 42)))
 
 testCmpImpl3 :: Bool
 testCmpImpl3 =
     if (flagGet c ZF == False) then True else False
     where
         c = instructionTable context ( (Cmp (Reg EAX) (Immediate 43)))
-        context = instructionTable (Just newContext) ( (Mov EAX (Immediate 42)))
+        context = instructionTable (Just newContext) ( (Mov (Reg EAX) (Immediate 42)))
 
 testCmpImpl4 :: Bool
 testCmpImpl4 =
     if (flagGet c SF == True) then True else False
     where
         c = instructionTable context ( (Cmp (Reg EAX) (Immediate 43)))
-        context = instructionTable (Just newContext) ( (Mov EAX (Immediate 42)))
+        context = instructionTable (Just newContext) ( (Mov (Reg EAX) (Immediate 42)))
 
 testCmpImpl5 :: Bool
 testCmpImpl5 =
     if (flagGet c SF == False) then True else False
     where
         c = instructionTable context ( (Cmp (Reg EAX) (Immediate 41)))
-        context = instructionTable (Just newContext) ( (Mov EAX (Immediate 42)))
+        context = instructionTable (Just newContext) ( (Mov (Reg EAX) (Immediate 42)))
 
 testCmpImpl6 :: Bool
 testCmpImpl6 =
     if (flagGet c OF == False) then True else False
     where
         c = instructionTable context ( (Cmp (Reg EAX) (Immediate 410)))
-        context = instructionTable (Just newContext) (Mov EAX (Immediate (-42)))
+        context = instructionTable (Just newContext) (Mov (Reg EAX) (Immediate (-42)))
 
 testCmpImpl7 :: Bool
 testCmpImpl7 =
     if (flagGet c OF == False) then True else False
     where
         c = instructionTable context ( (Cmp (Reg EAX) (Immediate 43)))
-        context = instructionTable (Just newContext) (Mov EAX (Immediate (-42)))
+        context = instructionTable (Just newContext) (Mov (Reg EAX) (Immediate (-42)))
 
 testCmpImpl9 :: Bool
 testCmpImpl9 =
     if (flagGet c CF == True) then True else False
     where
         c = instructionTable context ( (Cmp (Reg EAX) (Immediate 43)))
-        context = instructionTable (Just newContext) (Mov EAX (Immediate 42))
+        context = instructionTable (Just newContext) (Mov (Reg EAX) (Immediate 42))
 
 testCmpImpl8 :: Bool
 testCmpImpl8 =
     if (flagGet c CF == False) then True else False
     where
         c = instructionTable context ( (Cmp (Reg EAX) (Immediate 41)))
-        context = instructionTable (Just newContext) (Mov EAX (Immediate 42))
+        context = instructionTable (Just newContext) (Mov (Reg EAX) (Immediate 42))
 
 
 testCmp :: Test
@@ -586,21 +586,21 @@ testIncImpl =
     regGet context1 EBX == Just 43
     where
         context1 = instructionTable context (Inc EBX)
-        context = instructionTable (Just newContext) ( (Mov EBX (Immediate 42)))
+        context = instructionTable (Just newContext) ( (Mov (Reg EBX) (Immediate 42)))
 
 testDecImpl :: Bool
 testDecImpl =
     regGet context1 EBX == Just 41
     where
         context1 = instructionTable context (Dec EBX)
-        context = instructionTable (Just newContext) ( (Mov EBX (Immediate 42)))
+        context = instructionTable (Just newContext) ( (Mov (Reg EBX) (Immediate 42)))
 
 testNegImpl :: Bool
 testNegImpl =
     regGet context1 EBX == Just (-42)
     where
         context1 = instructionTable context (Neg EBX)
-        context = instructionTable (Just newContext) ( (Mov EBX (Immediate 42)))
+        context = instructionTable (Just newContext) ( (Mov (Reg EBX) (Immediate 42)))
 
 testInc :: Test
 testInc = TestList [

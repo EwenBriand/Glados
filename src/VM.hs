@@ -364,7 +364,7 @@ data Param
   | Symbol String
   deriving (Eq, Ord, Show)
 
-data Instruction = Mov Register Param
+data Instruction = Mov Param Param
             | Push Param
             | Xor Param Param
             | Enter
@@ -388,6 +388,7 @@ data Instruction = Mov Register Param
             | Dec Register
             | Neg Register
             | Add Register Param
+            | Intinstruction Int
             deriving (Eq, Ord, Show)
 
 -- | Returns the real value contained after resolving the param.

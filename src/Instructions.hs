@@ -83,7 +83,7 @@ import Data.Maybe
 
 instructionTable :: Maybe Context -> Instruction -> Maybe Context
 instructionTable Nothing _ = Nothing
-instructionTable ctx (Mov r1 r2) = allMov ctx r1 r2
+instructionTable ctx (Mov r1 r2) = movImpl ctx r1 r2
 instructionTable ctx (Cmp r1 r2) = allCmp ctx r1 r2
 instructionTable ctx (Test r1 r2) = allTest ctx r1 r2
 instructionTable ctx (Jmp r1) = myJmp ctx r1

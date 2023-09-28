@@ -38,7 +38,7 @@ import VM (Context(Context))
 -- equivalent to the following ASM instructions:
 -- mov [ptr + index * 4], value
 hASMArrayWrite :: Int -> Int -> Int -> [Instruction]
-hASMArrayWrite ptr index value = [Mov (Mem (ptr + index * 4)) (Imm value)]
+hASMArrayWrite ptr index value = [Mov (Memory (ptr + index * 4)) (Immediate value)]
 
 -- | pushes the instructions to allocate the space for the array
 -- equivalent to :
@@ -59,22 +59,20 @@ hASMArrayWrite ptr index value = [Mov (Mem (ptr + index * 4)) (Imm value)]
 
 hASMArrayAlloc :: Int -> [Instruction]
 hASMArrayAlloc size = [
-    Mov EAX (Imm 0x2d),
-    Mov EBX (Imm size * 4),
-    Int 0x80,
-]
+    Mov (Reg EAX) (Immediate 0x2d),
+    Mov (Reg EBX) (Immediate (size * 4)),
+    Intinstruction 0x80]
 
 hASMArrayCopyNodes :: [ASTNode] -> [Instruction]
 hASMArrayCopyNodes [] = []
 
 
-pushHASMArrayInstr :: Context -> [ASTNode] -> MaybeContext
+pushHASMArrayInstr :: Context -> [ASTNode] -> Maybe Context
 pushHASMArrayInstr ctx [] = Just ctx
 pushHASMArrayInstr ctx l = Just ctx {
-    instructions = (instructions ctx) ++ (hASMArrayAlloc (length l)) ++
-}
+    instructions = (instructions ctx) ++ (hASMArrayAlloc (length l))}
 
-ASTNodeArrayToHASM :: Maybe Context -> ASTNode -> MaybeContext
-ASTNodeArrayToHASM Nothing _ = Nothing
-ASTNodeArrayToHASM (Just ctx) (ASTNodeArray arr) = pushHASMArrayInstr (Just ctx) arr
-ASTNodeArrayToHASM (Just ctx) _ = Nothing
+aSTNodeArrayToHASM :: Maybe Context -> ASTNode -> Maybe Context
+aSTNodeArrayToHASM Nothing _ = Nothing
+aSTNodeArrayToHASM (Just ctx) (ASTNodeArray arr) = pushHASMArrayInstr ctx arr
+aSTNodeArrayToHASM (Just _) _ = Nothing
