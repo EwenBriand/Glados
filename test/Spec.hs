@@ -7,13 +7,13 @@ import Tokenizer
             TokOperatorMinus, TokKeyworddefine, TokSymbol, TokOpenParen,
             TokOperatorPlus, TokInteger, TokCloseParen),
       TokenInfo(TokenInfo) )
-import Lexer
+import MyLexer
     ( buildAST,
       buildASTIterate,
       strToAST,
       tokOrExprToASTNode,
       tryToMatch,
-      ASTNode(ASTNodeInteger, ASTNodeSum, ASTNodeError, ASTNodeDefine,
+      ASTNode(ASTNodeInteger, ASTNodeSum, ASTNodeError, ASTNodeDefine, ASTNodeSub,
               ASTNodeSymbol, astniValue),
       TokorNode(T, A) )
 import VM( regGet, regSet, regInc, newContext, Register(EAX), regDec, regAdd,
@@ -22,9 +22,10 @@ import VM( regGet, regSet, regInc, newContext, Register(EAX), regDec, regAdd,
            newStack, stackPush, stackPop, stackPeek, stackDup, stackSwap,
            stackRot, newHeap, heapSet, heapGet, heapAlloc, heapFree,
            newLabels, labelSet, labelGet, labelFree,
-           newFlags, flagSet, flagGet, Flag(ZF))
+           newFlags, flagSet, flagGet, Flag(ZF), Param(..), Context(instructions), Instruction(..), Register(..))
 import qualified Data.Maybe as Data
 
+import EvaluateAST (instructionFromAST)
 
 -- testTokenize :: Test
 -- testTokenize = TestList [
@@ -465,6 +466,12 @@ testFlagGetSetImpl =
 testFlagGetSet :: Test
 testFlagGetSet = TestCase (assertBool "flag get set" testFlagGetSetImpl)
 
+testInstructionFromAST :: Test
+testInstructionFromAST = TestList [
+    "instruction from ast Node interger" ~: instructionFromAST (ASTNodeInteger 123) newContext ~?= Just (newContext { instructions = [Xor (Reg EAX) (Reg EAX), Mov (Reg EAX) (Immediate 123)] }),
+    "instruction from ast Node sum" ~: instructionFromAST (ASTNodeSum [ASTNodeInteger 123, ASTNodeInteger 678]) newContext ~?= Just (newContext { instructions = [Xor (Reg EAX) (Reg EAX), Mov (Reg EAX) (Immediate 123), Mov (Reg EDI) (Reg EAX), Xor (Reg EAX) (Reg EAX), Mov (Reg EAX) (Immediate 678), Add (Reg EAX) (Reg EDI)] }),
+    "instruction from ast Node sub" ~: instructionFromAST (ASTNodeSub [ASTNodeInteger 123, ASTNodeInteger 678]) newContext ~?= Just (newContext { instructions = [Xor (Reg EAX) (Reg EAX), Mov (Reg EAX) (Immediate 123), Mov (Reg EDI) (Reg EAX), Xor (Reg EAX) (Reg EAX), Mov (Reg EAX) (Immediate 678), Sub (Reg EAX) (Reg EDI)] })]
+
 main :: IO ()
 main = do
     _ <- runTestTT testTryTokenizeOne
@@ -509,4 +516,5 @@ main = do
     _ <- runTestTT testHeapSetGet
     _ <- runTestTT testLabelSetGet
     _ <- runTestTT testFlagGetSet
+    _ <- runTestTT testInstructionFromAST
     return ()
