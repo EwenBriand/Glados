@@ -62,8 +62,6 @@ putDivInstruction [x, y] ctx = do
   return (ctx'' {instructions = instructions ctx'' ++ [Pop (Reg EDI), Div (Reg EAX) (Reg EDI)]})
 putDivInstruction _ _ = Nothing
 
--- return (ctx'' {instructions = instructions ctx'' ++ [Mov (Reg EBX) (Reg EAX), Mov (Reg EAX) (Reg EDI), Mov (Reg EDI) (Reg EBX), Div (Reg EDI)]})
-
 putModInstruction :: [ASTNode] -> Maybe Context -> Maybe Context
 putModInstruction _ Nothing = Nothing
 putModInstruction [x, y] ctx = do
@@ -71,8 +69,6 @@ putModInstruction [x, y] ctx = do
   ctx'' <- instructionFromAST y (Just ctx' {instructions = instructions ctx' ++ [Push (Reg EAX)]})
   return (ctx'' {instructions = instructions ctx'' ++ [Pop (Reg EDI), Mod (Reg EAX) (Reg EDI)]})
 putModInstruction _ _ = Nothing
-
--- return (ctx'' {instructions = instructions ctx'' ++ [Mov (Reg EBX) (Reg EAX), Mov (Reg EAX) (Reg EDI), Mov (Reg EDI) (Reg EBX), Div (Reg EDI), Mov (Reg EAX) (Reg EDX)]})
 
 putSymbolInstruction :: String -> Maybe Context -> Maybe Context
 putSymbolInstruction _ Nothing = Nothing
