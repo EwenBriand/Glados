@@ -179,39 +179,6 @@ movImpl ctx to from = case getTrueValueFromParam ctx from of
   Just val -> setTrueValueFromParam ctx to val
   _ -> Nothing
 
-allMov :: Maybe Context -> Register -> Param -> Maybe Context
-allMov Nothing _ _ = Nothing
-allMov ctx r1 (Reg r2) = myMovReg ctx r1 (regGet ctx r2)
-allMov ctx r1 (Immediate r2) = myMovInt ctx r1 r2
-allMov ctx r1 (Memory r2) = myMovMem ctx r1 r2
-allMov ctx r1 (Symbol r2) = myMovSym ctx r1 r2
-allMov _ _ _ = Nothing
-
--- | @params: register
-myMovReg :: Maybe Context -> Register -> Maybe Int -> Maybe Context
-myMovReg Nothing _ _ = Nothing
-myMovReg _ _ Nothing = Nothing
-myMovReg ctx r1 (Just r2) = regSet ctx r1 r2
-
--- | @params: register, immediate
-myMovInt :: Maybe Context -> Register -> Int -> Maybe Context
-myMovInt Nothing _ _ = Nothing
-myMovInt ctx r1 r2 = regSet ctx r1 r2
-
--- | @params: register, memory
-myMovMem :: Maybe Context -> Register -> Int -> Maybe Context
-myMovMem Nothing _ _ = Nothing
-myMovMem ctx r1 r2 = case heapGet ctx r2 of
-  Nothing -> Nothing
-  Just val -> regSet ctx r1 val
-
--- | @params: register, symbol
-myMovSym :: Maybe Context -> Register -> String -> Maybe Context
-myMovSym Nothing _ _ = Nothing
-myMovSym ctx r1 r2 = case symGet ctx r2 of
-  Nothing -> Nothing
-  Just val -> regSet ctx r1 val
-
 --
 -- Comp SECTION
 --
