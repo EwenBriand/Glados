@@ -19,67 +19,73 @@ module Instructions
     myNeg,
     instructionTable,
     allTest,
+    execInstructions,
+    nbInstructions,
+    evalOneInstruction,
   )
- where
+where
 
-import VM(
-    Register(..),
-    Registers (..),
-    newRegisters,
-    regSet,
-    regGet,
-    regInc,
-    regDec,
-    regAdd,
-    regSub,
-    regMul,
-    regDiv,
-    regMod,
-    regAnd,
-    regOr,
-    regXor,
-    Stack (..),
-    newStack,
-    stackPush,
-    stackPop,
-    stackPeek,
-    stackDup,
-    stackSwap,
-    stackRot,
-    Heap (..),
-    newHeap,
-    heapSet,
-    heapGet,
-    heapAlloc,
-    heapFree,
-    SymTable (..),
-    newSymTable,
-    symSet,
-    symGet,
-    symAlloc,
-    symFree,
-    Labels (..),
-    newLabels,
-    labelSet,
-    labelGet,
-    -- labelAlloc,
-    labelFree,
-    Flag (..),
-    Flags (..),
-    newFlags,
-    flagSet,
-    flagGet,
-    Instruction (..),
-    Context (..),
-    newContext,
-    ipSet,
-    ipGet,
-    ipInc,
-    Param (..),
-    setTrueValueFromParam,
-    getTrueValueFromParam)
+-- labelAlloc,
+
 import Data.Bits
 import Data.Maybe
+import VM
+
+-- ( Context (..),
+--   Flag (..),
+--   Flags (..),
+--   Heap (..),
+--   Instruction (..),
+--   Labels (..),
+--   Param (..),
+--   Register (..),
+--   Registers (..),
+--   Stack (..),
+--   SymTable (..),
+--   flagGet,
+--   flagSet,
+--   getTrueValueFromParam,
+--   heapAlloc,
+--   heapFree,
+--   heapGet,
+--   heapSet,
+--   ipGet,
+--   ipInc,
+--   ipSet,
+--   labelFree,
+--   labelGet,
+--   labelSet,
+--   newContext,
+--   newFlags,
+--   newHeap,
+--   newLabels,
+--   newRegisters,
+--   newStack,
+--   newSymTable,
+--   regAdd,
+--   regAnd,
+--   regDec,
+--   regDiv,
+--   regGet,
+--   regInc,
+--   regMod,
+--   regMul,
+--   regOr,
+--   regSet,
+--   regSub,
+--   regXor,
+--   setTrueValueFromParam,
+--   stackDup,
+--   stackPeek,
+--   stackPop,
+--   stackPush,
+--   stackRot,
+--   stackSwap,
+--   symAlloc,
+--   symFree,
+--   symGet,
+--   symSet,
+-- )
 
 instructionTable :: Maybe Context -> Instruction -> Maybe Context
 instructionTable Nothing _ = Nothing
@@ -103,9 +109,43 @@ instructionTable ctx (Inc r1) = myInc ctx r1 (regGet ctx r1)
 instructionTable ctx (Dec r1) = myDec ctx r1 (regGet ctx r1)
 instructionTable ctx (Neg r1) = myNeg ctx r1 (regGet ctx r1)
 instructionTable ctx (Add r1 r2) = allAdd ctx r1 r2
+instructionTable ctx (Sub r1 r2) = subImpl ctx r1 r2
+instructionTable ctx (Mult r1 r2) = multImpl ctx r1 r2
+instructionTable ctx (Div r1 r2) = divImpl ctx r1 r2
+instructionTable ctx (Mod r1 r2) = modImpl ctx r1 r2
 instructionTable ctx (Push r1) = pushImpl ctx r1
+instructionTable ctx (Pop r1) = popImpl ctx r1
 instructionTable ctx (Xor r1 r2) = xorImpl ctx r1 r2
+instructionTable ctx (And r1 r2) = andImpl ctx r1 r2
+instructionTable ctx (Or r1 r2) = orImpl ctx r1 r2
+instructionTable ctx (Not r1) = notImpl ctx r1
 instructionTable _ _ = Nothing
+
+-- | Evaluates one instruction and returns the resulting context. Does not increase the instruction count.
+evalOneInstruction :: Context -> Instruction -> Maybe Context
+evalOneInstruction ctx = instructionTable (Just ctx)
+
+-- | Executes all the instructions until the instruction pointer reaches the end of the program.
+-- Increases the instruction pointer after each call.
+execInstructions :: Maybe Context -> Maybe Context
+execInstructions Nothing = Nothing
+execInstructions context =
+  case c of
+    Nothing -> Nothing
+    ct -> if fromMaybe (-1) (ipGet ct) + 1 > nbInstructions ct then ct else execInstructions (ipInc ct)
+  where
+    c =
+      if fromMaybe (-1) (ipGet context) + 1 > nbInstructions context
+        then context
+        else evalOneInstruction (fromMaybe newContext context) (getInsIndex context (fromMaybe (-1) (ipGet context)))
+
+getInsIndex :: Maybe Context -> Int -> Instruction
+getInsIndex Nothing _ = Nop
+getInsIndex (Just context) index = if index < length (instructions context) then instructions context !! index else Nop
+
+nbInstructions :: Maybe Context -> Int
+nbInstructions Nothing = -1
+nbInstructions (Just context) = length (instructions context)
 
 --
 -- PUSH SECTION
@@ -224,7 +264,7 @@ myJmp :: Maybe Context -> String -> Maybe Context
 myJmp Nothing _ = Nothing
 myJmp ctx label = case labelGet ctx label of
   Nothing -> Nothing
-  Just val -> ipSet ctx val
+  Just val -> ipSet ctx (val - 1)
 
 myJe :: Maybe Context -> String -> Maybe Context
 myJe Nothing _ = Nothing
@@ -316,13 +356,67 @@ myAdd ctx r (Just r1) (Just r2) = regSet ctx r (r1 + r2)
 
 xorImpl :: Maybe Context -> Param -> Param -> Maybe Context
 xorImpl _ (Immediate _) _ = Nothing
-xorImpl _ _ (Immediate _) = Nothing
-xorImpl _ (Symbol _) _ = Nothing
-xorImpl _ _ (Symbol _) = Nothing
+xorImpl Nothing _ _ = Nothing
 xorImpl ctx p1 p2 = c
-    where
-        c = setTrueValueFromParam ctx p1 xoredVal
-        xoredVal = fromMaybe 0 (xor <$> getTrueValueFromParam ctx p1 <*> getTrueValueFromParam ctx p2)
+  where
+    c = setTrueValueFromParam ctx p1 xoredVal
+    xoredVal = fromMaybe 0 (xor <$> getTrueValueFromParam ctx p1 <*> getTrueValueFromParam ctx p2)
+
+divImpl :: Maybe Context -> Param -> Param -> Maybe Context
+divImpl _ (Immediate _) _ = Nothing
+divImpl Nothing _ _ = Nothing
+divImpl ctx p1 p2 = c
+  where
+    c = setTrueValueFromParam ctx p1 divVal
+    divVal = fromMaybe 0 (div <$> getTrueValueFromParam ctx p1 <*> getTrueValueFromParam ctx p2)
+
+multImpl :: Maybe Context -> Param -> Param -> Maybe Context
+multImpl _ (Immediate _) _ = Nothing
+multImpl Nothing _ _ = Nothing
+multImpl ctx p1 p2 = c
+  where
+    c = setTrueValueFromParam ctx p1 multVal
+    multVal = fromMaybe 0 (getTrueValueFromParam ctx p1) * fromMaybe 0 (getTrueValueFromParam ctx p2)
+
+subImpl :: Maybe Context -> Param -> Param -> Maybe Context
+subImpl _ (Immediate _) _ = Nothing
+subImpl Nothing _ _ = Nothing
+subImpl ctx p1 p2 = c
+  where
+    c = setTrueValueFromParam ctx p1 multVal
+    multVal = fromMaybe 0 (getTrueValueFromParam ctx p1) - fromMaybe 0 (getTrueValueFromParam ctx p2)
+
+modImpl :: Maybe Context -> Param -> Param -> Maybe Context
+modImpl _ (Immediate _) _ = Nothing
+modImpl Nothing _ _ = Nothing
+modImpl ctx p1 p2 = c
+  where
+    c = setTrueValueFromParam ctx p1 modVal
+    modVal = fromMaybe 0 (getTrueValueFromParam ctx p1) `mod` fromMaybe 0 (getTrueValueFromParam ctx p2)
+
+andImpl :: Maybe Context -> Param -> Param -> Maybe Context
+andImpl _ (Immediate _) _ = Nothing
+andImpl Nothing _ _ = Nothing
+andImpl ctx p1 p2 = c
+  where
+    c = setTrueValueFromParam ctx p1 modVal
+    modVal = fromMaybe 0 (getTrueValueFromParam ctx p1) .&. fromMaybe 0 (getTrueValueFromParam ctx p2)
+
+orImpl :: Maybe Context -> Param -> Param -> Maybe Context
+orImpl _ (Immediate _) _ = Nothing
+orImpl Nothing _ _ = Nothing
+orImpl ctx p1 p2 = c
+  where
+    c = setTrueValueFromParam ctx p1 modVal
+    modVal = fromMaybe 0 (getTrueValueFromParam ctx p1) .|. fromMaybe 0 (getTrueValueFromParam ctx p2)
+
+notImpl :: Maybe Context -> Param -> Maybe Context
+notImpl _ (Immediate _) = Nothing
+notImpl Nothing _ = Nothing
+notImpl ctx p1 = c
+  where
+    c = setTrueValueFromParam ctx p1 modVal
+    modVal = complement (fromMaybe 0 (getTrueValueFromParam ctx p1)) .&. 0xFF
 
 --
 -- Enter SECTION
@@ -333,7 +427,8 @@ xorImpl ctx p1 p2 = c
 -- mov ebp, esp
 enterImpl :: Context -> Maybe Context
 enterImpl ctx = movImpl c (Reg EBP) (Reg ESP)
-  where c = pushImpl (Just ctx) (Reg EBP)
+  where
+    c = pushImpl (Just ctx) (Reg EBP)
 
 --
 -- Leave SECTION
@@ -344,18 +439,18 @@ enterImpl ctx = movImpl c (Reg EBP) (Reg ESP)
 -- pop ebp
 leaveImpl :: Maybe Context -> Maybe Context
 leaveImpl ctx = ctx1
-    where
-        ctx1 = popImpl c (Reg EBP)
-        c = movImpl ctx (Reg ESP) (Reg EBP)
+  where
+    ctx1 = popImpl c (Reg EBP)
+    c = movImpl ctx (Reg ESP) (Reg EBP)
 
 --
 -- Add SECTION
 --
 
 -- | When the Add instrcution is called, it updates the flags as follows:
---updates the sign flag (SF) to the most significant bit of the result
---updates the zero flag (ZF) if the result is zero
---updates the overflow flag (OF) if the result is too large a positive number or too small a negative number (excluding the sign-bit) to fit in the destination operand
+-- updates the sign flag (SF) to the most significant bit of the result
+-- updates the zero flag (ZF) if the result is zero
+-- updates the overflow flag (OF) if the result is too large a positive number or too small a negative number (excluding the sign-bit) to fit in the destination operand
 
 -- updateFlagsAdd :: Maybe Context -> Param -> Param -> Maybe Int -> Maybe Context
 -- updateFlagAdd _ _ _ Nothing = Nothing
