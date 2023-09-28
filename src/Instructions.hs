@@ -128,15 +128,19 @@ evalOneInstruction ctx = instructionTable (Just ctx)
 -- Increases the instruction pointer after each call.
 execInstructions :: Maybe Context -> Maybe Context
 execInstructions Nothing = Nothing
-execInstructions (Just context) =
+execInstructions context =
   case c of
     Nothing -> Nothing
-    Just ct -> if instructionPointer ct + 1 > length (instructions ct) then Just ct else execInstructions (ipInc (Just ct))
+    ct -> if fromMaybe (-1) (ipGet ct) + 1 > nbInstructions ct then ct else execInstructions (ipInc ct)
   where
     c =
-      if instructionPointer context + 1 > length (instructions context)
-        then Just context
-        else evalOneInstruction context (instructions context !! instructionPointer context)
+      if fromMaybe (-1) (ipGet context) + 1 > nbInstructions context
+        then context
+        else evalOneInstruction (fromMaybe newContext context) (getInsIndex context (fromMaybe (-1) (ipGet context)))
+
+getInsIndex :: Maybe Context -> Int -> Instruction
+getInsIndex Nothing _ = Nop
+getInsIndex (Just context) index = if index < length (instructions context) then instructions context !! index else Nop
 
 nbInstructions :: Maybe Context -> Int
 nbInstructions Nothing = -1

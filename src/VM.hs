@@ -356,6 +356,7 @@ data Param
 
 data Instruction
   = Mov Register Param
+  | Nop
   | Push Param
   | Xor Param Param
   | Or Param Param
@@ -453,7 +454,7 @@ ipGet (Just context) = Just (instructionPointer context)
 ipInc :: Maybe Context -> Maybe Context
 ipInc Nothing = Nothing
 ipInc (Just context) =
-  if instructionPointer context + 1 >= length (instructions context)
+  if instructionPointer context + 1 > length (instructions context)
     then Nothing
     else Just context {instructionPointer = instructionPointer context + 1}
 

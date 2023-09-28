@@ -1069,15 +1069,19 @@ testPushExec =
   Data.fromMaybe (-1) (regGet context2 EBX)
   where
     context2 = execInstructions context1
-    context1 = instructionTable context (Mov EBX (Immediate 4))
-    context = insPush (Just newContext) (Mov EBX (Immediate 42))
+    context1 = instructionTable c4 (Mov EBX (Immediate 4))
+    c4 = insPush c3 (Mov EBX (Immediate 42))
+    c3 = insPush c2 (Mov EAX (Immediate 1))
+    c2 = insPush c1 (Add EBX (Immediate 1))
+    c1 = insPush context (Mov EAX (Immediate 7))
+    context = insPush (Just newContext) (Add EBX (Reg EAX))
 
 testPushInstr :: Test
 testPushInstr =
   TestList
     [ "push 3 instruction" ~: testPush ~?= 3,
       "Eval One instruction" ~: testExec ~?= 42,
-      "push and execute one instruction" ~: testPushExec ~?= 42
+      "push and execute multiple instructions" ~: testPushExec ~?= 50
     ]
 
 main :: IO ()
