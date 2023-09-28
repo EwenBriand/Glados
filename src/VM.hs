@@ -28,6 +28,7 @@ module VM
     heapGet,
     heapAlloc,
     heapFree,
+    heapAllocRange,
     SymTable (..),
     newSymTable,
     symSet,
@@ -245,6 +246,15 @@ heapAlloc (Just context) = Just (addr, Just context {heap = Heap (Map.insert add
       Nothing -> 1
       Just key -> key + 1
 
+-- | Allocates a range in the memory.
+heapAllocRange :: Maybe Context -> Int -> (Int, Maybe Context)
+heapAllocRange Nothing _ = (0, Nothing)
+heapAllocRange (Just context) size = (addr, Just context {heap = Heap (Map.union (Map.fromList (zip [addr .. addr + size - 1] (repeat 0))) (mem (heap context)))})
+  where
+    addr = case maxKey (mem (heap context)) of
+      Nothing -> 1
+      Just key -> key + 1
+
 -- | Frees a symbol in the heap.
 heapFree :: Maybe Context -> Int -> Maybe Context
 heapFree Nothing _ = Nothing
@@ -419,13 +429,14 @@ data Context = Context
     symbolTable :: SymTable,
     labels :: Labels,
     flags :: Flags,
-    instructionPointer :: Int
+    instructionPointer :: Int,
+    exit :: Bool
   }
   deriving (Show)
 
 -- | Creates a new empty context.
 newContext :: Context
-newContext = Context newRegisters newStack newHeap [] newSymTable newLabels newFlags 0
+newContext = Context newRegisters newStack newHeap [] newSymTable newLabels newFlags 0 False
 
 -- | Sets the value of the instruction pointer.
 ipSet :: Maybe Context -> Int -> Maybe Context
@@ -462,13 +473,19 @@ evalOneInstruction _ _ = Nothing
 
 -- | Executes all the instructions until the instruction pointer reaches the end of the program.
 -- Increases the instruction pointer after each call.
+-- execInstructions :: Maybe Context -> Maybe Context
+-- execInstructions Nothing = Nothing
+-- execInstructions ctx = execInstructions (ipInc c)
+--   where
+--     c = case ctx of
+--       Nothing -> Nothing
+--       Just context ->
+--         if instructionPointer context + 1 >= length (instructions context)
+--           then Nothing
+--           else evalOneInstruction context (instructions context !! instructionPointer context)
+
 execInstructions :: Maybe Context -> Maybe Context
 execInstructions Nothing = Nothing
-execInstructions ctx = execInstructions (ipInc c)
-  where
-    c = case ctx of
-      Nothing -> Nothing
-      Just context ->
-        if instructionPointer context + 1 >= length (instructions context)
-          then Nothing
-          else evalOneInstruction context (instructions context !! instructionPointer context)
+execInstructions (Just ctx) | exit ctx = Just ctx
+                            | instructionPointer ctx + 1 >= length (instructions ctx) = Nothing
+                            | otherwise = execInstructions (evalOneInstruction ctx (instructions ctx !! instructionPointer ctx))

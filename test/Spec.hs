@@ -14,7 +14,7 @@ import Lexer
       tokOrExprToASTNode,
       tryToMatch,
       ASTNode(ASTNodeInteger, ASTNodeSum, ASTNodeError, ASTNodeDefine,
-              ASTNodeSymbol, astniValue),
+              ASTNodeSymbol, astniValue, ASTNodeParamList, ASTNodeArray),
       TokorNode(T, A) )
 import VM( regGet, regSet, regInc, newContext, Register(..), regDec, regAdd,
            regSub, regMul, regDiv, regMod,
@@ -117,6 +117,19 @@ testStrToAST = TestList [
     "build str to ast invalid" ~: strToAST "(+ (+ 123) 2)" ~?= ASTNodeError (TokenInfo TokError "cannot resolve input"),
     -- (define foo 123)
     "declare var foo with value 123" ~: strToAST "(define foo 123)" ~?= ASTNodeDefine (ASTNodeSymbol "foo") [ASTNodeInteger 123]]
+
+testASTNodeParamList :: Test
+testASTNodeParamList = TestList [
+    "test three integers: " ~: strToAST "1 2 3" ~?= ASTNodeParamList [ASTNodeInteger 1, ASTNodeInteger 2, ASTNodeInteger 3],
+    "test two integers: " ~: strToAST "1 2" ~?= ASTNodeParamList [ASTNodeInteger 1, ASTNodeInteger 2],
+    "test one integer: " ~: strToAST "1" ~?= ASTNodeInteger 1]
+
+testASTNodeArray :: Test
+testASTNodeArray = TestList [
+    "test three integers: " ~: strToAST "(1 2 3)" ~?= ASTNodeArray [ASTNodeInteger 1, ASTNodeInteger 2, ASTNodeInteger 3],
+    "test two integers: " ~: strToAST "(1 2)" ~?= ASTNodeArray [ASTNodeInteger 1, ASTNodeInteger 2],
+    "test one integer: " ~: strToAST "(1)" ~?= ASTNodeArray [ASTNodeInteger 1]]
+
 
 testIncRegisterImpl :: Bool
 testIncRegisterImpl =
@@ -471,7 +484,7 @@ testMovImpl :: Bool
 testMovImpl =
     regGet context2 EBX == Just 42
     where
-        -- context2 = regSet (Just newContext) 
+        -- context2 = regSet (Just newContext)
         context2 = instructionTable context ( (Mov EBX (Reg EAX)))
         context = instructionTable (Just newContext) ( (Mov EAX (Immediate 42)))
 
@@ -482,7 +495,7 @@ testAddImpl :: Bool
 testAddImpl =
     regGet context3 EBX == Just 43
     where
-        -- context2 = regSet (Just newContext) 
+        -- context2 = regSet (Just newContext)
         context3 = instructionTable context2 ( (Add EBX (Reg EAX)))
         context2 = instructionTable context1 ( (Add EBX (Immediate 1)))
         context1 = instructionTable context ( (Mov EBX (Immediate 0)))
@@ -595,6 +608,7 @@ testInc = TestList [
     "Neg 1 reg" ~: testNegImpl ~?= True,
     "Inc 1 reg" ~: testIncImpl ~?= True]
 
+
 main :: IO ()
 main = do
     _ <- runTestTT testTryTokenizeOne
@@ -643,4 +657,6 @@ main = do
     _ <- runTestTT testAdd
     _ <- runTestTT testCmp
     _ <- runTestTT testInc
+    _ <- runTestTT testASTNodeParamList
+    _ <- runTestTT testASTNodeArray
     return ()

@@ -28,6 +28,8 @@ library
       Instructions
       Lexer
       Lib
+      MySyscall
+      Pointer
       REPL
       Tokenizer
       VM
