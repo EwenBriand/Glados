@@ -23,6 +23,7 @@ module VM (
     , stackDup
     , stackSwap
     , stackRot
+    , stackGetPointer
     , Heap(..)
     , newHeap
     , heapSet
@@ -66,7 +67,7 @@ import Data.Bits
 data Register = EAX | EBX | ECX | EDX | ESI | EDI | EBP | ESP
     deriving (Eq, Ord, Show)
 
-newtype Registers = Registers { regs:: Map.Map Register Int } deriving (Show)
+newtype Registers = Registers { regs:: Map.Map Register Int } deriving (Show, Eq)
 
 -- | Creates a new empty set of registers.
 newRegisters :: Registers
@@ -143,7 +144,7 @@ regNot (Just context) register = Just context { registers = Registers (Map.adjus
 -- STACK
 -------------------------------------------------------------------------------
 
-newtype Stack = Stack { pile :: [Int] } deriving (Show)
+newtype Stack = Stack { pile :: [Int] } deriving (Show, Eq)
 
 -- | Creates a new empty stack.
 newStack :: Stack
@@ -191,14 +192,16 @@ stackRot (Just context) = case pile (stack context) of
     (x:y:z:xs) -> Just context { stack = Stack (z:x:y:xs) }
     (_:_) -> Nothing
 
-
+stackGetPointer :: Maybe Context -> (Int, Maybe Context)
+stackGetPointer Nothing = (0, Nothing)
+stackGetPointer (Just context) = (length (pile (stack context)), Just context)
 --------------------------------------------------------------------------------
 -- HEAP
 --------------------------------------------------------------------------------
 
 -- | The heap of the VM. It holds all the created symbols that can be referenced
 -- by their address, and maps them to their value.
-newtype Heap = Heap { mem :: Map.Map Int Int } deriving (Show)
+newtype Heap = Heap { mem :: Map.Map Int Int } deriving (Show, Eq)
 
 -- | Creates a new empty heap.
 newHeap :: Heap
@@ -253,7 +256,7 @@ heapFree (Just context) address = Just context { heap = Heap (Map.delete address
 
 -- | The symbol table of the VM. It holds all the created symbols that can be
 -- referenced by their name, and maps them to their address in the heap.
-newtype SymTable = SymTable { symTable :: Map.Map String Int } deriving (Show)
+newtype SymTable = SymTable { symTable :: Map.Map String Int } deriving (Show, Eq)
 
 -- | Creates a new empty symbol table.
 newSymTable :: SymTable
@@ -286,7 +289,7 @@ symFree (Just context) name = Just context { symbolTable = SymTable (Map.delete 
 
 -- | The labels of the VM. It holds all the created labels that refer to an
 -- instruction, and maps them to their address in the instruction pile.
-newtype Labels = Labels { labelMap :: Map.Map String Int } deriving (Show)
+newtype Labels = Labels { labelMap :: Map.Map String Int } deriving (Show, Eq)
 
 -- | Creates a new empty label pile.
 newLabels :: Labels
@@ -316,7 +319,7 @@ labelFree (Just context) name = Just context { labels = Labels (Map.delete name 
 data Flag = ZF | SF | OF | CF | PF | AF
     deriving (Eq, Ord, Show)
 
-newtype Flags = Flags { flagMap :: Map.Map Flag Bool } deriving (Show)
+newtype Flags = Flags { flagMap :: Map.Map Flag Bool } deriving (Show, Eq)
 
 -- | Creates a new empty set of flags.
 newFlags :: Flags
@@ -351,6 +354,12 @@ data Param =
 
 data Instruction = Mov Param Param
             | Push Param
+            | Xor Param Param
+            | Add Param Param
+            | Sub Param Param
+            | IMul Param Param
+            | Div Param
+
     deriving (Eq, Ord, Show)
 
 -- | Returns the real value contained after resolving the param.
@@ -393,7 +402,7 @@ data Context = Context {
     , labels :: Labels
     , flags :: Flags
     , instructionPointer :: Int
-} deriving (Show)
+} deriving (Show, Eq)
 
 -- | Creates a new empty context.
 newContext :: Context
