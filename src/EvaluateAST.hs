@@ -96,10 +96,10 @@ putDefineInstruction name _ ctx = do
       let pointer = fst (stackGetPointer ctx')
       symSet ctx' (astnsName name) pointer
 
+
 -------------------------------------------------------------------------------
 -- SOLVING CYCLE IMPORT
 -------------------------------------------------------------------------------
-
 
 astNodeArrayToHASMLoopBody :: Maybe Context -> [ASTNode] -> Maybe Context
 astNodeArrayToHASMLoopBody Nothing _ = Nothing

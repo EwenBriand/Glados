@@ -106,8 +106,8 @@ buildAST l = case buildASTIterate l of
     [A n] -> n
     [] -> ASTNodeError (TokenInfo TokError "empty")
     (n:ns) -> if l == n:ns
-                -- then ASTNodeError (TokenInfo TokError "cannot resolve input")
-                then ASTNodeDebug (n:ns)
+                then ASTNodeError (TokenInfo TokError "cannot resolve input")
+                -- then ASTNodeDebug (n:ns)
                 else buildAST (n:ns)
 
 -- | @params:
