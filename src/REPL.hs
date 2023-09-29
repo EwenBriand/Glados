@@ -10,7 +10,7 @@ module REPL (
 ) where
 
 import System.IO (hFlush, stdout)
-import Lexer
+import MyLexer
 
 -- Runs an interactive console that allows the user to enter commands,
 -- and redirects these commands to the lexer in order to build and evaluate the
