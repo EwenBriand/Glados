@@ -27,6 +27,8 @@ data ASTNode = ASTNodeError {astnerrToken :: TokenInfo}
              | ASTNodeDiv {astnsChildren :: [ASTNode]}
              | ASTNodeMod {astnsChildren :: [ASTNode]}
              | ASTNodeDebug {astndChildrenDebug :: [TokorNode]}
+             | ASTNodeParamList {astnplChildren :: [ASTNode]}
+             | ASTNodeArray {astnaChildren :: [ASTNode]}
     deriving (Eq, Show)
 
 -- | @params:
@@ -36,20 +38,31 @@ data ASTNode = ASTNodeError {astnerrToken :: TokenInfo}
 tokOrExprToASTNode :: [TokorNode] -> ASTNode
 -- error: empty
 tokOrExprToASTNode [] = ASTNodeError (TokenInfo TokError "")
+-- param list
+tokOrExprToASTNode [A (ASTNodeParamList l), A n] = ASTNodeParamList (l ++ [n])
+tokOrExprToASTNode [A n1, A n2] = ASTNodeParamList [n1, n2]
+-- array
+tokOrExprToASTNode [T (TokenInfo TokOpenParen _), A (ASTNodeParamList l), T (TokenInfo TokCloseParen _)] = ASTNodeArray l
+tokOrExprToASTNode [T (TokenInfo TokOpenParen _), A n, T (TokenInfo TokCloseParen _)] = ASTNodeArray [n]
 -- an integer
 tokOrExprToASTNode [T (TokenInfo TokInteger val)] = ASTNodeInteger (read val)
 -- a symbol
 tokOrExprToASTNode [T (TokenInfo TokSymbol val)] = ASTNodeSymbol val
 -- a sum of expressions
-tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokOperatorPlus _), A n1, A n2, T (TokenInfo TokCloseParen _)] = ASTNodeSum [n1, n2]
+-- tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokOperatorPlus _), A n1, A n2, T (TokenInfo TokCloseParen _)] = ASTNodeSum [n1, n2]
+tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokOperatorPlus _), A (ASTNodeParamList [n1, n2]), T (TokenInfo TokCloseParen _)] = ASTNodeSum [n1, n2]
 -- a sub of expressions
-tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokOperatorMinus _), A n1, A n2, T (TokenInfo TokCloseParen _)] = ASTNodeSub [n1, n2]
--- a mul of expressions
-tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokOperatorMul _), A n1, A n2, T (TokenInfo TokCloseParen _)] = ASTNodeMul [n1, n2]
+-- tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokOperatorMinus _), A n1, A n2, T (TokenInfo TokCloseParen _)] = ASTNodeSub [n1, n2]
+tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokOperatorMinus _), A (ASTNodeParamList [n1, n2]), T (TokenInfo TokCloseParen _)] = ASTNodeSub [n1, n2]
+-- a mul of expressionsk
+-- tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokOperatorMul _), A n1, A n2, T (TokenInfo TokCloseParen _)] = ASTNodeMul [n1, n2]
+tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokOperatorMul _), A (ASTNodeParamList [n1, n2]), T (TokenInfo TokCloseParen _)] = ASTNodeMul [n1, n2]
 -- a div of expressions
-tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokOperatorDiv _), A n1, A n2, T (TokenInfo TokCloseParen _)] = ASTNodeDiv [n1, n2]
+-- tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokOperatorDiv _), A n1, A n2, T (TokenInfo TokCloseParen _)] = ASTNodeDiv [n1, n2]
+tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokOperatorDiv _), A (ASTNodeParamList [n1, n2]), T (TokenInfo TokCloseParen _)] = ASTNodeDiv [n1, n2]
 -- a mod of expressions
-tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokOperatorMod _), A n1, A n2, T (TokenInfo TokCloseParen _)] = ASTNodeMod [n1, n2]
+-- tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokOperatorMod _), A n1, A n2, T (TokenInfo TokCloseParen _)] = ASTNodeMod [n1, n2]
+tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokOperatorMod _), A (ASTNodeParamList [n1, n2]), T (TokenInfo TokCloseParen _)] = ASTNodeMod [n1, n2]
 -- declaration of a variable
 tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokKeyworddefine _), A (ASTNodeSymbol sym), A n, T (TokenInfo TokCloseParen _)] = ASTNodeDefine (ASTNodeSymbol sym) [n]
 -- error
@@ -93,8 +106,8 @@ buildAST l = case buildASTIterate l of
     [A n] -> n
     [] -> ASTNodeError (TokenInfo TokError "empty")
     (n:ns) -> if l == n:ns
-                then ASTNodeError (TokenInfo TokError "cannot resolve input")
-                -- then ASTNodeDebug (n:ns)
+                -- then ASTNodeError (TokenInfo TokError "cannot resolve input")
+                then ASTNodeDebug (n:ns)
                 else buildAST (n:ns)
 
 -- | @params:

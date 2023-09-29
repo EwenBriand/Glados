@@ -1,89 +1,16 @@
 import Data.Bits
 import qualified Data.Maybe as Data
+import EvaluateAST (instructionFromAST)
 import Foreign (Bits (complement))
 import GHC.Base (IP (ip))
 import Instructions
-import Instructions (evalOneInstruction, instructionTable, nbInstructions)
-import Lexer
-  ( ASTNode
-      ( ASTNodeDefine,
-        ASTNodeError,
-        ASTNodeInteger,
-        ASTNodeSum,
-        ASTNodeSymbol,
-        astniValue
-      ),
-    TokorNode (A, T),
-    buildAST,
-    buildASTIterate,
-    strToAST,
-    tokOrExprToASTNode,
-    tryToMatch,
-  )
 import Test.HUnit
 import Tokenizer
-  ( Token
-      ( TokCloseParen,
-        TokComment,
-        TokEmpty,
-        TokError,
-        TokInteger,
-        TokKeyworddefine,
-        TokOpenParen,
-        TokOperatorDiv,
-        TokOperatorMinus,
-        TokOperatorPlus,
-        TokSymbol
-      ),
-    TokenInfo (TokenInfo),
-    tokenize,
-    tryTokenizeOne,
-    wordToTok,
-  )
+import Lexer
+import qualified Data.Maybe as Data
 import VM
-  ( Context (..),
-    Flag (..),
-    Instruction (..),
-    Param (..),
-    Register (..),
-    flagGet,
-    flagSet,
-    heapAlloc,
-    heapFree,
-    heapGet,
-    heapSet,
-    insPush,
-    ipGet,
-    ipSet,
-    labelFree,
-    labelGet,
-    labelSet,
-    newContext,
-    newFlags,
-    newHeap,
-    newLabels,
-    newStack,
-    regAdd,
-    regAnd,
-    regDec,
-    regDiv,
-    regGet,
-    regInc,
-    regMod,
-    regMul,
-    regNot,
-    regOr,
-    regSet,
-    regSub,
-    regXor,
-    stackDup,
-    stackPeek,
-    stackPop,
-    stackPush,
-    stackRot,
-    stackSwap,
-  )
-  import EvaluateAST (instructionFromAST)
+
+import EvaluateAST
 
 -- testTokenize :: Test
 -- testTokenize = TestList [
@@ -180,15 +107,13 @@ testBuildAST =
     ]
 
 testStrToAST :: Test
-testStrToAST =
-  TestList
-    [ -- (+ 123 678)
-      "build str to ast sum" ~: strToAST "(+ 123 678)" ~?= ASTNodeSum [ASTNodeInteger 123, ASTNodeInteger 678],
-      -- (+ (+ 123) 2)
-      "build str to ast invalid" ~: strToAST "(+ (+ 123) 2)" ~?= ASTNodeError (TokenInfo TokError "cannot resolve input"),
-      -- (define foo 123)
-      "declare var foo with value 123" ~: strToAST "(define foo 123)" ~?= ASTNodeDefine (ASTNodeSymbol "foo") [ASTNodeInteger 123]
-    ]
+testStrToAST = TestList [
+    -- (+ 123 678)
+    "build str to ast sum" ~: strToAST "(+ 123 678)" ~?= ASTNodeSum [ASTNodeInteger 123, ASTNodeInteger 678],
+    -- (+ (+ 123) 2)
+    "build str to ast invalid" ~: strToAST "(+ (+ 123) 2)" ~?= ASTNodeError (TokenInfo TokError "cannot resolve input"),
+    -- (define foo 123)
+    "declare var foo with value 123" ~: strToAST "(define foo 123)" ~?= ASTNodeDefine (ASTNodeSymbol "foo") [ASTNodeInteger 123]]
 
 testIncRegisterImpl :: Bool
 testIncRegisterImpl =
@@ -545,98 +470,100 @@ testFlagGetSet :: Test
 testFlagGetSet = TestCase (assertBool "flag get set" testFlagGetSetImpl)
 
 testInstructionFromAST :: Test
-testInstructionFromAST = TestList [
-    "instruction from ast Node interger" ~: instructionFromAST (ASTNodeInteger 123) newContext ~?= Just (newContext { instructions = [Xor (Reg EAX) (Reg EAX), Mov (Reg EAX) (Immediate 123)] }),
-    "instruction from ast Node sum" ~: instructionFromAST (ASTNodeSum [ASTNodeInteger 123, ASTNodeInteger 678]) newContext ~?= Just (newContext { instructions = [Xor (Reg EAX) (Reg EAX), Mov (Reg EAX) (Immediate 123), Mov (Reg EDI) (Reg EAX), Xor (Reg EAX) (Reg EAX), Mov (Reg EAX) (Immediate 678), Add (Reg EAX) (Reg EDI)] }),
-    "instruction from ast Node sub" ~: instructionFromAST (ASTNodeSub [ASTNodeInteger 123, ASTNodeInteger 678]) newContext ~?= Just (newContext { instructions = [Xor (Reg EAX) (Reg EAX), Mov (Reg EAX) (Immediate 123), Mov (Reg EDI) (Reg EAX), Xor (Reg EAX) (Reg EAX), Mov (Reg EAX) (Immediate 678), Sub (Reg EAX) (Reg EDI)] })]
+testInstructionFromAST =
+  TestList
+    [ "instruction from ast Node interger" ~: instructionFromAST (ASTNodeInteger 123) (Just newContext) ~?= Just (newContext {instructions = [Xor (Reg EAX) (Reg EAX), Mov (Reg EAX) (Immediate 123)]}),
+      "instruction from ast Node sum" ~: instructionFromAST (ASTNodeSum [ASTNodeInteger 123, ASTNodeInteger 678]) (Just newContext) ~?= Just (newContext {instructions = [Xor (Reg EAX) (Reg EAX),Mov (Reg EAX) (Immediate 123),Push (Reg EAX),Xor (Reg EAX) (Reg EAX),Mov (Reg EAX) (Immediate 678),Pop (Reg EDI),Add EAX (Reg EDI)]}),
+      "instruction from ast Node sub" ~: instructionFromAST (ASTNodeSub [ASTNodeInteger 123, ASTNodeInteger 678]) (Just newContext) ~?= Just (newContext {instructions = [Xor (Reg EAX) (Reg EAX),Mov (Reg EAX) (Immediate 123),Push (Reg EAX),Xor (Reg EAX) (Reg EAX),Mov (Reg EAX) (Immediate 678),Pop (Reg EDI),Sub (Reg EAX) (Reg EDI)]})
+    ]
 
 testMovImpl :: Bool
 testMovImpl =
-  regGet context2 EBX == Just 42
-  where
-    -- context2 = regSet (Just newContext)
-    context2 = instructionTable context ((Mov EBX (Reg EAX)))
-    context = instructionTable (Just newContext) ((Mov EAX (Immediate 42)))
+    regGet context2 EBX == Just 42
+    where
+        -- context2 = regSet (Just newContext)
+        context2 = instructionTable context ( (Mov EBX (Reg EAX)))
+        context = instructionTable (Just newContext) ( (Mov EAX (Immediate 42)))
 
 testMov :: Test
 testMov = TestCase (assertBool "mov" testMovImpl)
 
 testAddImpl :: Bool
 testAddImpl =
-  regGet context3 EBX == Just 43
-  where
-    -- context2 = regSet (Just newContext)
-    context3 = instructionTable context2 ((Add EBX (Reg EAX)))
-    context2 = instructionTable context1 ((Add EBX (Immediate 1)))
-    context1 = instructionTable context ((Mov EBX (Immediate 0)))
-    context = instructionTable (Just newContext) ((Mov EAX (Immediate 42)))
+    regGet context3 EBX == Just 43
+    where
+        -- context2 = regSet (Just newContext)
+        context3 = instructionTable context2 ( (Add EBX (Reg EAX)))
+        context2 = instructionTable context1 ( (Add EBX (Immediate 1)))
+        context1 = instructionTable context ( (Mov EBX (Immediate 0)))
+        context = instructionTable (Just newContext) ( (Mov EAX (Immediate 42)))
 
 testAdd :: Test
 testAdd = TestCase (assertBool "add" testAddImpl)
 
 testCmpImpl1 :: Bool
 testCmpImpl1 =
-  if (flagGet c ZF == True) then True else False
-  where
-    c = instructionTable context1 ((Cmp (Reg EBX) (Reg EAX)))
-    context1 = instructionTable context ((Mov EBX (Immediate 42)))
-    context = instructionTable (Just newContext) ((Mov EAX (Immediate 42)))
+    if (flagGet c ZF == True) then True else False
+    where
+        c = instructionTable context1 ( (Cmp (Reg EBX) (Reg EAX)))
+        context1 = instructionTable context ( (Mov (Reg EBX) (Immediate 42)))
+        context = instructionTable (Just newContext) ( (Mov (Reg EAX) (Immediate 42)))
 
 testCmpImpl2 :: Bool
 testCmpImpl2 =
-  if (flagGet c ZF == True) then True else False
-  where
-    c = instructionTable context ((Cmp (Reg EAX) (Immediate 42)))
-    context = instructionTable (Just newContext) ((Mov EAX (Immediate 42)))
+    if (flagGet c ZF == True) then True else False
+    where
+        c = instructionTable context ( (Cmp (Reg EAX) (Immediate 42)))
+        context = instructionTable (Just newContext) ( (Mov (Reg EAX) (Immediate 42)))
 
 testCmpImpl3 :: Bool
 testCmpImpl3 =
-  if (flagGet c ZF == False) then True else False
-  where
-    c = instructionTable context ((Cmp (Reg EAX) (Immediate 43)))
-    context = instructionTable (Just newContext) ((Mov EAX (Immediate 42)))
+    if (flagGet c ZF == False) then True else False
+    where
+        c = instructionTable context ( (Cmp (Reg EAX) (Immediate 43)))
+        context = instructionTable (Just newContext) ( (Mov (Reg EAX) (Immediate 42)))
 
 testCmpImpl4 :: Bool
 testCmpImpl4 =
-  if (flagGet c SF == True) then True else False
-  where
-    c = instructionTable context ((Cmp (Reg EAX) (Immediate 43)))
-    context = instructionTable (Just newContext) ((Mov EAX (Immediate 42)))
+    if (flagGet c SF == True) then True else False
+    where
+        c = instructionTable context ( (Cmp (Reg EAX) (Immediate 43)))
+        context = instructionTable (Just newContext) ( (Mov (Reg EAX) (Immediate 42)))
 
 testCmpImpl5 :: Bool
 testCmpImpl5 =
-  if (flagGet c SF == False) then True else False
-  where
-    c = instructionTable context ((Cmp (Reg EAX) (Immediate 41)))
-    context = instructionTable (Just newContext) ((Mov EAX (Immediate 42)))
+    if (flagGet c SF == False) then True else False
+    where
+        c = instructionTable context ( (Cmp (Reg EAX) (Immediate 41)))
+        context = instructionTable (Just newContext) ( (Mov (Reg EAX) (Immediate 42)))
 
 testCmpImpl6 :: Bool
 testCmpImpl6 =
-  if (flagGet c OF == False) then True else False
-  where
-    c = instructionTable context ((Cmp (Reg EAX) (Immediate 410)))
-    context = instructionTable (Just newContext) (Mov EAX (Immediate (-42)))
+    if (flagGet c OF == False) then True else False
+    where
+        c = instructionTable context ( (Cmp (Reg EAX) (Immediate 410)))
+        context = instructionTable (Just newContext) (Mov (Reg EAX) (Immediate (-42)))
 
 testCmpImpl7 :: Bool
 testCmpImpl7 =
-  if (flagGet c OF == False) then True else False
-  where
-    c = instructionTable context ((Cmp (Reg EAX) (Immediate 43)))
-    context = instructionTable (Just newContext) (Mov EAX (Immediate (-42)))
+    if (flagGet c OF == False) then True else False
+    where
+        c = instructionTable context ( (Cmp (Reg EAX) (Immediate 43)))
+        context = instructionTable (Just newContext) (Mov (Reg EAX) (Immediate (-42)))
 
 testCmpImpl9 :: Bool
 testCmpImpl9 =
-  if (flagGet c CF == True) then True else False
-  where
-    c = instructionTable context ((Cmp (Reg EAX) (Immediate 43)))
-    context = instructionTable (Just newContext) (Mov EAX (Immediate 42))
+    if (flagGet c CF == True) then True else False
+    where
+        c = instructionTable context ( (Cmp (Reg EAX) (Immediate 43)))
+        context = instructionTable (Just newContext) (Mov (Reg EAX) (Immediate 42))
 
 testCmpImpl8 :: Bool
 testCmpImpl8 =
-  if (flagGet c CF == False) then True else False
-  where
-    c = instructionTable context ((Cmp (Reg EAX) (Immediate 41)))
-    context = instructionTable (Just newContext) (Mov EAX (Immediate 42))
+    if (flagGet c CF == False) then True else False
+    where
+        c = instructionTable context ( (Cmp (Reg EAX) (Immediate 41)))
+        context = instructionTable (Just newContext) (Mov (Reg EAX) (Immediate 42))
 
 testCmp :: Test
 testCmp =
@@ -654,24 +581,24 @@ testCmp =
 
 testIncImpl :: Bool
 testIncImpl =
-  regGet context1 EBX == Just 43
-  where
-    context1 = instructionTable context (Inc EBX)
-    context = instructionTable (Just newContext) ((Mov EBX (Immediate 42)))
+    regGet context1 EBX == Just 43
+    where
+        context1 = instructionTable context (Inc EBX)
+        context = instructionTable (Just newContext) ( (Mov (Reg EBX) (Immediate 42)))
 
 testDecImpl :: Bool
 testDecImpl =
-  regGet context1 EBX == Just 41
-  where
-    context1 = instructionTable context (Dec EBX)
-    context = instructionTable (Just newContext) ((Mov EBX (Immediate 42)))
+    regGet context1 EBX == Just 41
+    where
+        context1 = instructionTable context (Dec EBX)
+        context = instructionTable (Just newContext) ( (Mov (Reg EBX) (Immediate 42)))
 
 testNegImpl :: Bool
 testNegImpl =
-  regGet context1 EBX == Just (-42)
-  where
-    context1 = instructionTable context (Neg EBX)
-    context = instructionTable (Just newContext) ((Mov EBX (Immediate 42)))
+    regGet context1 EBX == Just (-42)
+    where
+        context1 = instructionTable context (Neg EBX)
+        context = instructionTable (Just newContext) ( (Mov (Reg EBX) (Immediate 42)))
 
 testInc :: Test
 testInc =
@@ -694,7 +621,7 @@ testJeImpl1 =
   where
     context1 = instructionTable c (Je "ouioui")
     c = instructionTable c1 (Cmp (Reg EAX) (Immediate 42))
-    c1 = instructionTable context (Mov EAX (Immediate 42))
+    c1 = instructionTable context (Mov (Reg EAX) (Immediate 42))
     context = labelSet (Just newContext) "ouioui" 43
 
 testJeImpl :: Maybe Int
@@ -703,7 +630,7 @@ testJeImpl =
   where
     context1 = instructionTable c (Je "ouioui")
     c = instructionTable c1 (Cmp (Reg EAX) (Immediate 4))
-    c1 = instructionTable context (Mov EAX (Immediate 42))
+    c1 = instructionTable context (Mov (Reg EAX) (Immediate 42))
     context = labelSet (Just newContext) "ouioui" 43
 
 testJneImpl :: Maybe Int
@@ -712,7 +639,7 @@ testJneImpl =
   where
     context1 = instructionTable c (Jne "ouioui")
     c = instructionTable c1 (Cmp (Reg EAX) (Immediate 4))
-    c1 = instructionTable context (Mov EAX (Immediate 42))
+    c1 = instructionTable context (Mov (Reg EAX) (Immediate 42))
     context = labelSet (Just newContext) "ouioui" 43
 
 testJsImpl :: Maybe Int
@@ -721,7 +648,7 @@ testJsImpl =
   where
     context1 = instructionTable c (Js "ouioui")
     c = instructionTable c1 (Cmp (Reg EAX) (Immediate (-4)))
-    c1 = instructionTable context (Mov EAX (Immediate (-42)))
+    c1 = instructionTable context (Mov (Reg EAX) (Immediate (-42)))
     context = labelSet (Just newContext) "ouioui" 43
 
 testJsImpl1 :: Maybe Int
@@ -730,7 +657,7 @@ testJsImpl1 =
   where
     context1 = instructionTable c (Js "ouioui")
     c = instructionTable c1 (Cmp (Reg EAX) (Immediate 41))
-    c1 = instructionTable context (Mov EAX (Immediate 42))
+    c1 = instructionTable context (Mov (Reg EAX) (Immediate 42))
     context = labelSet (Just newContext) "ouioui" 43
 
 testJnsImpl :: Maybe Int
@@ -739,7 +666,7 @@ testJnsImpl =
   where
     context1 = instructionTable c (Jns "ouioui")
     c = instructionTable c1 (Cmp (Reg EAX) (Immediate 41))
-    c1 = instructionTable context (Mov EAX (Immediate 42))
+    c1 = instructionTable context (Mov (Reg EAX) (Immediate 42))
     context = labelSet (Just newContext) "ouioui" 43
 
 testJgImpl :: Maybe Int
@@ -748,7 +675,7 @@ testJgImpl =
   where
     context1 = instructionTable c (Jg "ouioui")
     c = instructionTable c1 (Cmp (Reg EAX) (Immediate 41))
-    c1 = instructionTable context (Mov EAX (Immediate 42))
+    c1 = instructionTable context (Mov (Reg EAX) (Immediate 42))
     context = labelSet (Just newContext) "ouioui" 43
 
 testJgImpl1 :: Maybe Int
@@ -757,7 +684,7 @@ testJgImpl1 =
   where
     context1 = instructionTable c (Jg "ouioui")
     c = instructionTable c1 (Cmp (Reg EAX) (Immediate 42))
-    c1 = instructionTable context (Mov EAX (Immediate 42))
+    c1 = instructionTable context (Mov (Reg EAX) (Immediate 42))
     context = labelSet (Just newContext) "ouioui" 43
 
 testJgeImpl :: Maybe Int
@@ -766,7 +693,7 @@ testJgeImpl =
   where
     context1 = instructionTable c (Jge "ouioui")
     c = instructionTable c1 (Cmp (Reg EAX) (Immediate 42))
-    c1 = instructionTable context (Mov EAX (Immediate 42))
+    c1 = instructionTable context (Mov (Reg EAX) (Immediate 42))
     context = labelSet (Just newContext) "ouioui" 43
 
 testJlImpl :: Maybe Int
@@ -775,7 +702,7 @@ testJlImpl =
   where
     context1 = instructionTable c (Jl "ouioui")
     c = instructionTable c1 (Cmp (Reg EAX) (Immediate 43))
-    c1 = instructionTable context (Mov EAX (Immediate 42))
+    c1 = instructionTable context (Mov (Reg EAX) (Immediate 42))
     context = labelSet (Just newContext) "ouioui" 43
 
 testJlImpl1 :: Maybe Int
@@ -784,70 +711,7 @@ testJlImpl1 =
   where
     context1 = instructionTable c (Jl "ouioui")
     c = instructionTable c1 (Cmp (Reg EAX) (Immediate 42))
-    c1 = instructionTable context (Mov EAX (Immediate 42))
-    context = labelSet (Just newContext) "ouioui" 43
-
-testJleImpl :: Maybe Int
-testJleImpl =
-  ipGet context1
-  where
-    context1 = instructionTable c (Jle "ouioui")
-    c = instructionTable c1 (Cmp (Reg EAX) (Immediate 42))
-    c1 = instructionTable context (Mov EAX (Immediate 42))
-    context = labelSet (Just newContext) "ouioui" 43
-
-testJaImpl :: Maybe Int
-testJaImpl =
-  ipGet context1
-  where
-    context1 = instructionTable c (Ja "ouioui")
-    c = instructionTable c1 (Cmp (Reg EAX) (Immediate 41))
-    c1 = instructionTable context (Mov EAX (Immediate 42))
-    context = labelSet (Just newContext) "ouioui" 43
-
-testJaImpl1 :: Maybe Int
-testJaImpl1 =
-  ipGet context1
-  where
-    context1 = instructionTable c (Ja "ouioui")
-    c = instructionTable c1 (Cmp (Reg EAX) (Immediate 42))
-    c1 = instructionTable context (Mov EAX (Immediate 42))
-    context = labelSet (Just newContext) "ouioui" 43
-
-testJaeImpl :: Maybe Int
-testJaeImpl =
-  ipGet context1
-  where
-    context1 = instructionTable c (Jae "ouioui")
-    c = instructionTable c1 (Cmp (Reg EAX) (Immediate 42))
-    c1 = instructionTable context (Mov EAX (Immediate 42))
-    context = labelSet (Just newContext) "ouioui" 43
-
-testJbImpl :: Maybe Int
-testJbImpl =
-  ipGet context1
-  where
-    context1 = instructionTable c (Jb "ouioui")
-    c = instructionTable c1 (Cmp (Reg EAX) (Immediate 43))
-    c1 = instructionTable context (Mov EAX (Immediate 42))
-    context = labelSet (Just newContext) "ouioui" 43
-
-testJbImpl1 :: Maybe Int
-testJbImpl1 =
-  ipGet context1
-  where
-    context1 = instructionTable c (Jb "ouioui")
-    c = instructionTable c1 (Cmp (Reg EAX) (Immediate 42))
-    c1 = instructionTable context (Mov EAX (Immediate 42))
-    context = labelSet (Just newContext) "ouioui" 43
-
-testJbeImpl :: Maybe Int
-testJbeImpl =
-  ipGet context1
-  where
-    context1 = instructionTable c (Jbe "ouioui")
-    c = instructionTable c1 (Cmp (Reg EAX) (Immediate 42))
-    c1 = instructionTable context (Mov EAX (Immediate 42))
+    c1 = instructionTable context (Mov (Reg EAX) (Immediate 42))
     context = labelSet (Just newContext) "ouioui" 43
 
 testJmp :: Test
@@ -864,30 +728,30 @@ testJmp =
       "Jg false" ~: testJgImpl1 ~?= Just 0,
       "Jge" ~: testJgeImpl ~?= Just 42,
       "Jl true" ~: testJlImpl ~?= Just 42,
-      "Jl false" ~: testJlImpl1 ~?= Just 0,
-      "Jle" ~: testJleImpl ~?= Just 42,
-      "Ja true" ~: testJaImpl ~?= Just 42,
-      "Ja false" ~: testJaImpl1 ~?= Just 0,
-      "Jae" ~: testJaeImpl ~?= Just 42,
-      "Jb true" ~: testJbImpl ~?= Just 42,
-      "Jb false" ~: testJbImpl1 ~?= Just 0,
-      "Jbe" ~: testJbeImpl ~?= Just 42
-    ]
+      "Jl false" ~: testJlImpl1 ~?= Just 0]
+        -- "Jle" ~: testJleImpl ~?= Just 42,
+        -- "Ja true" ~: testJaImpl ~?= Just 42,
+        -- "Ja false" ~: testJaImpl1 ~?= Just 0,
+        -- "Jae" ~: testJaeImpl ~?= Just 42,
+        -- "Jb true" ~: testJbImpl ~?= Just 42,
+        -- "Jb false" ~: testJbImpl1 ~?= Just 0,
+        -- "Jbe" ~: testJbeImpl ~?= Just 42
+    -- ]
 
 testXorImpl :: Int -> Int -> Int
 testXorImpl a b =
   Data.fromMaybe 0 (regGet context2 EBX)
   where
     context2 = instructionTable context1 (Xor (Reg EBX) (Reg EAX))
-    context1 = instructionTable context (Mov EAX (Immediate b))
-    context = instructionTable (Just newContext) (Mov EBX (Immediate a))
+    context1 = instructionTable context (Mov (Reg EAX) (Immediate b))
+    context = instructionTable (Just newContext) (Mov (Reg EBX) (Immediate a))
 
 testXorImpl1 :: Int -> Int -> Int
 testXorImpl1 a b =
   Data.fromMaybe 0 (regGet context2 EBX)
   where
     context2 = instructionTable context (Xor (Reg EBX) (Immediate b))
-    context = instructionTable (Just newContext) (Mov EBX (Immediate a))
+    context = instructionTable (Just newContext) (Mov (Reg EBX) (Immediate a))
 
 testXor :: Test
 testXor =
@@ -902,15 +766,15 @@ testSubImpl a b =
   Data.fromMaybe 0 (regGet context2 EBX)
   where
     context2 = instructionTable context1 (Sub (Reg EBX) (Reg EAX))
-    context1 = instructionTable context (Mov EAX (Immediate b))
-    context = instructionTable (Just newContext) (Mov EBX (Immediate a))
+    context1 = instructionTable context (Mov (Reg EAX) (Immediate b))
+    context = instructionTable (Just newContext) (Mov (Reg EBX) (Immediate a))
 
 testSubImpl1 :: Int -> Int -> Int
 testSubImpl1 a b =
   Data.fromMaybe 0 (regGet context2 EBX)
   where
     context2 = instructionTable context (Sub (Reg EBX) (Immediate b))
-    context = instructionTable (Just newContext) (Mov EBX (Immediate a))
+    context = instructionTable (Just newContext) (Mov (Reg EBX) (Immediate a))
 
 testSub :: Test
 testSub =
@@ -925,15 +789,15 @@ testMultImpl a b =
   Data.fromMaybe 0 (regGet context2 EBX)
   where
     context2 = instructionTable context1 (Mult (Reg EBX) (Reg EAX))
-    context1 = instructionTable context (Mov EAX (Immediate b))
-    context = instructionTable (Just newContext) (Mov EBX (Immediate a))
+    context1 = instructionTable context (Mov (Reg EAX) (Immediate b))
+    context = instructionTable (Just newContext) (Mov (Reg EBX) (Immediate a))
 
 testMultImpl1 :: Int -> Int -> Int
 testMultImpl1 a b =
   Data.fromMaybe 0 (regGet context2 EBX)
   where
     context2 = instructionTable context (Mult (Reg EBX) (Immediate b))
-    context = instructionTable (Just newContext) (Mov EBX (Immediate a))
+    context = instructionTable (Just newContext) (Mov (Reg EBX) (Immediate a))
 
 testMult :: Test
 testMult =
@@ -945,18 +809,18 @@ testMult =
 
 testDivImpl :: Int -> Int -> Int
 testDivImpl a b =
-  Data.fromMaybe 0 (regGet context2 EBX)
+  Data.fromMaybe 0 (regGet context2 EAX)
   where
-    context2 = instructionTable context1 (Div (Reg EBX) (Reg EAX))
-    context1 = instructionTable context (Mov EAX (Immediate b))
-    context = instructionTable (Just newContext) (Mov EBX (Immediate a))
+    context2 = instructionTable context1 (Div (Reg EBX))
+    context1 = instructionTable context (Mov (Reg EBX) (Immediate b))
+    context = instructionTable (Just newContext) (Mov (Reg EAX) (Immediate a))
 
 testDivImpl1 :: Int -> Int -> Int
 testDivImpl1 a b =
-  Data.fromMaybe 0 (regGet context2 EBX)
+  Data.fromMaybe (-1) (regGet context2 EAX)
   where
-    context2 = instructionTable context (Div (Reg EBX) (Immediate b))
-    context = instructionTable (Just newContext) (Mov EBX (Immediate a))
+    context2 = instructionTable context (Div (Immediate b))
+    context = instructionTable (Just newContext) (Mov (Reg EAX) (Immediate a))
 
 testDiv :: Test
 testDiv =
@@ -968,18 +832,18 @@ testDiv =
 
 testModImpl :: Int -> Int -> Int
 testModImpl a b =
-  Data.fromMaybe 0 (regGet context2 EBX)
+  Data.fromMaybe 0 (regGet context2 EDX)
   where
-    context2 = instructionTable context1 (Mod (Reg EBX) (Reg EAX))
-    context1 = instructionTable context (Mov EAX (Immediate b))
-    context = instructionTable (Just newContext) (Mov EBX (Immediate a))
+    context2 = instructionTable context1 (Div (Reg EBX))
+    context1 = instructionTable context (Mov (Reg EBX) (Immediate b))
+    context = instructionTable (Just newContext) (Mov (Reg EAX) (Immediate a))
 
 testModImpl1 :: Int -> Int -> Int
 testModImpl1 a b =
-  Data.fromMaybe 0 (regGet context2 EBX)
+  Data.fromMaybe (-1) (regGet context2 EDX)
   where
-    context2 = instructionTable context (Mod (Reg EBX) (Immediate b))
-    context = instructionTable (Just newContext) (Mov EBX (Immediate a))
+    context2 = instructionTable context (Div (Immediate b))
+    context = instructionTable (Just newContext) (Mov (Reg EAX) (Immediate a))
 
 testMod :: Test
 testMod =
@@ -994,15 +858,15 @@ testAndImpl a b =
   Data.fromMaybe 0 (regGet context2 EBX)
   where
     context2 = instructionTable context1 (And (Reg EBX) (Reg EAX))
-    context1 = instructionTable context (Mov EAX (Immediate b))
-    context = instructionTable (Just newContext) (Mov EBX (Immediate a))
+    context1 = instructionTable context (Mov (Reg EAX) (Immediate b))
+    context = instructionTable (Just newContext) (Mov (Reg EBX) (Immediate a))
 
 testAndImpl1 :: Int -> Int -> Int
 testAndImpl1 a b =
   Data.fromMaybe 0 (regGet context2 EBX)
   where
     context2 = instructionTable context (And (Reg EBX) (Immediate b))
-    context = instructionTable (Just newContext) (Mov EBX (Immediate a))
+    context = instructionTable (Just newContext) (Mov (Reg EBX) (Immediate a))
 
 testAnd :: Test
 testAnd =
@@ -1017,15 +881,15 @@ testOrImpl a b =
   Data.fromMaybe 0 (regGet context2 EBX)
   where
     context2 = instructionTable context1 (Or (Reg EBX) (Reg EAX))
-    context1 = instructionTable context (Mov EAX (Immediate b))
-    context = instructionTable (Just newContext) (Mov EBX (Immediate a))
+    context1 = instructionTable context (Mov (Reg EAX) (Immediate b))
+    context = instructionTable (Just newContext) (Mov (Reg EBX) (Immediate a))
 
 testOrImpl1 :: Int -> Int -> Int
 testOrImpl1 a b =
   Data.fromMaybe 0 (regGet context2 EBX)
   where
     context2 = instructionTable context (Or (Reg EBX) (Immediate b))
-    context = instructionTable (Just newContext) (Mov EBX (Immediate a))
+    context = instructionTable (Just newContext) (Mov (Reg EBX) (Immediate a))
 
 testOr :: Test
 testOr =
@@ -1040,14 +904,14 @@ testNotImpl a =
   Data.fromMaybe 0 (regGet context2 EBX)
   where
     context2 = instructionTable context (Not (Reg EBX))
-    context = instructionTable (Just newContext) (Mov EBX (Immediate a))
+    context = instructionTable (Just newContext) (Mov (Reg EBX) (Immediate a))
 
 testNotImpl1 :: Int -> Int
 testNotImpl1 a =
   Data.fromMaybe 0 (regGet context2 EBX)
   where
     context2 = instructionTable context (Not (Reg EBX))
-    context = instructionTable (Just newContext) (Mov EBX (Immediate a))
+    context = instructionTable (Just newContext) (Mov (Reg EBX) (Immediate a))
 
 testNot :: Test
 testNot =
@@ -1061,26 +925,26 @@ testPush :: Int
 testPush =
   nbInstructions c
   where
-    c = insPush context1 (Mov EBX (Immediate 42))
-    context1 = insPush context (Mov EBX (Immediate 42))
-    context = insPush (Just newContext) (Mov EBX (Immediate 42))
+    c = insPush context1 (Mov (Reg EBX) (Immediate 42))
+    context1 = insPush context (Mov (Reg EBX) (Immediate 42))
+    context = insPush (Just newContext) (Mov (Reg EBX) (Immediate 42))
 
 testExec :: Int
 testExec =
   Data.fromMaybe (-1) (regGet c EBX)
   where
-    c = evalOneInstruction newContext (Mov EBX (Immediate 42))
+    c = evalOneInstruction newContext (Mov (Reg EBX) (Immediate 42))
 
 testPushExec :: Int
 testPushExec =
   Data.fromMaybe (-1) (regGet context2 EBX)
   where
     context2 = execInstructions context1
-    context1 = instructionTable c4 (Mov EBX (Immediate 4))
-    c4 = insPush c3 (Mov EBX (Immediate 42))
-    c3 = insPush c2 (Mov EAX (Immediate 1))
+    context1 = instructionTable c4 (Mov (Reg EBX) (Immediate 4))
+    c4 = insPush c3 (Mov (Reg EBX) (Immediate 42))
+    c3 = insPush c2 (Mov (Reg EAX) (Immediate 1))
     c2 = insPush c1 (Add EBX (Immediate 1))
-    c1 = insPush context (Mov EAX (Immediate 7))
+    c1 = insPush context (Mov (Reg EAX) (Immediate 7))
     context = insPush (Just newContext) (Add EBX (Reg EAX))
 
 testPushInstr :: Test
@@ -1091,7 +955,76 @@ testPushInstr =
       "push and execute multiple instructions" ~: testPushExec ~?= 50
     ]
 
-main :: IO ()
+testAstPush :: Int
+testAstPush =
+  nbInstructions c
+  where
+    c = instructionFromAST (ASTNodeSum [ASTNodeInteger 123, ASTNodeInteger 678]) (Just newContext)
+
+testAstPushExec :: Int
+testAstPushExec =
+  Data.fromMaybe (-1) (regGet context2 EAX)
+  where
+    context2 = execInstructions c
+    c = instructionFromAST (ASTNodeSum [ASTNodeInteger 40, ASTNodeInteger 10]) (Just newContext)
+
+-- (+ 40 10)
+
+testAstPushExec2 :: Int
+testAstPushExec2 =
+  Data.fromMaybe (-1) (regGet context2 EAX)
+  where
+    context2 = execInstructions c
+    c = instructionFromAST (ASTNodeSub [(ASTNodeSum [ASTNodeInteger 40, ASTNodeInteger 10]), (ASTNodeSum [(ASTNodeSum [ASTNodeInteger 40, ASTNodeInteger 10]), (ASTNodeSum [ASTNodeInteger 40, ASTNodeInteger 10])])]) (Just newContext)
+
+-- (- (+ 40 10) (+ (+ 40 10) (+ 40 10))
+testAstPushExec3 :: Int
+testAstPushExec3 =
+  Data.fromMaybe (-1) (regGet context2 EAX)
+  where
+    context2 = execInstructions c
+    c = instructionFromAST (ASTNodeMul [ASTNodeInteger 5, ASTNodeInteger 10]) (Just newContext)
+
+-- (* 5 10)
+
+testAstPushExec4 :: Int
+testAstPushExec4 =
+  Data.fromMaybe (-1) (regGet context2 EAX)
+  where
+    context2 = execInstructions c
+    c = instructionFromAST (ASTNodeDiv [ASTNodeInteger 100, ASTNodeInteger 2]) (Just newContext)
+
+-- (/ 100 2)
+testAstPushExec5 :: Int
+testAstPushExec5 =
+  Data.fromMaybe (-1) (regGet context2 EAX)
+  where
+    context2 = execInstructions c
+    c = instructionFromAST (ASTNodeMod [ASTNodeInteger 10, ASTNodeInteger 4]) (Just newContext)
+
+-- (% 10 4)
+
+testAstToInstr :: Test
+testAstToInstr =
+  TestList
+    [ "Ast to Ctx push 3 instruction" ~: testAstPush ~?= 7,
+      "Ast to Ctx push and execute multiple instructions" ~: testAstPushExec ~?= 50,
+      "Ast to Ctx push and execute hardcore instructions" ~: testAstPushExec2 ~?= 50,
+      "Ast to Ctx push and execute basic mult" ~: testAstPushExec3 ~?= 50,
+      "Ast to Ctx push and execute basic div" ~: testAstPushExec4 ~?= 50,
+      "Ast to Ctx push and execute basic mod" ~: testAstPushExec5 ~?= 2
+    ]
+
+testArrToHASMImpl :: [Instruction]
+testArrToHASMImpl = case astNodeArrayToHASM (Just newContext) (ASTNodeArray [ASTNodeInteger 1, ASTNodeInteger 2]) of
+    Nothing -> []
+    Just c -> instructions c
+
+testArrToHASM :: Test
+testArrToHASM = TestList [
+    "Array to ASM" ~: testArrToHASMImpl ~?= [Push (Reg EBX),Push (Reg ESI),Mov (Reg EAX) (Immediate 45),Mov (Reg EBX) (Immediate 8),Intinstruction 128,Mov (Reg EBX) (Reg EAX),Mov (Reg ESI) (Reg EBX),Xor (Reg EAX) (Reg EAX),Mov (Reg EAX) (Immediate 1),MovPtr (Reg ESI) (Reg EAX),Add ESI (Immediate 4),Xor (Reg EAX) (Reg EAX),Mov (Reg EAX) (Immediate 2),MovPtr (Reg ESI) (Reg EAX),Add ESI (Immediate 4),Mov (Reg EAX) (Reg EBX),Pop (Reg EBX),Pop (Reg ESI)]]
+
+main :: IO()
 main = do
   _ <- runTestTT testTryTokenizeOne
   _ <- runTestTT testWordToToken
@@ -1135,7 +1068,7 @@ main = do
   _ <- runTestTT testHeapSetGet
   _ <- runTestTT testLabelSetGet
   _ <- runTestTT testFlagGetSet
-    _ <- runTestTT testInstructionFromAST
+  _ <- runTestTT testInstructionFromAST
   _ <- runTestTT testMov
   _ <- runTestTT testCmp
   _ <- runTestTT testInc
@@ -1150,4 +1083,8 @@ main = do
   _ <- runTestTT testOr
   _ <- runTestTT testNot
   _ <- runTestTT testPushInstr
+  _ <- runTestTT testAstToInstr
+  _ <- runTestTT testASTNodeParamList
+  _ <- runTestTT testASTNodeArray
+  _ <- runTestTT testArrToHASM
   return ()

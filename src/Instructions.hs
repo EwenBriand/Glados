@@ -22,8 +22,13 @@ module Instructions
     execInstructions,
     nbInstructions,
     evalOneInstruction,
+    execInstructions,
+    nbInstructions,
+    evalOneInstruction,
   )
 where
+
+-- labelAlloc,
 
 -- labelAlloc,
 
@@ -86,10 +91,67 @@ import VM
 --   symGet,
 --   symSet,
 -- )
+import VM
+
+-- ( Context (..),
+--   Flag (..),
+--   Flags (..),
+--   Heap (..),
+--   Instruction (..),
+--   Labels (..),
+--   Param (..),
+--   Register (..),
+--   Registers (..),
+--   Stack (..),
+--   SymTable (..),
+--   flagGet,
+--   flagSet,
+--   getTrueValueFromParam,
+--   heapAlloc,
+--   heapFree,
+--   heapGet,
+--   heapSet,
+--   ipGet,
+--   ipInc,
+--   ipSet,
+--   labelFree,
+--   labelGet,
+--   labelSet,
+--   newContext,
+--   newFlags,
+--   newHeap,
+--   newLabels,
+--   newRegisters,
+--   newStack,
+--   newSymTable,
+--   regAdd,
+--   regAnd,
+--   regDec,
+--   regDiv,
+--   regGet,
+--   regInc,
+--   regMod,
+--   regMul,
+--   regOr,
+--   regSet,
+--   regSub,
+--   regXor,
+--   setTrueValueFromParam,
+--   stackDup,
+--   stackPeek,
+--   stackPop,
+--   stackPush,
+--   stackRot,
+--   stackSwap,
+--   symAlloc,
+--   symFree,
+--   symGet,
+--   symSet,
+-- )
 
 instructionTable :: Maybe Context -> Instruction -> Maybe Context
 instructionTable Nothing _ = Nothing
-instructionTable ctx (Mov r1 r2) = allMov ctx r1 r2
+instructionTable ctx (Mov r1 r2) = movImpl ctx r1 r2
 instructionTable ctx (Cmp r1 r2) = allCmp ctx r1 r2
 instructionTable ctx (Test r1 r2) = allTest ctx r1 r2
 instructionTable ctx (Jmp r1) = myJmp ctx r1
@@ -111,9 +173,9 @@ instructionTable ctx (Neg r1) = myNeg ctx r1 (regGet ctx r1)
 instructionTable ctx (Add r1 r2) = allAdd ctx r1 r2
 instructionTable ctx (Sub r1 r2) = subImpl ctx r1 r2
 instructionTable ctx (Mult r1 r2) = multImpl ctx r1 r2
-instructionTable ctx (Div r1 r2) = divImpl ctx r1 r2
-instructionTable ctx (Mod r1 r2) = modImpl ctx r1 r2
+instructionTable ctx (Div r1 ) = divImpl ctx r1
 instructionTable ctx (Push r1) = pushImpl ctx r1
+instructionTable ctx (Pop r1) = popImpl ctx r1
 instructionTable ctx (Xor r1 r2) = xorImpl ctx r1 r2
 instructionTable ctx (And r1 r2) = andImpl ctx r1 r2
 instructionTable ctx (Or r1 r2) = orImpl ctx r1 r2
@@ -171,45 +233,22 @@ popImpl ctx param = case stackPop ctx of
 -- MOVE SECTION
 --
 
+movPtrImpl :: Maybe Context -> Param -> Param -> Maybe Context
+movPtrImpl Nothing _ _ = Nothing
+movPtrImpl _ (Immediate _) _ = Nothing
+movPtrImpl ctx (Reg r) p = case getTrueValueFromParam ctx p of
+  Nothing -> Nothing
+  Just val -> case getTrueValueFromParam ctx (Reg r) of
+    Nothing -> Nothing
+    Just ptr -> heapSet ctx ptr val
+
+
 movImpl :: Maybe Context -> Param -> Param -> Maybe Context
 movImpl Nothing _ _ = Nothing
 movImpl _ (Immediate _) _ = Nothing
 movImpl ctx to from = case getTrueValueFromParam ctx from of
   Just val -> setTrueValueFromParam ctx to val
   _ -> Nothing
-
-allMov :: Maybe Context -> Register -> Param -> Maybe Context
-allMov Nothing _ _ = Nothing
-allMov ctx r1 (Reg r2) = myMovReg ctx r1 (regGet ctx r2)
-allMov ctx r1 (Immediate r2) = myMovInt ctx r1 r2
-allMov ctx r1 (Memory r2) = myMovMem ctx r1 r2
-allMov ctx r1 (Symbol r2) = myMovSym ctx r1 r2
-allMov _ _ _ = Nothing
-
--- | @params: register
-myMovReg :: Maybe Context -> Register -> Maybe Int -> Maybe Context
-myMovReg Nothing _ _ = Nothing
-myMovReg _ _ Nothing = Nothing
-myMovReg ctx r1 (Just r2) = regSet ctx r1 r2
-
--- | @params: register, immediate
-myMovInt :: Maybe Context -> Register -> Int -> Maybe Context
-myMovInt Nothing _ _ = Nothing
-myMovInt ctx r1 r2 = regSet ctx r1 r2
-
--- | @params: register, memory
-myMovMem :: Maybe Context -> Register -> Int -> Maybe Context
-myMovMem Nothing _ _ = Nothing
-myMovMem ctx r1 r2 = case heapGet ctx r2 of
-  Nothing -> Nothing
-  Just val -> regSet ctx r1 val
-
--- | @params: register, symbol
-myMovSym :: Maybe Context -> Register -> String -> Maybe Context
-myMovSym Nothing _ _ = Nothing
-myMovSym ctx r1 r2 = case symGet ctx r2 of
-  Nothing -> Nothing
-  Just val -> regSet ctx r1 val
 
 --
 -- Comp SECTION
@@ -361,13 +400,14 @@ xorImpl ctx p1 p2 = c
     c = setTrueValueFromParam ctx p1 xoredVal
     xoredVal = fromMaybe 0 (xor <$> getTrueValueFromParam ctx p1 <*> getTrueValueFromParam ctx p2)
 
-divImpl :: Maybe Context -> Param -> Param -> Maybe Context
-divImpl _ (Immediate _) _ = Nothing
-divImpl Nothing _ _ = Nothing
-divImpl ctx p1 p2 = c
+divImpl :: Maybe Context -> Param -> Maybe Context
+divImpl Nothing _ = Nothing
+divImpl ctx p2 = c
   where
-    c = setTrueValueFromParam ctx p1 divVal
-    divVal = fromMaybe 0 (div <$> getTrueValueFromParam ctx p1 <*> getTrueValueFromParam ctx p2)
+    c = setTrueValueFromParam c1 (Reg EDX) modVal
+    c1 = setTrueValueFromParam ctx (Reg EAX) divVal
+    divVal = fromMaybe 0 (div <$> getTrueValueFromParam ctx (Reg EAX) <*> getTrueValueFromParam ctx p2)
+    modVal = fromMaybe 0 (getTrueValueFromParam ctx (Reg EAX)) `mod` fromMaybe 0 (getTrueValueFromParam ctx p2)
 
 multImpl :: Maybe Context -> Param -> Param -> Maybe Context
 multImpl _ (Immediate _) _ = Nothing
@@ -384,14 +424,6 @@ subImpl ctx p1 p2 = c
   where
     c = setTrueValueFromParam ctx p1 multVal
     multVal = fromMaybe 0 (getTrueValueFromParam ctx p1) - fromMaybe 0 (getTrueValueFromParam ctx p2)
-
-modImpl :: Maybe Context -> Param -> Param -> Maybe Context
-modImpl _ (Immediate _) _ = Nothing
-modImpl Nothing _ _ = Nothing
-modImpl ctx p1 p2 = c
-  where
-    c = setTrueValueFromParam ctx p1 modVal
-    modVal = fromMaybe 0 (getTrueValueFromParam ctx p1) `mod` fromMaybe 0 (getTrueValueFromParam ctx p2)
 
 andImpl :: Maybe Context -> Param -> Param -> Maybe Context
 andImpl _ (Immediate _) _ = Nothing

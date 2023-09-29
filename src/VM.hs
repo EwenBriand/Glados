@@ -22,6 +22,7 @@ module VM
     stackDup,
     stackSwap,
     stackRot,
+    stackGetPointer,
     , stackGetPointer
     Heap (..),
     newHeap,
@@ -29,6 +30,7 @@ module VM
     heapGet,
     heapAlloc,
     heapFree,
+    heapAllocRange,
     SymTable (..),
     newSymTable,
     symSet,
@@ -48,12 +50,15 @@ module VM
     Instruction (..),
     Context (..),
     newContext,
+    nextUUID,
     ipSet,
     ipGet,
     ipInc,
     Param (..),
     setTrueValueFromParam,
     getTrueValueFromParam,
+    regNot,
+    insPush,
     regNot,
     insPush,
   )
@@ -146,7 +151,7 @@ regXor (Just context) register value = Just context {registers = Registers (Map.
 -- STACK
 -------------------------------------------------------------------------------
 
-newtype Stack = Stack { pile :: [Int] } deriving (Show, Eq)
+newtype Stack = Stack {pile :: [Int]} deriving (Show, Eq)
 
 -- | Creates a new empty stack.
 newStack :: Stack
@@ -197,6 +202,7 @@ stackRot (Just context) = case pile (stack context) of
 stackGetPointer :: Maybe Context -> (Int, Maybe Context)
 stackGetPointer Nothing = (0, Nothing)
 stackGetPointer (Just context) = (length (pile (stack context)), Just context)
+
 --------------------------------------------------------------------------------
 -- HEAP
 --------------------------------------------------------------------------------
@@ -249,6 +255,15 @@ heapAlloc (Just context) = Just (addr, Just context {heap = Heap (Map.insert add
       Nothing -> 1
       Just key -> key + 1
 
+-- | Allocates a range in the memory.
+heapAllocRange :: Maybe Context -> Int -> (Int, Maybe Context)
+heapAllocRange Nothing _ = (0, Nothing)
+heapAllocRange (Just context) size = (addr, Just context {heap = Heap (Map.union (Map.fromList (zip [addr .. addr + size - 1] (repeat 0))) (mem (heap context)))})
+  where
+    addr = case maxKey (mem (heap context)) of
+      Nothing -> 1
+      Just key -> key + 1
+
 -- | Frees a symbol in the heap.
 heapFree :: Maybe Context -> Int -> Maybe Context
 heapFree Nothing _ = Nothing
@@ -260,7 +275,7 @@ heapFree (Just context) address = Just context {heap = Heap (Map.delete address 
 
 -- | The symbol table of the VM. It holds all the created symbols that can be
 -- referenced by their name, and maps them to their address in the heap.
-newtype SymTable = SymTable { symTable :: Map.Map String Int } deriving (Show, Eq)
+newtype SymTable = SymTable {symTable :: Map.Map String Int} deriving (Show, Eq)
 
 -- | Creates a new empty symbol table.
 newSymTable :: SymTable
@@ -293,7 +308,7 @@ symFree (Just context) name = Just context {symbolTable = SymTable (Map.delete n
 
 -- | The labels of the VM. It holds all the created labels that refer to an
 -- instruction, and maps them to their address in the instruction pile.
-newtype Labels = Labels { labelMap :: Map.Map String Int } deriving (Show, Eq)
+newtype Labels = Labels {labelMap :: Map.Map String Int} deriving (Show, Eq)
 
 -- | Creates a new empty label pile.
 newLabels :: Labels
@@ -328,8 +343,16 @@ data Flag
   | PF -- Parity flag
   | AF -- Auxiliary flag
   deriving (Eq, Ord, Show)
+data Flag
+  = ZF -- Zero flag
+  | SF -- Sign flag
+  | OF -- Overflow flag
+  | CF -- Carry flag
+  | PF -- Parity flag
+  | AF -- Auxiliary flag
+  deriving (Eq, Ord, Show)
 
-newtype Flags = Flags { flagMap :: Map.Map Flag Bool } deriving (Show, Eq)
+newtype Flags = Flags {flagMap :: Map.Map Flag Bool} deriving (Show, Eq)
 
 -- | Creates a new empty set of flags.
 newFlags :: Flags
@@ -359,12 +382,12 @@ data Param
   deriving (Eq, Ord, Show)
 
 data Instruction
-  = Mov Register Param
+  = Mov Param Param
+  | MovPtr Param Param -- mov [eax], ebx
   | Nop
   | Push Param
+  | Pop Param
   | IMul Param Param
-  | Div Param
-
   | Xor Param Param
   | Or Param Param
   | And Param Param
@@ -392,8 +415,9 @@ data Instruction
   | Add Register Param
   | Sub Param Param
   | Mult Param Param
-  | Div Param Param
-  | Mod Param Param
+  | Div Param
+  | Intinstruction Int
+  | Label String Int -- name of the label, instruction pointer at the time.
   deriving (Eq, Ord, Show)
 
 -- | Returns the real value contained after resolving the param.
@@ -435,18 +459,25 @@ data Context = Context
     symbolTable :: SymTable,
     labels :: Labels,
     flags :: Flags,
-    instructionPointer :: Int
+    instructionPointer :: Int,
+    exit :: Bool,
+    uuids :: Int
   }
   deriving (Show, Eq)
 
 -- | Creates a new empty context.
 newContext :: Context
-newContext = Context newRegisters newStack newHeap [] newSymTable newLabels newFlags 0
+newContext = Context newRegisters newStack newHeap [] newSymTable newLabels newFlags 0 False 0
+
+nextUUID :: Context -> (Int, Context)
+nextUUID context = (uuids context, context {uuids = uuids context + 1})
 
 -- | Sets the value of the instruction pointer.
 ipSet :: Maybe Context -> Int -> Maybe Context
 ipSet Nothing _ = Nothing
 ipSet (Just context) value =
+  --   if value < 0 || value >= length (instructions context) -- to decoment when we have the real instructions count
+  if value < 0
   --   if value < 0 || value >= length (instructions context) -- to decoment when we have the real instructions count
   if value < 0
     then Nothing
@@ -468,12 +499,35 @@ ipInc (Just context) =
 -- | Executes the next instruction.
 -- TODO CALL THE ACTUAL INSTRUCTION
 -- TODO ADD NEW INSTRUCTION TO THE PILE
+-- TODO ADD NEW INSTRUCTION TO THE PILE
 -- ipNext :: Maybe Context -> Maybe Context
 -- ipNext Nothing = Nothing
 -- ipNext (Just context) = case instructionPointer context + 1 >= length (instructions context) of
 --     True -> Nothing
 --     False -> Just context { instructionPointer = instructionPointer context + 1 }
 
+-- | Evaluates one instruction and returns the resulting context. Does not increase the instruction count.
+evalOneInstruction :: Context -> Instruction -> Maybe Context
+evalOneInstruction _ _ = Nothing
+
+-- | Executes all the instructions until the instruction pointer reaches the end of the program.
+-- Increases the instruction pointer after each call.
+-- execInstructions :: Maybe Context -> Maybe Context
+-- execInstructions Nothing = Nothing
+-- execInstructions ctx = execInstructions (ipInc c)
+--   where
+--     c = case ctx of
+--       Nothing -> Nothing
+--       Just context ->
+--         if instructionPointer context + 1 >= length (instructions context)
+--           then Nothing
+--           else evalOneInstruction context (instructions context !! instructionPointer context)
+
+execInstructions :: Maybe Context -> Maybe Context
+execInstructions Nothing = Nothing
+execInstructions (Just ctx) | exit ctx = Just ctx
+                            | instructionPointer ctx + 1 >= length (instructions ctx) = Nothing
+                            | otherwise = execInstructions (evalOneInstruction ctx (instructions ctx !! instructionPointer ctx))
 -- | Push instruction on the ins pile
 insPush :: Maybe Context -> Instruction -> Maybe Context
 insPush Nothing _ = Nothing
