@@ -34,8 +34,6 @@ module VM
     newSymTable,
     symSet,
     symGet,
-    symAlloc,
-    symFree,
     Labels (..),
     newLabels,
     labelSet,
@@ -318,33 +316,57 @@ heapFree (Just context) address = Just context {heap = Heap (Map.delete address 
 --------------------------------------------------------------------------------
 
 -- | The symbol table of the VM. It holds all the created symbols that can be
--- referenced by their name, and maps them to their address in the heap.
-newtype SymTable = SymTable {symTable :: Map.Map String Int} deriving (Show, Eq)
+-- referenced by their name, and maps them to their address in the stack.
+-- newtype SymTable = SymTable {symTable :: Map.Map String Int} deriving (Show, Eq)
 
--- | Creates a new empty symbol table.
+-- -- | Creates a new empty symbol table.
+-- newSymTable :: SymTable
+-- newSymTable = SymTable Map.empty
+
+-- -- | Sets the address of a symbol in the symbol table.
+-- symSet :: Maybe Context -> String -> Int -> Maybe Context
+-- symSet Nothing _ _ = Nothing
+-- symSet (Just context) name address = Just context {symbolTable = SymTable (Map.insert name address (symTable (symbolTable context)))}
+
+-- -- | Gets the address of a symbol in the symbol table. If the symbol isnt
+-- -- allocated, it returns Nothing.
+-- symGet :: Maybe Context -> String -> Maybe Int
+-- symGet Nothing _ = Nothing
+-- symGet (Just context) name = Map.lookup name (symTable (symbolTable context))
+
+-- -- | Allocates a new symbol in the symbol table, and returns its address.
+-- symAlloc :: Maybe Context -> String -> Maybe Context
+-- symAlloc Nothing _ = Nothing
+-- symAlloc (Just context) name = Just context {symbolTable = SymTable (Map.insert name (length (mem (heap context))) (symTable (symbolTable context)))}
+
+-- -- | Frees a symbol in the symbol table.
+-- symFree :: Maybe Context -> String -> Maybe Context
+-- symFree Nothing _ = Nothing
+-- symFree (Just context) name = Just context {symbolTable = SymTable (Map.delete name (symTable (symbolTable context)))}
+
+-- | variable names with their size
+newtype SymTable = SymTable {symTable :: [(String, Int)]} deriving (Show, Eq)
+
 newSymTable :: SymTable
-newSymTable = SymTable Map.empty
+newSymTable = SymTable []
 
--- | Sets the address of a symbol in the symbol table.
 symSet :: Maybe Context -> String -> Int -> Maybe Context
 symSet Nothing _ _ = Nothing
-symSet (Just context) name address = Just context {symbolTable = SymTable (Map.insert name address (symTable (symbolTable context)))}
+symSet (Just c) name size = Just c {symbolTable = SymTable (symTable (symbolTable c) ++ [(name, size)])}
 
--- | Gets the address of a symbol in the symbol table. If the symbol isnt
--- allocated, it returns Nothing.
+
 symGet :: Maybe Context -> String -> Maybe Int
 symGet Nothing _ = Nothing
-symGet (Just context) name = Map.lookup name (symTable (symbolTable context))
+symGet (Just c) name = getSymAddress (symTable (symbolTable c)) name
 
--- | Allocates a new symbol in the symbol table, and returns its address.
-symAlloc :: Maybe Context -> String -> Maybe Context
-symAlloc Nothing _ = Nothing
-symAlloc (Just context) name = Just context {symbolTable = SymTable (Map.insert name (length (mem (heap context))) (symTable (symbolTable context)))}
+getSymAddress :: [(String, Int)] -> String -> Maybe Int
+getSymAddress [] _ = Nothing
+getSymAddress ((name, size) : xs) target = if name == target
+    then Just size
+    else case getSymAddress xs target of
+        Nothing -> Nothing
+        Just address -> Just (address + size)
 
--- | Frees a symbol in the symbol table.
-symFree :: Maybe Context -> String -> Maybe Context
-symFree Nothing _ = Nothing
-symFree (Just context) name = Just context {symbolTable = SymTable (Map.delete name (symTable (symbolTable context)))}
 
 --------------------------------------------------------------------------------
 -- LABELS
@@ -565,3 +587,12 @@ execInstructions (Just ctx) | exit ctx = Just ctx
 insPush :: Maybe Context -> Instruction -> Maybe Context
 insPush Nothing _ = Nothing
 insPush (Just context) instruction = Just context {instructions = instruction : instructions context}
+
+-- | @helps: allocates space in the stack for the block's variables using the information
+-- in the symbol table. Moves ESP accordingly. The generated instructions should be used
+-- before using the instructions in the block.
+-- It is equivalent to :
+-- push ebp
+-- mov ebp, esp
+-- sub esp, <size the space needed for all variables>
+
