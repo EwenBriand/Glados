@@ -49,6 +49,7 @@ module VM
     Instruction (..),
     Context (..),
     newContext,
+    nextUUID,
     ipSet,
     ipGet,
     ipInc,
@@ -371,6 +372,7 @@ data Param
 
 data Instruction
   = Mov Param Param
+  | MovPtr Param Param -- mov [eax], ebx
   | Nop
   | Push Param
   | Pop Param
@@ -405,6 +407,7 @@ data Instruction
   | Div Param Param
   | Mod Param Param
   | Intinstruction Int
+  | Label String Int -- name of the label, instruction pointer at the time.
   deriving (Eq, Ord, Show)
 
 -- | Returns the real value contained after resolving the param.
@@ -447,13 +450,17 @@ data Context = Context
     labels :: Labels,
     flags :: Flags,
     instructionPointer :: Int,
-    exit :: Bool
+    exit :: Bool,
+    uuids :: Int
   }
   deriving (Show, Eq)
 
 -- | Creates a new empty context.
 newContext :: Context
-newContext = Context newRegisters newStack newHeap [] newSymTable newLabels newFlags 0 False
+newContext = Context newRegisters newStack newHeap [] newSymTable newLabels newFlags 0 False 0
+
+nextUUID :: Context -> (Int, Context)
+nextUUID context = (uuids context, context {uuids = uuids context + 1})
 
 -- | Sets the value of the instruction pointer.
 ipSet :: Maybe Context -> Int -> Maybe Context

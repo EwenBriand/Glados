@@ -30,7 +30,6 @@ library
       Lexer
       Lib
       MySyscall
-      Pointer
       REPL
       Tokenizer
       VM

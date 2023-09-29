@@ -172,6 +172,16 @@ popImpl ctx param = case stackPop ctx of
 -- MOVE SECTION
 --
 
+movPtrImpl :: Maybe Context -> Param -> Param -> Maybe Context
+movPtrImpl Nothing _ _ = Nothing
+movPtrImpl _ (Immediate _) _ = Nothing
+movPtrImpl ctx (Reg r) p = case getTrueValueFromParam ctx p of
+  Nothing -> Nothing
+  Just val -> case getTrueValueFromParam ctx (Reg r) of
+    Nothing -> Nothing
+    Just ptr -> heapSet ctx ptr val
+
+
 movImpl :: Maybe Context -> Param -> Param -> Maybe Context
 movImpl Nothing _ _ = Nothing
 movImpl _ (Immediate _) _ = Nothing

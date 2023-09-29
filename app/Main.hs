@@ -5,12 +5,14 @@ import MySyscall(
     SyscallCode(..),
     execSyscall)
 import VM
+import Lexer
+import EvaluateAST
 
 main :: IO ()
-main = case ioValue of
-    Nothing -> putStrLn "Nothing"
-    Just io -> io
-    where
-        (_, ioValue) = execSyscall ctx   SCEasyPrint
-        ctx = regSet (Just newContext) EAX 123
+main = do
+    let c = astNodeArrayToHASM (Just (newContext)) (ASTNodeArray [ASTNodeInteger 1, ASTNodeInteger 2])
+    case c of
+        Nothing -> putStrLn "Error!"
+        Just ctx -> print (instructions ctx)
+
 

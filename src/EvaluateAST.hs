@@ -1,15 +1,14 @@
 module EvaluateAST
   ( instructionFromAST,
-  )
+  astNodeArrayToHASM)
 where
 
 import qualified Data.Maybe
 import Lexer
     ( ASTNode(ASTNodeDefine, ASTNodeError, ASTNodeInteger,
               ASTNodeSymbol, ASTNodeSum, ASTNodeSub, ASTNodeMul, ASTNodeDiv,
-              ASTNodeMod, astnsName) )
-import VM (Context (..), Instruction (..), Param (..), Register (..), regGet, stackGetPointer, stackPush, symGet, symSet)
-
+              ASTNodeMod, astnsName, ASTNodeParamList, ASTNodeArray) )
+import VM (Context (..), Instruction (..), Param (..), Register (..), regGet, stackGetPointer, stackPush, symGet, symSet, labelSet)
 -- | Evaluates the AST and push the instructions into the context.
 evaluateAST :: ASTNode -> Context -> Maybe Context
 evaluateAST (ASTNodeError _) ctx = Nothing
@@ -24,6 +23,9 @@ instructionFromAST (ASTNodeMul x) ctx = putMulInstruction x ctx
 instructionFromAST (ASTNodeDiv x) ctx = putDivInstruction x ctx
 instructionFromAST (ASTNodeMod x) ctx = putModInstruction x ctx
 instructionFromAST (ASTNodeDefine name children) ctx = putDefineInstruction name children ctx
+instructionFromAST (ASTNodeParamList _) ctx = ctx -- not an actual instruction, does nothing
+instructionFromAST (ASTNodeArray n) ctx = astNodeArrayToHASM ctx (ASTNodeArray n)
+
 instructionFromAST _ _ = Nothing
 
 putIntegerInstruction :: Int -> Maybe Context -> Maybe Context
@@ -89,3 +91,60 @@ putDefineInstruction name _ ctx = do
       let ctx' = stackPush ctx eax
       let pointer = fst (stackGetPointer ctx')
       symSet ctx' (astnsName name) pointer
+
+-------------------------------------------------------------------------------
+-- SOLVING CYCLE IMPORT
+-------------------------------------------------------------------------------
+
+
+astNodeArrayToHASMLoopBody :: Maybe Context -> [ASTNode] -> Maybe Context
+astNodeArrayToHASMLoopBody Nothing _ = Nothing
+astNodeArrayToHASMLoopBody (Just ctx) [] = Just ctx
+astNodeArrayToHASMLoopBody (Just ctx) (x:xs) = case instructionFromAST x (Just ctx) of
+    Nothing -> Nothing
+    Just c -> astNodeArrayToHASMLoopBody (Just c {
+        instructions = instructions c ++ [
+            MovPtr (Reg ESI) (Reg EAX),       -- storing the value of the child node in the allocated memory
+            Add ESI (Immediate 4)]}) xs      -- incrementing the pointer to the next element of the array
+
+-- | @params:
+--     ctx: the context to use
+--     arr: the array to convert to HASM
+astNodeArrayToHASM :: Maybe Context -> ASTNode -> Maybe Context
+astNodeArrayToHASM Nothing _ = Nothing
+astNodeArrayToHASM (Just ctx) (ASTNodeArray arr) = astNodeArrayToHASMEnd (astNodeArrayToHASMLoopBody (aSTNodeArrayToHASMPreLoop (Just ctx) arr) arr)
+astNodeArrayToHASM _ _ = Nothing
+
+
+hasmBackupRegisters :: [Register] -> [Instruction]
+hasmBackupRegisters = foldr (\ x -> (++) [Push (Reg x)]) []
+
+hasmRestoreRegisters :: [Register] -> [Instruction]
+hasmRestoreRegisters = foldl (\ acc x -> acc ++ [Pop (Reg x)]) []
+
+labelImpl :: Maybe Context -> String -> Int -> Maybe Context
+labelImpl = labelSet
+
+hASMPointerAlloc :: Int -> [Instruction]
+hASMPointerAlloc size = [
+    Mov (Reg EAX) (Immediate 0x2d),             -- syscall number for sbrk, malloc & puts ptr to eax after exec
+    Mov (Reg EBX) (Immediate (size * 4)),       -- size of the array in ebx
+    Intinstruction 0x80,                        -- exec sbrk
+    Mov (Reg EBX) (Reg EAX)]                    -- we put the pointer to the array in ebx we put the pointer to the array in ebx
+
+aSTNodeArrayToHASMPreLoop :: Maybe Context -> [ASTNode] -> Maybe Context
+aSTNodeArrayToHASMPreLoop Nothing _ = Nothing
+aSTNodeArrayToHASMPreLoop (Just ctx) arr = Just ctx {instructions = instructions ctx ++
+    hasmBackupRegisters [EBX, ESI] ++
+    hASMPointerAlloc (length arr)
+    ++ [Mov (Reg ESI) (Reg EBX)]}                    -- esi will be used to iterate over the array
+    -- where
+    --     instrPtr = length (instructions c) + 6 -- 6 is the number of instructions added before the loop
+    --     (uuid, c) = nextUUID ctx
+
+astNodeArrayToHASMEnd :: Maybe Context -> Maybe Context
+astNodeArrayToHASMEnd Nothing = Nothing
+astNodeArrayToHASMEnd (Just ctx) = Just ctx {instructions = instructions ctx ++ [
+    Mov (Reg EAX) (Reg EBX)]
+    ++ hasmRestoreRegisters [EBX, ESI]} -- we put the pointer to the array in eax
+
