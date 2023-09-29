@@ -30,7 +30,6 @@ where
 import Data.Bits
 import Data.Maybe
 import VM
-import VM (Context(Context))
 import Data.Array
 
 -- ( Context (..),
@@ -128,6 +127,13 @@ instructionTable ctx Leave = leaveImpl ctx
 instructionTable ctx (Label name p) = labelSet ctx name p
 instructionTable ctx Interrupt = execSyscallWrapper ctx
 instructionTable ctx (MovStackAddr p1 p2) = movStackAddrImpl ctx p1 p2
+
+
+-- execInstructions :: Maybe Context -> Maybe Context
+-- execInstructions Nothing = Nothing
+-- execInstructions (Just ctx) | exit ctx = Just ctx
+--                             | instructionPointer ctx + 1 >= length (instructions ctx) = Nothing
+--                             | otherwise = execInstructions (evalOneInstruction ctx (instructions ctx !! instructionPointer ctx))
 
 -- | Evaluates one instruction and returns the resulting context. Does not increase the instruction count.
 evalOneInstruction :: Context -> Instruction -> Maybe Context

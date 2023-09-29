@@ -58,8 +58,7 @@ module VM
     regNot,
     insPush,
     execSyscallWrapper,
-    blockInitAllocVarSpace
-  )
+    blockInitAllocVarSpace)
 where
 
 import Data.Bits
@@ -568,8 +567,8 @@ ipInc (Just context) =
 --     False -> Just context { instructionPointer = instructionPointer context + 1 }
 
 -- | Evaluates one instruction and returns the resulting context. Does not increase the instruction count.
-evalOneInstruction :: Context -> Instruction -> Maybe Context
-evalOneInstruction _ _ = Nothing
+-- evalOneInstruction :: Context -> Instruction -> Maybe Context
+-- evalOneInstruction c i = instructionTable
 
 -- | Executes all the instructions until the instruction pointer reaches the end of the program.
 -- Increases the instruction pointer after each call.
@@ -584,11 +583,6 @@ evalOneInstruction _ _ = Nothing
 --           then Nothing
 --           else evalOneInstruction context (instructions context !! instructionPointer context)
 
-execInstructions :: Maybe Context -> Maybe Context
-execInstructions Nothing = Nothing
-execInstructions (Just ctx) | exit ctx = Just ctx
-                            | instructionPointer ctx + 1 >= length (instructions ctx) = Nothing
-                            | otherwise = execInstructions (evalOneInstruction ctx (instructions ctx !! instructionPointer ctx))
 -- | Push instruction on the ins pile
 insPush :: Maybe Context -> Instruction -> Maybe Context
 insPush Nothing _ = Nothing
@@ -604,8 +598,7 @@ insPush (Just context) instruction = Just context {instructions = instruction : 
 blockInitAllocVarSpace :: Maybe Context -> [Instruction]
 blockInitAllocVarSpace Nothing = []
 blockInitAllocVarSpace (Just c) = [
-    Push (Reg EBP),
-    Mov (Reg EBP) (Reg ESP),
+    Enter,
     Sub (Reg ESP) (Immediate totalsize)]
     where
         totalsize = fromMaybe 0 (symGetTotalSize (Just c))

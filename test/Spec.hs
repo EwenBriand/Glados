@@ -492,7 +492,7 @@ testInstructionFromAST =
   TestList
     [ "instruction from ast Node interger" ~: instructionFromAST (ASTNodeInteger 123) (Just newContext) ~?= Just (newContext {instructions = [Xor (Reg EAX) (Reg EAX), Mov (Reg EAX) (Immediate 123)]}),
       "instruction from ast Node sum" ~: instructionFromAST (ASTNodeSum [ASTNodeInteger 123, ASTNodeInteger 678]) (Just newContext) ~?= Just (newContext {instructions = [Xor (Reg EAX) (Reg EAX),Mov (Reg EAX) (Immediate 123),Push (Reg EAX),Xor (Reg EAX) (Reg EAX),Mov (Reg EAX) (Immediate 678),Pop (Reg EDI),Add EAX (Reg EDI)]}),
-      "instruction from ast Node sub" ~: instructionFromAST (ASTNodeSub [ASTNodeInteger 123, ASTNodeInteger 678]) (Just newContext) ~?= Just (newContext {instructions = [Xor (Reg EAX) (Reg EAX),Mov (Reg EAX) (Immediate 123),Push (Reg EAX),Xor (Reg EAX) (Reg EAX),Mov (Reg EAX) (Immediate 678),Pop (Reg EDI),Sub (Reg EAX) (Reg EDI)]})
+      "instruction from ast Node sub" ~: instructionFromAST (ASTNodeSub [ASTNodeInteger 123, ASTNodeInteger 678]) (Just newContext) ~?= Just (newContext {instructions = [Xor (Reg EAX) (Reg EAX),Mov (Reg EAX) (Immediate 678),Push (Reg EAX),Xor (Reg EAX) (Reg EAX),Mov (Reg EAX) (Immediate 123),Pop (Reg EDI),Sub (Reg EAX) (Reg EDI)]})
     ]
 
 testMovImpl :: Bool
@@ -1028,7 +1028,7 @@ testAstToInstr =
   TestList
     [ "Ast to Ctx push 3 instruction" ~: testAstPush ~?= 7,
       "Ast to Ctx push and execute multiple instructions" ~: testAstPushExec ~?= 50,
-      "Ast to Ctx push and execute hardcore instructions" ~: testAstPushExec2 ~?= 50,
+      "Ast to Ctx push and execute hardcore instructions" ~: testAstPushExec2 ~?= -50,
       "Ast to Ctx push and execute basic mult" ~: testAstPushExec3 ~?= 50,
       "Ast to Ctx push and execute basic div" ~: testAstPushExec4 ~?= 50,
       "Ast to Ctx push and execute basic mod" ~: testAstPushExec5 ~?= 2
@@ -1048,8 +1048,8 @@ testStrToHASMImp str = maybe [] instructions (strToHASM (Just newContext) str)
 
 testStrToHASM :: Test
 testStrToHASM = TestList [
-    "(1 2) array" ~: testStrToHASMImp "(1 2)" ~?= [Push (Reg EBP), Mov (Reg EBP) (Reg ESP), Sub(Reg ESP) (Immediate 0), Push (Reg EBX),Push (Reg ESI),Mov (Reg EAX) (Immediate 45),Mov (Reg EBX) (Immediate 8),Interrupt,Mov (Reg EBX) (Reg EAX),Mov (Reg ESI) (Reg EBX),Xor (Reg EAX) (Reg EAX),Mov (Reg EAX) (Immediate 1),MovPtr (Reg ESI) (Reg EAX),Add ESI (Immediate 4),Xor (Reg EAX) (Reg EAX),Mov (Reg EAX) (Immediate 2),MovPtr (Reg ESI) (Reg EAX),Add ESI (Immediate 4),Mov (Reg EAX) (Reg EBX),Pop (Reg EBX),Pop (Reg ESI)],
-    "(+ 1 2) sum" ~: testStrToHASMImp "(+ 1 2)" ~?= [Push (Reg EBP), Mov (Reg EBP) (Reg ESP), Sub(Reg ESP) (Immediate 0), Xor (Reg EAX) (Reg EAX),Mov (Reg EAX) (Immediate 1),Push (Reg EAX),Xor (Reg EAX) (Reg EAX),Mov (Reg EAX) (Immediate 2),Pop (Reg EDI),Add EAX (Reg EDI)]]
+    "(1 2) array" ~: testStrToHASMImp "(1 2)" ~?= [Enter, Sub(Reg ESP) (Immediate 0), Push (Reg EBX),Push (Reg ESI),Mov (Reg EAX) (Immediate 45),Mov (Reg EBX) (Immediate 8),Interrupt,Mov (Reg EBX) (Reg EAX),Mov (Reg ESI) (Reg EBX),Xor (Reg EAX) (Reg EAX),Mov (Reg EAX) (Immediate 1),MovPtr (Reg ESI) (Reg EAX),Add ESI (Immediate 4),Xor (Reg EAX) (Reg EAX),Mov (Reg EAX) (Immediate 2),MovPtr (Reg ESI) (Reg EAX),Add ESI (Immediate 4),Mov (Reg EAX) (Reg EBX),Pop (Reg EBX),Pop (Reg ESI)],
+    "(+ 1 2) sum" ~: testStrToHASMImp "(+ 1 2)" ~?= [Enter, Sub(Reg ESP) (Immediate 0), Xor (Reg EAX) (Reg EAX),Mov (Reg EAX) (Immediate 1),Push (Reg EAX),Xor (Reg EAX) (Reg EAX),Mov (Reg EAX) (Immediate 2),Pop (Reg EDI),Add EAX (Reg EDI)]]
 
 testMovStackAddrImpl :: [Int]
 testMovStackAddrImpl = pile (stack c)

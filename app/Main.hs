@@ -6,5 +6,5 @@ import Lexer
 import EvaluateAST
 
 main :: IO ()
-main = runREPL
+main = runREPL Nothing
 

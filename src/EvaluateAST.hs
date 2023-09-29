@@ -47,8 +47,8 @@ putSumInstruction _ _ = Nothing
 putSubInstruction :: [ASTNode] -> Maybe Context -> Maybe Context
 putSubInstruction _ Nothing = Nothing
 putSubInstruction [x, y] ctx = do
-  ctx' <- instructionFromAST x ctx
-  ctx'' <- instructionFromAST y (Just ctx' {instructions = instructions ctx' ++ [Push (Reg EAX)]})
+  ctx' <- instructionFromAST y ctx
+  ctx'' <- instructionFromAST x (Just ctx' {instructions = instructions ctx' ++ [Push (Reg EAX)]})
   return (ctx'' {instructions = instructions ctx'' ++ [Pop (Reg EDI), Sub (Reg EAX) (Reg EDI)]})
 putSubInstruction _ _ = Nothing
 
