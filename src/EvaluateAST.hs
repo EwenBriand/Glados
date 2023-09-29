@@ -1,17 +1,21 @@
 module EvaluateAST
-  ( instructionFromAST,
-  astNodeArrayToHASM)
+  (instructionFromAST,
+    astNodeArrayToHASM,
+    strToHASM)
 where
 
 import qualified Data.Maybe
+-- import Lexer
+--     ( ASTNode(ASTNodeDefine, ASTNodeError, ASTNodeInteger,
+--               ASTNodeSymbol, ASTNodeSum, ASTNodeSub, ASTNodeMul, ASTNodeDiv,
+--               ASTNodeMod, astnsName, ASTNodeParamList, ASTNodeArray, strToAST) )
 import Lexer
-    ( ASTNode(ASTNodeDefine, ASTNodeError, ASTNodeInteger,
-              ASTNodeSymbol, ASTNodeSum, ASTNodeSub, ASTNodeMul, ASTNodeDiv,
-              ASTNodeMod, astnsName, ASTNodeParamList, ASTNodeArray) )
 import VM (Context (..), Instruction (..), Param (..), Register (..), regGet, stackGetPointer, stackPush, symGet, symSet, labelSet)
--- | Evaluates the AST and push the instructions into the context.
-evaluateAST :: ASTNode -> Context -> Maybe Context
-evaluateAST (ASTNodeError _) ctx = Nothing
+
+
+-- -- | Evaluates the AST and push the instructions into the context.
+-- evaluateAST :: ASTNode -> Context -> Maybe Context
+-- evaluateAST (ASTNodeError _) ctx = Nothing
 
 instructionFromAST :: ASTNode -> Maybe Context -> Maybe Context
 instructionFromAST _ Nothing = Nothing
@@ -129,7 +133,7 @@ hASMPointerAlloc :: Int -> [Instruction]
 hASMPointerAlloc size = [
     Mov (Reg EAX) (Immediate 0x2d),             -- syscall number for sbrk, malloc & puts ptr to eax after exec
     Mov (Reg EBX) (Immediate (size * 4)),       -- size of the array in ebx
-    Intinstruction 0x80,                        -- exec sbrk
+    Interrupt,                        -- exec sbrk with int 0x80
     Mov (Reg EBX) (Reg EAX)]                    -- we put the pointer to the array in ebx we put the pointer to the array in ebx
 
 aSTNodeArrayToHASMPreLoop :: Maybe Context -> [ASTNode] -> Maybe Context
@@ -138,13 +142,16 @@ aSTNodeArrayToHASMPreLoop (Just ctx) arr = Just ctx {instructions = instructions
     hasmBackupRegisters [EBX, ESI] ++
     hASMPointerAlloc (length arr)
     ++ [Mov (Reg ESI) (Reg EBX)]}                    -- esi will be used to iterate over the array
-    -- where
-    --     instrPtr = length (instructions c) + 6 -- 6 is the number of instructions added before the loop
-    --     (uuid, c) = nextUUID ctx
 
 astNodeArrayToHASMEnd :: Maybe Context -> Maybe Context
 astNodeArrayToHASMEnd Nothing = Nothing
 astNodeArrayToHASMEnd (Just ctx) = Just ctx {instructions = instructions ctx ++ [
     Mov (Reg EAX) (Reg EBX)]
     ++ hasmRestoreRegisters [EBX, ESI]} -- we put the pointer to the array in eax
+
+strToHASM :: Maybe Context -> String -> Maybe Context
+strToHASM Nothing _ = Nothing
+strToHASM (Just ctx) str = case strToAST str of
+    ASTNodeError _ -> Nothing
+    ast -> instructionFromAST ast (Just ctx)
 

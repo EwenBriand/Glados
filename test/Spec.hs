@@ -10,7 +10,10 @@ import Lexer
 import qualified Data.Maybe as Data
 import VM
 
-import EvaluateAST
+import EvaluateAST(
+    instructionFromAST,
+    astNodeArrayToHASM,
+    strToHASM)
 
 -- testTokenize :: Test
 -- testTokenize = TestList [
@@ -1016,13 +1019,20 @@ testAstToInstr =
     ]
 
 testArrToHASMImpl :: [Instruction]
-testArrToHASMImpl = case astNodeArrayToHASM (Just newContext) (ASTNodeArray [ASTNodeInteger 1, ASTNodeInteger 2]) of
-    Nothing -> []
-    Just c -> instructions c
+testArrToHASMImpl = maybe [] instructions (astNodeArrayToHASM
+    (Just newContext)
+    (ASTNodeArray [ASTNodeInteger 1, ASTNodeInteger 2]))
 
 testArrToHASM :: Test
 testArrToHASM = TestList [
-    "Array to ASM" ~: testArrToHASMImpl ~?= [Push (Reg EBX),Push (Reg ESI),Mov (Reg EAX) (Immediate 45),Mov (Reg EBX) (Immediate 8),Intinstruction 128,Mov (Reg EBX) (Reg EAX),Mov (Reg ESI) (Reg EBX),Xor (Reg EAX) (Reg EAX),Mov (Reg EAX) (Immediate 1),MovPtr (Reg ESI) (Reg EAX),Add ESI (Immediate 4),Xor (Reg EAX) (Reg EAX),Mov (Reg EAX) (Immediate 2),MovPtr (Reg ESI) (Reg EAX),Add ESI (Immediate 4),Mov (Reg EAX) (Reg EBX),Pop (Reg EBX),Pop (Reg ESI)]]
+    "Array to ASM" ~: testArrToHASMImpl ~?= [Push (Reg EBX),Push (Reg ESI),Mov (Reg EAX) (Immediate 45),Mov (Reg EBX) (Immediate 8),Interrupt 128,Mov (Reg EBX) (Reg EAX),Mov (Reg ESI) (Reg EBX),Xor (Reg EAX) (Reg EAX),Mov (Reg EAX) (Immediate 1),MovPtr (Reg ESI) (Reg EAX),Add ESI (Immediate 4),Xor (Reg EAX) (Reg EAX),Mov (Reg EAX) (Immediate 2),MovPtr (Reg ESI) (Reg EAX),Add ESI (Immediate 4),Mov (Reg EAX) (Reg EBX),Pop (Reg EBX),Pop (Reg ESI)]]
+
+testStrToHASMImp :: [Instruction]
+testStrToHASMImp = maybe [] instructions (strToHASM (Just newContext) "(1 2)")
+
+testStrToHASM :: Test
+testStrToHASM = TestList [
+    "(1 2) array" ~: testStrToHASMImp ~?= [Push (Reg EBX),Push (Reg ESI),Mov (Reg EAX) (Immediate 45),Mov (Reg EBX) (Immediate 8),Interrupt 128,Mov (Reg EBX) (Reg EAX),Mov (Reg ESI) (Reg EBX),Xor (Reg EAX) (Reg EAX),Mov (Reg EAX) (Immediate 1),MovPtr (Reg ESI) (Reg EAX),Add ESI (Immediate 4),Xor (Reg EAX) (Reg EAX),Mov (Reg EAX) (Immediate 2),MovPtr (Reg ESI) (Reg EAX),Add ESI (Immediate 4),Mov (Reg EAX) (Reg EBX),Pop (Reg EBX),Pop (Reg ESI)]]
 
 main :: IO()
 main = do
@@ -1087,4 +1097,5 @@ main = do
   _ <- runTestTT testASTNodeParamList
   _ <- runTestTT testASTNodeArray
   _ <- runTestTT testArrToHASM
+  _ <- runTestTT testStrToHASM
   return ()

@@ -59,13 +59,58 @@ module VM
     getTrueValueFromParam,
     regNot,
     insPush,
-    regNot,
-    insPush,
+    execSyscallWrapper
   )
 where
 
 import Data.Bits
 import qualified Data.Map as Map
+
+---------------------------------------------------------------------------
+-- SYSCALLS
+---------------------------------------------------------------------------
+
+
+-- when adding a syscall value don't forget to add it to the codeFromMaybeInt function
+-- just below
+data SyscallCode = SCExit
+                    | SCEasyPrint
+                    deriving (Show, Eq, Ord)
+
+
+codeFromMaybeInt :: Maybe Int -> SyscallCode
+codeFromMaybeInt Nothing = SCExit
+codeFromMaybeInt (Just i) = case i of
+    1 -> SCExit
+    123456789 -> SCEasyPrint -- this is not a real syscall
+    _ -> SCExit
+
+callExit :: Maybe Context -> Maybe Context
+callExit Nothing = Nothing
+callExit (Just ctx) = Just ctx { exit = True }
+
+callEasyPrint :: Maybe Context -> IO()
+callEasyPrint ctx = case getTrueValueFromParam ctx (Reg EAX) of
+    Nothing -> putStrLn "Register error"
+    Just val -> print val
+
+
+-- | Gets a syscall Code from EAX (int) returns the SyscallCode value associated
+codeFromEAX :: Context -> SyscallCode
+codeFromEAX ctx = codeFromMaybeInt (getTrueValueFromParam (Just ctx) (Reg EAX))
+
+-- | executes a syscall from its code. (use SyscallCode datatype)
+execSyscall :: Maybe Context -> SyscallCode -> (Maybe Context, Maybe (IO()))
+execSyscall Nothing _ = (Nothing, Nothing)
+-- printf
+execSyscall (Just ctx) SCEasyPrint = (Just ctx, Just (callEasyPrint (Just ctx)))
+-- exit
+execSyscall (Just ctx) SCExit = (callExit (Just ctx), Nothing)
+
+execSyscallWrapper :: Maybe Context -> Maybe Context
+execSyscallWrapper Nothing = Nothing
+execSyscallWrapper (Just ctx) = fst (execSyscall (Just ctx) (codeFromEAX ctx))
+
 
 -------------------------------------------------------------------------------
 -- REGISTERS
@@ -416,7 +461,7 @@ data Instruction
   | Sub Param Param
   | Mult Param Param
   | Div Param
-  | Intinstruction Int
+  | Interrupt
   | Label String Int -- name of the label, instruction pointer at the time.
   deriving (Eq, Ord, Show)
 

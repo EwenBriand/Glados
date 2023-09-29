@@ -180,7 +180,13 @@ instructionTable ctx (Xor r1 r2) = xorImpl ctx r1 r2
 instructionTable ctx (And r1 r2) = andImpl ctx r1 r2
 instructionTable ctx (Or r1 r2) = orImpl ctx r1 r2
 instructionTable ctx (Not r1) = notImpl ctx r1
-instructionTable _ _ = Nothing
+instructionTable ctx (MovPtr p1 p2) = movPtrImpl ctx p1 p2
+instructionTable ctx Nop = ctx
+instructionTable ctx (IMul _ _) = ctx
+instructionTable ctx Enter = enterImpl (fromMaybe newContext ctx)
+instructionTable ctx Leave = leaveImpl ctx
+instructionTable ctx (Label name p) = labelSet ctx name p
+instructionTable ctx Interrupt = execSyscallWrapper ctx
 
 -- | Evaluates one instruction and returns the resulting context. Does not increase the instruction count.
 evalOneInstruction :: Context -> Instruction -> Maybe Context
