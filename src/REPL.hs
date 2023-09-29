@@ -37,7 +37,6 @@ runREPL (Just c) = do
             case strToHASM (Just c) input of
                 Nothing -> putStrLn "Error no HASM"
                 Just ctx -> do
-                    print ctx
                     let c' = execInstructions (Just ctx)
                     print c'
                     case getTrueValueFromParam c' (Reg EAX) of
