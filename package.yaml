@@ -24,6 +24,7 @@ dependencies:
 - HUnit
 - llvm-hs-pure >= 9.0.0
 - containers >= 0.6.2.1
+- array >= 0.5.4.0
 
 ghc-options:
 - -Wall

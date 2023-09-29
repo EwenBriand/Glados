@@ -22,10 +22,7 @@ module Instructions
     execInstructions,
     nbInstructions,
     evalOneInstruction,
-    execInstructions,
-    nbInstructions,
-    evalOneInstruction,
-  )
+    movStackAddrImpl)
 where
 
 -- labelAlloc,
@@ -92,6 +89,8 @@ import VM
 --   symSet,
 -- )
 import VM
+import VM (Context(Context))
+import Data.Array
 
 -- ( Context (..),
 --   Flag (..),
@@ -187,6 +186,7 @@ instructionTable ctx Enter = enterImpl (fromMaybe newContext ctx)
 instructionTable ctx Leave = leaveImpl ctx
 instructionTable ctx (Label name p) = labelSet ctx name p
 instructionTable ctx Interrupt = execSyscallWrapper ctx
+instructionTable ctx (MovStackAddr p1 p2) = movStackAddrImpl ctx p1 p2
 
 -- | Evaluates one instruction and returns the resulting context. Does not increase the instruction count.
 evalOneInstruction :: Context -> Instruction -> Maybe Context
@@ -247,6 +247,30 @@ movPtrImpl ctx (Reg r) p = case getTrueValueFromParam ctx p of
   Just val -> case getTrueValueFromParam ctx (Reg r) of
     Nothing -> Nothing
     Just ptr -> heapSet ctx ptr val
+
+
+setArrayIndex :: Int -> Int -> [Int] -> [Int]
+setArrayIndex _ _ [] = []
+setArrayIndex 0 val (_:xs) = val : xs
+setArrayIndex idx val (x:xs) = x : setArrayIndex (idx - 1) val xs
+
+setStackIndex :: Maybe Context -> Int -> Int -> Maybe Context
+setStackIndex Nothing _ _ = Nothing
+setStackIndex (Just ctx) idx value =
+    Just ctx {
+        stack = Stack (setArrayIndex idx value (pile (stack ctx)))
+    }
+
+-- sets the value at ebp + address
+movStackAddrImpl :: Maybe Context -> Param -> Param -> Maybe Context
+movStackAddrImpl Nothing _ _ = Nothing
+movStackAddrImpl ctx to from = case getTrueValueFromParam ctx from of
+  Nothing -> Nothing
+  Just val -> case regGet ctx ESP of
+    Nothing -> Nothing
+    Just ptr -> case getTrueValueFromParam ctx to of
+        Nothing -> Nothing
+        Just addr -> setStackIndex ctx (addr + ptr) val
 
 
 movImpl :: Maybe Context -> Param -> Param -> Maybe Context
