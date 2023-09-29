@@ -34,6 +34,7 @@ module VM
     newSymTable,
     symSet,
     symGet,
+    symGetTotalSize,
     Labels (..),
     newLabels,
     labelSet,
@@ -56,12 +57,14 @@ module VM
     getTrueValueFromParam,
     regNot,
     insPush,
-    execSyscallWrapper
+    execSyscallWrapper,
+    blockInitAllocVarSpace
   )
 where
 
 import Data.Bits
 import qualified Data.Map as Map
+import Data.Maybe
 
 ---------------------------------------------------------------------------
 -- SYSCALLS
@@ -354,7 +357,6 @@ symSet :: Maybe Context -> String -> Int -> Maybe Context
 symSet Nothing _ _ = Nothing
 symSet (Just c) name size = Just c {symbolTable = SymTable (symTable (symbolTable c) ++ [(name, size)])}
 
-
 symGet :: Maybe Context -> String -> Maybe Int
 symGet Nothing _ = Nothing
 symGet (Just c) name = getSymAddress (symTable (symbolTable c)) name
@@ -367,6 +369,9 @@ getSymAddress ((name, size) : xs) target = if name == target
         Nothing -> Nothing
         Just address -> Just (address + size)
 
+symGetTotalSize :: Maybe Context -> Maybe Int
+symGetTotalSize Nothing = Nothing
+symGetTotalSize (Just c) = Just (sum (map snd (symTable (symbolTable c))))
 
 --------------------------------------------------------------------------------
 -- LABELS
@@ -442,6 +447,7 @@ data Param
 data Instruction
   = Mov Param Param
   | MovPtr Param Param -- mov [eax], ebx
+  | MovStackAddr Param Param -- mov [ebp + 4], ebx
   | Nop
   | Push Param
   | Pop Param
@@ -595,4 +601,12 @@ insPush (Just context) instruction = Just context {instructions = instruction : 
 -- push ebp
 -- mov ebp, esp
 -- sub esp, <size the space needed for all variables>
+blockInitAllocVarSpace :: Maybe Context -> [Instruction]
+blockInitAllocVarSpace Nothing = []
+blockInitAllocVarSpace (Just c) = [
+    Push (Reg EBP),
+    Mov (Reg EBP) (Reg ESP),
+    Sub (Reg ESP) (Immediate totalsize)]
+    where
+        totalsize = fromMaybe 0 (symGetTotalSize (Just c))
 

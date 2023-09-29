@@ -10,7 +10,7 @@ import qualified Data.Maybe
 --               ASTNodeSymbol, ASTNodeSum, ASTNodeSub, ASTNodeMul, ASTNodeDiv,
 --               ASTNodeMod, astnsName, ASTNodeParamList, ASTNodeArray, strToAST) )
 import Lexer
-import VM (Context (..), Instruction (..), Param (..), Register (..), regGet, stackGetPointer, stackPush, symGet, symSet, labelSet)
+import VM (Context (..), Instruction (..), Param (..), Register (..), regGet, stackGetPointer, stackPush, symGet, symSet, labelSet, blockInitAllocVarSpace)
 
 
 -- -- | Evaluates the AST and push the instructions into the context.
@@ -151,7 +151,12 @@ astNodeArrayToHASMEnd (Just ctx) = Just ctx {instructions = instructions ctx ++ 
 
 strToHASM :: Maybe Context -> String -> Maybe Context
 strToHASM Nothing _ = Nothing
-strToHASM (Just ctx) str = case strToAST str of
-    ASTNodeError _ -> Nothing
-    ast -> instructionFromAST ast (Just ctx)
+strToHASM (Just ctx) str = c'
+    where
+        c' = case c of
+            Nothing -> Nothing
+            Just c2 -> Just c2 {instructions = blockInitAllocVarSpace (Just c2) ++ instructions c2}
+        c = case strToAST str of
+            ASTNodeError _ -> Nothing
+            ast -> instructionFromAST ast (Just ctx)
 

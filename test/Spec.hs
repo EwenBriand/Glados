@@ -1048,8 +1048,18 @@ testStrToHASMImp str = maybe [] instructions (strToHASM (Just newContext) str)
 
 testStrToHASM :: Test
 testStrToHASM = TestList [
-    "(1 2) array" ~: testStrToHASMImp "(1 2)" ~?= [Push (Reg EBX),Push (Reg ESI),Mov (Reg EAX) (Immediate 45),Mov (Reg EBX) (Immediate 8),Interrupt,Mov (Reg EBX) (Reg EAX),Mov (Reg ESI) (Reg EBX),Xor (Reg EAX) (Reg EAX),Mov (Reg EAX) (Immediate 1),MovPtr (Reg ESI) (Reg EAX),Add ESI (Immediate 4),Xor (Reg EAX) (Reg EAX),Mov (Reg EAX) (Immediate 2),MovPtr (Reg ESI) (Reg EAX),Add ESI (Immediate 4),Mov (Reg EAX) (Reg EBX),Pop (Reg EBX),Pop (Reg ESI)],
-    "(+ 1 2) sum" ~: testStrToHASMImp "(+ 1 2)" ~?= [Xor (Reg EAX) (Reg EAX),Mov (Reg EAX) (Immediate 1),Push (Reg EAX),Xor (Reg EAX) (Reg EAX),Mov (Reg EAX) (Immediate 2),Pop (Reg EDI),Add EAX (Reg EDI)]]
+    "(1 2) array" ~: testStrToHASMImp "(1 2)" ~?= [Push (Reg EBP), Mov (Reg EBP) (Reg ESP), Sub(Reg ESP) (Immediate 0), Push (Reg EBX),Push (Reg ESI),Mov (Reg EAX) (Immediate 45),Mov (Reg EBX) (Immediate 8),Interrupt,Mov (Reg EBX) (Reg EAX),Mov (Reg ESI) (Reg EBX),Xor (Reg EAX) (Reg EAX),Mov (Reg EAX) (Immediate 1),MovPtr (Reg ESI) (Reg EAX),Add ESI (Immediate 4),Xor (Reg EAX) (Reg EAX),Mov (Reg EAX) (Immediate 2),MovPtr (Reg ESI) (Reg EAX),Add ESI (Immediate 4),Mov (Reg EAX) (Reg EBX),Pop (Reg EBX),Pop (Reg ESI)],
+    "(+ 1 2) sum" ~: testStrToHASMImp "(+ 1 2)" ~?= [Push (Reg EBP), Mov (Reg EBP) (Reg ESP), Sub(Reg ESP) (Immediate 0), Xor (Reg EAX) (Reg EAX),Mov (Reg EAX) (Immediate 1),Push (Reg EAX),Xor (Reg EAX) (Reg EAX),Mov (Reg EAX) (Immediate 2),Pop (Reg EDI),Add EAX (Reg EDI)]]
+
+testMovStackAddrImpl :: [Int]
+testMovStackAddrImpl = pile (stack c)
+    where
+        c = Data.fromMaybe newContext (movStackAddrImpl ctx (Immediate 2) (Immediate 1))
+        ctx = stackPush (stackPush (stackPush (stackPush (Just newContext) 0) 0) 0) 0
+
+testMovStackAddr :: Test
+testMovStackAddr = TestList [
+    "mov stack addr" ~: testMovStackAddrImpl ~?= [0, 0, 1, 0]]
 
 main :: IO()
 main = do
@@ -1115,4 +1125,5 @@ main = do
   _ <- runTestTT testASTNodeArray
   _ <- runTestTT testArrToHASM
   _ <- runTestTT testStrToHASM
+  _ <- runTestTT testMovStackAddr
   return ()
