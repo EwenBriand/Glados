@@ -29,7 +29,6 @@ library
       Instructions
       Lexer
       Lib
-      MySyscall
       REPL
       Tokenizer
       VM
