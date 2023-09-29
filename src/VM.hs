@@ -23,7 +23,6 @@ module VM
     stackSwap,
     stackRot,
     stackGetPointer,
-    , stackGetPointer
     Heap (..),
     newHeap,
     heapSet,
@@ -415,14 +414,6 @@ data Flag
   | PF -- Parity flag
   | AF -- Auxiliary flag
   deriving (Eq, Ord, Show)
-data Flag
-  = ZF -- Zero flag
-  | SF -- Sign flag
-  | OF -- Overflow flag
-  | CF -- Carry flag
-  | PF -- Parity flag
-  | AF -- Auxiliary flag
-  deriving (Eq, Ord, Show)
 
 newtype Flags = Flags {flagMap :: Map.Map Flag Bool} deriving (Show, Eq)
 
@@ -549,8 +540,6 @@ nextUUID context = (uuids context, context {uuids = uuids context + 1})
 ipSet :: Maybe Context -> Int -> Maybe Context
 ipSet Nothing _ = Nothing
 ipSet (Just context) value =
-  --   if value < 0 || value >= length (instructions context) -- to decoment when we have the real instructions count
-  if value < 0
   --   if value < 0 || value >= length (instructions context) -- to decoment when we have the real instructions count
   if value < 0
     then Nothing

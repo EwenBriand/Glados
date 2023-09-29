@@ -19,7 +19,7 @@ data TokorNode = T TokenInfo
 data ASTNode = ASTNodeError {astnerrToken :: TokenInfo}
              | ASTNodeInteger {astniValue :: Integer}
              | ASTNodeSymbol {astnsName :: String}
-             | ASTNodeDefine {astndName :: ASTNode, astndChildren :: [ASTNode]}
+             | ASTNodeDefine {astndName :: ASTNode, astndChildren :: ASTNode}
 --  The sum can have an arbitrary number of parameters
              | ASTNodeSum {astnsChildren :: [ASTNode]}
              | ASTNodeSub {astnsChildren :: [ASTNode]}
@@ -64,7 +64,7 @@ tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokOperatorDiv _)
 -- tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokOperatorMod _), A n1, A n2, T (TokenInfo TokCloseParen _)] = ASTNodeMod [n1, n2]
 tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokOperatorMod _), A (ASTNodeParamList [n1, n2]), T (TokenInfo TokCloseParen _)] = ASTNodeMod [n1, n2]
 -- declaration of a variable
-tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokKeyworddefine _), A (ASTNodeSymbol sym), A n, T (TokenInfo TokCloseParen _)] = ASTNodeDefine (ASTNodeSymbol sym) [n]
+tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokKeyworddefine _), A (ASTNodeSymbol sym), A n, T (TokenInfo TokCloseParen _)] = ASTNodeDefine (ASTNodeSymbol sym) n
 -- error
 tokOrExprToASTNode _ = ASTNodeError (TokenInfo TokError "")
 

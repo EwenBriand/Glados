@@ -10,7 +10,7 @@ import qualified Data.Maybe
 --               ASTNodeSymbol, ASTNodeSum, ASTNodeSub, ASTNodeMul, ASTNodeDiv,
 --               ASTNodeMod, astnsName, ASTNodeParamList, ASTNodeArray, strToAST) )
 import Lexer
-import VM (Context (..), Instruction (..), Param (..), Register (..), regGet, stackGetPointer, stackPush, symGet, symSet, labelSet, blockInitAllocVarSpace)
+import VM (Context (..), Instruction (..), Param (..), Register (..), regGet, stackGetPointer, stackPush, symGet, symSet, labelSet, blockInitAllocVarSpace, symGetTotalSize)
 
 
 -- -- | Evaluates the AST and push the instructions into the context.
@@ -26,7 +26,7 @@ instructionFromAST (ASTNodeSub x) ctx = putSubInstruction x ctx
 instructionFromAST (ASTNodeMul x) ctx = putMulInstruction x ctx
 instructionFromAST (ASTNodeDiv x) ctx = putDivInstruction x ctx
 instructionFromAST (ASTNodeMod x) ctx = putModInstruction x ctx
-instructionFromAST (ASTNodeDefine name children) ctx = putDefineInstruction name children ctx
+instructionFromAST (ASTNodeDefine name x) ctx = putDefineInstruction name x ctx
 instructionFromAST (ASTNodeParamList _) ctx = ctx -- not an actual instruction, does nothing
 instructionFromAST (ASTNodeArray n) ctx = astNodeArrayToHASM ctx (ASTNodeArray n)
 
@@ -84,17 +84,28 @@ putSymbolInstruction s (Just ctx) = do
     Just sym' -> return (ctx {instructions = instructions ctx ++ [Xor (Reg EAX) (Reg EAX), Mov (Reg EAX) (Immediate sym')]})
     Nothing -> Nothing
 
-putDefineInstruction :: ASTNode -> [ASTNode] -> Maybe Context -> Maybe Context
+putDefineInstruction :: ASTNode -> ASTNode -> Maybe Context -> Maybe Context
 putDefineInstruction _ _ Nothing = Nothing
-putDefineInstruction name _ ctx = do
+putDefineInstruction name node ctx = do
   let newCtx = instructionFromAST name ctx
   case newCtx of
     Just _ -> Nothing
     Nothing -> do
-      eax <- regGet ctx EAX
-      let ctx' = stackPush ctx eax
-      let pointer = fst (stackGetPointer ctx')
-      symSet ctx' (astnsName name) pointer
+      let ctx' = symSet ctx (astnsName name) 4
+      let s = symGet ctx' (astnsName name)
+      let ctx'' = instructionFromAST node ctx'
+      case ctx'' of
+        Nothing -> Nothing
+        Just ctx''' ->  do
+          let res = symGetTotalSize ctx''
+          let res' = case res of
+                Nothing -> 0
+                Just res'' -> res''
+          case s of
+            Nothing -> Nothing
+            Just s' -> do
+              let val = res' - s'
+              return ( ctx''' {instructions = instructions ctx''' ++ [MovStackAddr (Immediate val) (Reg EAX)]})
 
 
 -------------------------------------------------------------------------------
