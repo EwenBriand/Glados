@@ -404,8 +404,7 @@ data Instruction
   | Add Register Param
   | Sub Param Param
   | Mult Param Param
-  | Div Param Param
-  | Mod Param Param
+  | Div Param
   | Intinstruction Int
   | Label String Int -- name of the label, instruction pointer at the time.
   deriving (Eq, Ord, Show)

@@ -4,86 +4,11 @@ import EvaluateAST (instructionFromAST)
 import Foreign (Bits (complement))
 import GHC.Base (IP (ip))
 import Instructions
-import Instructions (evalOneInstruction, instructionTable, nbInstructions)
-import Lexer
-  ( ASTNode (..),
-    TokorNode (A, T),
-    buildAST,
-    buildASTIterate,
-    strToAST,
-    tokOrExprToASTNode,
-    tryToMatch,
-  )
 import Test.HUnit
 import Tokenizer
-    ( tokenize,
-      tryTokenizeOne,
-      wordToTok,
-      Token(TokError, TokEmpty, TokComment, TokOperatorDiv,
-            TokOperatorMinus, TokKeyworddefine, TokSymbol, TokOpenParen,
-            TokOperatorPlus, TokInteger, TokCloseParen),
-      TokenInfo(TokenInfo) )
 import Lexer
-    ( buildAST,
-      buildASTIterate,
-      strToAST,
-      tokOrExprToASTNode,
-      tryToMatch,
-      ASTNode(ASTNodeInteger, ASTNodeSum, ASTNodeError, ASTNodeDefine,
-              ASTNodeSymbol, astniValue, ASTNodeParamList, ASTNodeArray),
-      TokorNode(T, A) )
-import VM( regGet, regSet, regInc, newContext, Register(..), regDec, regAdd,
-           regSub, regMul, regDiv, regMod,
-           regAnd, regOr, regXor, regNot,
-           newStack, stackPush, stackPop, stackPeek, stackDup, stackSwap,
-           stackRot, newHeap, heapSet, heapGet, heapAlloc, heapFree,
-           newLabels, labelSet, labelGet, labelFree,
-           newFlags, flagSet, flagGet, Flag(..), Instruction(..), Param(..))
 import qualified Data.Maybe as Data
-
 import VM
-  ( Context (..),
-    Flag (..),
-    Instruction (..),
-    Param (..),
-    Register (..),
-    flagGet,
-    flagSet,
-    heapAlloc,
-    heapFree,
-    heapGet,
-    heapSet,
-    insPush,
-    ipGet,
-    ipSet,
-    labelFree,
-    labelGet,
-    labelSet,
-    newContext,
-    newFlags,
-    newHeap,
-    newLabels,
-    newStack,
-    regAdd,
-    regAnd,
-    regDec,
-    regDiv,
-    regGet,
-    regInc,
-    regMod,
-    regMul,
-    regNot,
-    regOr,
-    regSet,
-    regSub,
-    regXor,
-    stackDup,
-    stackPeek,
-    stackPop,
-    stackPush,
-    stackRot,
-    stackSwap,
-  )
 
 import EvaluateAST
 
@@ -563,8 +488,8 @@ testInstructionFromAST :: Test
 testInstructionFromAST =
   TestList
     [ "instruction from ast Node interger" ~: instructionFromAST (ASTNodeInteger 123) (Just newContext) ~?= Just (newContext {instructions = [Xor (Reg EAX) (Reg EAX), Mov (Reg EAX) (Immediate 123)]}),
-      "instruction from ast Node sum" ~: instructionFromAST (ASTNodeSum [ASTNodeInteger 123, ASTNodeInteger 678]) (Just newContext) ~?= Just (newContext {instructions = [Xor (Reg EAX) (Reg EAX), Mov (Reg EAX) (Immediate 123), Mov (Reg EDI) (Reg EAX), Xor (Reg EAX) (Reg EAX), Mov (Reg EAX) (Immediate 678), Add EAX (Reg EDI)]}),
-      "instruction from ast Node sub" ~: instructionFromAST (ASTNodeSub [ASTNodeInteger 123, ASTNodeInteger 678]) (Just newContext) ~?= Just (newContext {instructions = [Xor (Reg EAX) (Reg EAX), Mov (Reg EAX) (Immediate 123), Mov (Reg EDI) (Reg EAX), Xor (Reg EAX) (Reg EAX), Mov (Reg EAX) (Immediate 678), Sub (Reg EAX) (Reg EDI)]})
+      "instruction from ast Node sum" ~: instructionFromAST (ASTNodeSum [ASTNodeInteger 123, ASTNodeInteger 678]) (Just newContext) ~?= Just (newContext {instructions = [Xor (Reg EAX) (Reg EAX),Mov (Reg EAX) (Immediate 123),Push (Reg EAX),Xor (Reg EAX) (Reg EAX),Mov (Reg EAX) (Immediate 678),Pop (Reg EDI),Add EAX (Reg EDI)]}),
+      "instruction from ast Node sub" ~: instructionFromAST (ASTNodeSub [ASTNodeInteger 123, ASTNodeInteger 678]) (Just newContext) ~?= Just (newContext {instructions = [Xor (Reg EAX) (Reg EAX),Mov (Reg EAX) (Immediate 123),Push (Reg EAX),Xor (Reg EAX) (Reg EAX),Mov (Reg EAX) (Immediate 678),Pop (Reg EDI),Sub (Reg EAX) (Reg EDI)]})
     ]
 
 testMovImpl :: Bool
@@ -900,18 +825,18 @@ testMult =
 
 testDivImpl :: Int -> Int -> Int
 testDivImpl a b =
-  Data.fromMaybe 0 (regGet context2 EBX)
+  Data.fromMaybe 0 (regGet context2 EAX)
   where
-    context2 = instructionTable context1 (Div (Reg EBX) (Reg EAX))
-    context1 = instructionTable context (Mov (Reg EAX) (Immediate b))
-    context = instructionTable (Just newContext) (Mov (Reg EBX) (Immediate a))
+    context2 = instructionTable context1 (Div (Reg EBX))
+    context1 = instructionTable context (Mov (Reg EBX) (Immediate b))
+    context = instructionTable (Just newContext) (Mov (Reg EAX) (Immediate a))
 
 testDivImpl1 :: Int -> Int -> Int
 testDivImpl1 a b =
-  Data.fromMaybe 0 (regGet context2 EBX)
+  Data.fromMaybe (-1) (regGet context2 EAX)
   where
-    context2 = instructionTable context (Div (Reg EBX) (Immediate b))
-    context = instructionTable (Just newContext) (Mov (Reg EBX) (Immediate a))
+    context2 = instructionTable context (Div (Immediate b))
+    context = instructionTable (Just newContext) (Mov (Reg EAX) (Immediate a))
 
 testDiv :: Test
 testDiv =
@@ -923,18 +848,18 @@ testDiv =
 
 testModImpl :: Int -> Int -> Int
 testModImpl a b =
-  Data.fromMaybe 0 (regGet context2 EBX)
+  Data.fromMaybe 0 (regGet context2 EDX)
   where
-    context2 = instructionTable context1 (Mod (Reg EBX) (Reg EAX))
-    context1 = instructionTable context (Mov (Reg EAX) (Immediate b))
-    context = instructionTable (Just newContext) (Mov (Reg EBX) (Immediate a))
+    context2 = instructionTable context1 (Div (Reg EBX))
+    context1 = instructionTable context (Mov (Reg EBX) (Immediate b))
+    context = instructionTable (Just newContext) (Mov (Reg EAX) (Immediate a))
 
 testModImpl1 :: Int -> Int -> Int
 testModImpl1 a b =
-  Data.fromMaybe 0 (regGet context2 EBX)
+  Data.fromMaybe (-1) (regGet context2 EDX)
   where
-    context2 = instructionTable context (Mod (Reg EBX) (Immediate b))
-    context = instructionTable (Just newContext) (Mov (Reg EBX) (Immediate a))
+    context2 = instructionTable context (Div (Immediate b))
+    context = instructionTable (Just newContext) (Mov (Reg EAX) (Immediate a))
 
 testMod :: Test
 testMod =
@@ -1083,17 +1008,17 @@ testAstPushExec4 =
   Data.fromMaybe (-1) (regGet context2 EAX)
   where
     context2 = execInstructions c
-    c = instructionFromAST (ASTNodeDiv [ASTNodeInteger 2, ASTNodeInteger 100]) (Just newContext)
+    c = instructionFromAST (ASTNodeDiv [ASTNodeInteger 100, ASTNodeInteger 2]) (Just newContext)
 
--- (/ 2 100)
+-- (/ 100 2)
 testAstPushExec5 :: Int
 testAstPushExec5 =
   Data.fromMaybe (-1) (regGet context2 EAX)
   where
     context2 = execInstructions c
-    c = instructionFromAST (ASTNodeMod [ASTNodeInteger 4, ASTNodeInteger 10]) (Just newContext)
+    c = instructionFromAST (ASTNodeMod [ASTNodeInteger 10, ASTNodeInteger 4]) (Just newContext)
 
--- (% 2 100)
+-- (% 10 4)
 
 testAstToInstr :: Test
 testAstToInstr =
