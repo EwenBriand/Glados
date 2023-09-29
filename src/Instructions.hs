@@ -27,66 +27,12 @@ where
 
 -- labelAlloc,
 
+-- labelAlloc,
+
 import Data.Bits
 import Data.Maybe
 import VM
 import Data.Array
-
--- ( Context (..),
---   Flag (..),
---   Flags (..),
---   Heap (..),
---   Instruction (..),
---   Labels (..),
---   Param (..),
---   Register (..),
---   Registers (..),
---   Stack (..),
---   SymTable (..),
---   flagGet,
---   flagSet,
---   getTrueValueFromParam,
---   heapAlloc,
---   heapFree,
---   heapGet,
---   heapSet,
---   ipGet,
---   ipInc,
---   ipSet,
---   labelFree,
---   labelGet,
---   labelSet,
---   newContext,
---   newFlags,
---   newHeap,
---   newLabels,
---   newRegisters,
---   newStack,
---   newSymTable,
---   regAdd,
---   regAnd,
---   regDec,
---   regDiv,
---   regGet,
---   regInc,
---   regMod,
---   regMul,
---   regOr,
---   regSet,
---   regSub,
---   regXor,
---   setTrueValueFromParam,
---   stackDup,
---   stackPeek,
---   stackPop,
---   stackPush,
---   stackRot,
---   stackSwap,
---   symAlloc,
---   symFree,
---   symGet,
---   symSet,
--- )
 
 instructionTable :: Maybe Context -> Instruction -> Maybe Context
 instructionTable Nothing _ = Nothing

@@ -119,7 +119,7 @@ execSyscallWrapper (Just ctx) = fst (execSyscall (Just ctx) (codeFromEAX ctx))
 data Register = EAX | EBX | ECX | EDX | ESI | EDI | EBP | ESP
   deriving (Eq, Ord, Show)
 
-newtype Registers = Registers {regs :: Map.Map Register Int} deriving (Show, Eq)
+newtype Registers = Registers { regs:: Map.Map Register Int } deriving (Show, Eq)
 
 -- | Creates a new empty set of registers.
 newRegisters :: Registers
@@ -559,6 +559,7 @@ ipInc (Just context) =
 
 -- | Executes the next instruction.
 -- TODO CALL THE ACTUAL INSTRUCTION
+-- TODO ADD NEW INSTRUCTION TO THE PILE
 -- TODO ADD NEW INSTRUCTION TO THE PILE
 -- ipNext :: Maybe Context -> Maybe Context
 -- ipNext Nothing = Nothing

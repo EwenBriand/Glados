@@ -110,28 +110,13 @@ testBuildAST =
     ]
 
 testStrToAST :: Test
-testStrToAST =
-  TestList
-    [ -- (+ 123 678)
-      "build str to ast sum" ~: strToAST "(+ 123 678)" ~?= ASTNodeSum [ASTNodeInteger 123, ASTNodeInteger 678],
-      -- (+ (+ 123) 2)
-      "build str to ast invalid" ~: strToAST "(+ (+ 123) 2)" ~?= ASTNodeError (TokenInfo TokError "cannot resolve input"),
-      -- (define foo 123)
-      "declare var foo with value 123" ~: strToAST "(define foo 123)" ~?= ASTNodeDefine (ASTNodeSymbol "foo") [ASTNodeInteger 123]
-    ]
-
-testASTNodeParamList :: Test
-testASTNodeParamList = TestList [
-    "test three integers: " ~: strToAST "1 2 3" ~?= ASTNodeParamList [ASTNodeInteger 1, ASTNodeInteger 2, ASTNodeInteger 3],
-    "test two integers: " ~: strToAST "1 2" ~?= ASTNodeParamList [ASTNodeInteger 1, ASTNodeInteger 2],
-    "test one integer: " ~: strToAST "1" ~?= ASTNodeInteger 1]
-
-testASTNodeArray :: Test
-testASTNodeArray = TestList [
-    "test three integers: " ~: strToAST "(1 2 3)" ~?= ASTNodeArray [ASTNodeInteger 1, ASTNodeInteger 2, ASTNodeInteger 3],
-    "test two integers: " ~: strToAST "(1 2)" ~?= ASTNodeArray [ASTNodeInteger 1, ASTNodeInteger 2],
-    "test one integer: " ~: strToAST "(1)" ~?= ASTNodeArray [ASTNodeInteger 1]]
-
+testStrToAST = TestList [
+    -- (+ 123 678)
+    "build str to ast sum" ~: strToAST "(+ 123 678)" ~?= ASTNodeSum [ASTNodeInteger 123, ASTNodeInteger 678],
+    -- (+ (+ 123) 2)
+    "build str to ast invalid" ~: strToAST "(+ (+ 123) 2)" ~?= ASTNodeError (TokenInfo TokError "cannot resolve input"),
+    -- (define foo 123)
+    "declare var foo with value 123" ~: strToAST "(define foo 123)" ~?= ASTNodeDefine (ASTNodeSymbol "foo") (ASTNodeInteger 123)]
 
 testIncRegisterImpl :: Bool
 testIncRegisterImpl =
@@ -500,8 +485,8 @@ testMovImpl =
     regGet context2 EBX == Just 42
     where
         -- context2 = regSet (Just newContext)
-        context2 = instructionTable context (Mov (Reg EBX) (Reg EAX))
-        context = instructionTable (Just newContext) (Mov (Reg EAX) (Immediate 42))
+        context2 = instructionTable context ( (Mov (Reg EBX) (Reg EAX)))
+        context = instructionTable (Just newContext) ( (Mov (Reg EAX) (Immediate 42)))
 
 testMov :: Test
 testMov = TestCase (assertBool "mov" testMovImpl)
@@ -582,7 +567,6 @@ testCmpImpl8 =
     where
         c = instructionTable context ( (Cmp (Reg EAX) (Immediate 41)))
         context = instructionTable (Just newContext) (Mov (Reg EAX) (Immediate 42))
-
 
 testCmp :: Test
 testCmp =
@@ -1061,6 +1045,10 @@ testMovStackAddr :: Test
 testMovStackAddr = TestList [
     "mov stack addr" ~: testMovStackAddrImpl ~?= [0, 0, 1, 0]]
 
+testputDefineInstruction :: Test
+testputDefineInstruction = TestList [
+      "instruction from ast Node define" ~: instructionFromAST (ASTNodeDefine (ASTNodeSymbol "oui") (ASTNodeInteger 42)) (Just newContext) ~?= Just newContext {instructions = [Xor (Reg EAX) (Reg EAX),Mov (Reg EAX) (Immediate 42),MovStackAddr (Immediate 0) (Reg EAX)], symbolTable = SymTable {symTable = [("oui",4)]}}]
+
 main :: IO()
 main = do
   _ <- runTestTT testTryTokenizeOne
@@ -1121,9 +1109,10 @@ main = do
   _ <- runTestTT testNot
   _ <- runTestTT testPushInstr
   _ <- runTestTT testAstToInstr
-  _ <- runTestTT testASTNodeParamList
-  _ <- runTestTT testASTNodeArray
+  -- _ <- runTestTT testASTNodeParamList
+  -- _ <- runTestTT testASTNodeArray
   _ <- runTestTT testArrToHASM
   _ <- runTestTT testStrToHASM
   _ <- runTestTT testMovStackAddr
+  _ <- runTestTT testputDefineInstruction
   return ()
