@@ -118,6 +118,10 @@ testStrToAST = TestList [
     -- (define foo 123)
     "declare var foo with value 123" ~: strToAST "(define foo 123)" ~?= ASTNodeDefine (ASTNodeSymbol "foo") (ASTNodeInteger 123)]
 
+testInstructionList :: Test
+testInstructionList = TestList [
+    "valid: " ~: strToAST "(+ 1 1)\n(+ 2 2)\n" ~?= ASTNodeInstructionSequence [ASTNodeSum [ASTNodeInteger 1, ASTNodeInteger 1], ASTNodeSum [ASTNodeInteger 2, ASTNodeInteger 2]]]
+
 testIncRegisterImpl :: Bool
 testIncRegisterImpl =
   regGet context EAX == Just 1
@@ -386,7 +390,7 @@ testStackSwap = TestCase (assertBool "stack swap" testStackSwapImpl)
 
 testStackSwapImpl :: Bool
 testStackSwapImpl =
-  Data.fromMaybe 0 value == 2
+  Data.fromMaybe 0 value == 3
   where
     -- caution, the code executes from the bottom to the top
     c = stackPush (stackPush (Just newContext) 2) 3
@@ -400,7 +404,7 @@ testStackRot = TestCase (assertBool "stack rot" testStackRotImpl)
 
 testStackRotImpl :: Bool
 testStackRotImpl =
-  Data.fromMaybe 0 value == 2
+  Data.fromMaybe 0 value == 4
   where
     -- caution, the code executes from the bottom to the top
     c = stackPush (stackPush (stackPush (Just newContext) 2) 3) 4
@@ -1032,8 +1036,8 @@ testStrToHASMImp str = maybe [] instructions (strToHASM (Just newContext) str)
 
 testStrToHASM :: Test
 testStrToHASM = TestList [
-    "(1 2) array" ~: testStrToHASMImp "(1 2)" ~?= [Enter, Sub(Reg ESP) (Immediate 0), Push (Reg EBX),Push (Reg ESI),Mov (Reg EAX) (Immediate 45),Mov (Reg EBX) (Immediate 8),Interrupt,Mov (Reg EBX) (Reg EAX),Mov (Reg ESI) (Reg EBX),Xor (Reg EAX) (Reg EAX),Mov (Reg EAX) (Immediate 1),MovPtr (Reg ESI) (Reg EAX),Add ESI (Immediate 4),Xor (Reg EAX) (Reg EAX),Mov (Reg EAX) (Immediate 2),MovPtr (Reg ESI) (Reg EAX),Add ESI (Immediate 4),Mov (Reg EAX) (Reg EBX),Pop (Reg EBX),Pop (Reg ESI)],
-    "(+ 1 2) sum" ~: testStrToHASMImp "(+ 1 2)" ~?= [Enter, Sub(Reg ESP) (Immediate 0), Xor (Reg EAX) (Reg EAX),Mov (Reg EAX) (Immediate 1),Push (Reg EAX),Xor (Reg EAX) (Reg EAX),Mov (Reg EAX) (Immediate 2),Pop (Reg EDI),Add EAX (Reg EDI)]]
+    "(1 2) array" ~: testStrToHASMImp "(1 2)" ~?= [Enter, Push (Reg EBX),Push (Reg ESI),Mov (Reg EAX) (Immediate 45),Mov (Reg EBX) (Immediate 8),Interrupt,Mov (Reg EBX) (Reg EAX),Mov (Reg ESI) (Reg EBX),Xor (Reg EAX) (Reg EAX),Mov (Reg EAX) (Immediate 1),MovPtr (Reg ESI) (Reg EAX),Add ESI (Immediate 4),Xor (Reg EAX) (Reg EAX),Mov (Reg EAX) (Immediate 2),MovPtr (Reg ESI) (Reg EAX),Add ESI (Immediate 4),Mov (Reg EAX) (Reg EBX),Pop (Reg EBX),Pop (Reg ESI)],
+    "(+ 1 2) sum" ~: testStrToHASMImp "(+ 1 2)" ~?= [Enter, Xor (Reg EAX) (Reg EAX),Mov (Reg EAX) (Immediate 1),Push (Reg EAX),Xor (Reg EAX) (Reg EAX),Mov (Reg EAX) (Immediate 2),Pop (Reg EDI),Add EAX (Reg EDI)]]
 
 testMovStackAddrImpl :: [Int]
 testMovStackAddrImpl = pile (stack c)
@@ -1048,6 +1052,10 @@ testMovStackAddr = TestList [
 testputDefineInstruction :: Test
 testputDefineInstruction = TestList [
       "instruction from ast Node define" ~: instructionFromAST (ASTNodeDefine (ASTNodeSymbol "oui") (ASTNodeInteger 42)) (Just newContext) ~?= Just newContext {instructions = [Xor (Reg EAX) (Reg EAX),Mov (Reg EAX) (Immediate 42),MovStackAddr (Immediate 0) (Reg EAX)], symbolTable = SymTable {symTable = [("oui",4)]}}]
+
+testMovFromStackAddr :: Test
+testMovFromStackAddr = TestList [
+      "getting index two of the stack" ~: movFromStackAddrImpl (Just newContext {stack = Stack [0, 1, 2, 3]}) (Reg EAX) (Immediate 2) ~?= regSet (Just newContext {stack = Stack [0, 1, 2, 3]}) EAX 2]
 
 main :: IO()
 main = do
@@ -1115,4 +1123,6 @@ main = do
   _ <- runTestTT testStrToHASM
   _ <- runTestTT testMovStackAddr
   _ <- runTestTT testputDefineInstruction
+  _ <- runTestTT testInstructionList
+  _ <- runTestTT testMovFromStackAddr
   return ()

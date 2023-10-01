@@ -204,14 +204,15 @@ newStack = Stack []
 -- | Pushes a value on the stack.
 stackPush :: Maybe Context -> Int -> Maybe Context
 stackPush Nothing _ = Nothing
-stackPush (Just context) value = Just context {stack = Stack (value : pile (stack context))}
+stackPush (Just context) value = Just context {stack = Stack (pile (stack context) ++ [value]), registers = Registers (Map.adjust (+ 1) ESP (regs (registers context)))}
 
 -- | Pops a value from the stack.
 stackPop :: Maybe Context -> Maybe (Int, Maybe Context)
 stackPop Nothing = Nothing
 stackPop (Just context) = case pile (stack context) of
   [] -> Nothing
-  (x : xs) -> Just (x, Just context {stack = Stack xs})
+  arr -> Just (last arr, Just context {stack = Stack (init arr), registers = Registers (Map.adjust (subtract 1) ESP (regs (registers context)))})
+--   (x : xs) -> Just (x, Just context {stack = Stack xs, registers = Registers (Map.adjust (subtract 1) ESP (regs (registers context)))})
 
 -- | Peeks a value from the stack.
 stackPeek :: Maybe Context -> Maybe (Int, Maybe Context)
@@ -358,15 +359,31 @@ symSet (Just c) name size = Just c {symbolTable = SymTable (symTable (symbolTabl
 
 symGet :: Maybe Context -> String -> Maybe Int
 symGet Nothing _ = Nothing
-symGet (Just c) name = getSymAddress (symTable (symbolTable c)) name
+symGet (Just c) name = case getSymAddress (symTable (symbolTable c)) name of
+    -1 -> Nothing
+    address -> Just (address)
 
-getSymAddress :: [(String, Int)] -> String -> Maybe Int
-getSymAddress [] _ = Nothing
+-- returns the index of the element with the given name in the symbol table, or -1
+-- if it doesn't exist
+getSymAddress :: [(String, Int)] -> String -> Int
+getSymAddress [] _ = -1
 getSymAddress ((name, size) : xs) target = if name == target
-    then Just size
+    then 0
     else case getSymAddress xs target of
-        Nothing -> Nothing
-        Just address -> Just (address + size)
+        -1 -> -1
+        address -> address + 1
+
+
+-- symGet (Just c) name = getSymAddress (symTable (symbolTable c)) name
+
+-- getSymAddress :: [(String, Int)] -> String -> Maybe Int
+-- getSymAddress [] _ = Nothing
+-- getSymAddress ((name, size) : xs) target = if name == target
+--     then Just size
+--     else case getSymAddress xs target of
+--         Nothing -> Nothing
+--         Just address -> Just (address + size)
+
 
 symGetTotalSize :: Maybe Context -> Maybe Int
 symGetTotalSize Nothing = Nothing
@@ -447,6 +464,7 @@ data Instruction
   = Mov Param Param
   | MovPtr Param Param -- mov [eax], ebx
   | MovStackAddr Param Param -- mov [ebp + 4], ebx
+  | MovFromStackAddr Param Param -- mov ebx, [ebp + 4]
   | Nop
   | Push Param
   | Pop Param
@@ -526,7 +544,16 @@ data Context = Context
     exit :: Bool,
     uuids :: Int
   }
-  deriving (Show, Eq)
+  deriving (Eq)
+
+showInstructArray :: [Instruction] -> String
+showInstructArray [] = ""
+showInstructArray (x:xs) = show x ++ "\n" ++ showInstructArray xs
+
+instance Show Context where
+    show (Context registers stack heap instructions symbolTable labels flags instructionPointer exit uuids) =
+        "Context {registers = " ++ show registers ++ ", stack = " ++ show stack ++ ", heap = " ++ show heap ++ ", instructions = [\n" ++ showInstructArray instructions ++ "\n], symbolTable = " ++ show symbolTable ++ ", labels = " ++ show labels ++ ", flags = " ++ show flags ++ ", instructionPointer = " ++ show instructionPointer ++ ", exit = " ++ show exit ++ ", uuids = " ++ show uuids ++ "}"
+
 
 -- | Creates a new empty context.
 newContext :: Context
@@ -589,6 +616,12 @@ insPush :: Maybe Context -> Instruction -> Maybe Context
 insPush Nothing _ = Nothing
 insPush (Just context) instruction = Just context {instructions = instruction : instructions context}
 
+hasmNStackPush :: Int -> [Instruction]
+hasmNStackPush 0 = []
+hasmNStackPush n = Push (Immediate 0) : hasmNStackPush (n - 1)
+
+
+
 -- | @helps: allocates space in the stack for the block's variables using the information
 -- in the symbol table. Moves ESP accordingly. The generated instructions should be used
 -- before using the instructions in the block.
@@ -598,9 +631,8 @@ insPush (Just context) instruction = Just context {instructions = instruction : 
 -- sub esp, <size the space needed for all variables>
 blockInitAllocVarSpace :: Maybe Context -> [Instruction]
 blockInitAllocVarSpace Nothing = []
-blockInitAllocVarSpace (Just c) = [
-    Enter,
-    Sub (Reg ESP) (Immediate totalsize)]
+blockInitAllocVarSpace (Just c) =
+    Enter : hasmNStackPush neededSpace
     where
-        totalsize = fromMaybe 0 (symGetTotalSize (Just c))
+        neededSpace = length (symTable (symbolTable c)) - length (pile (stack c))
 

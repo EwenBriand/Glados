@@ -29,6 +29,7 @@ data ASTNode = ASTNodeError {astnerrToken :: TokenInfo}
              | ASTNodeDebug {astndChildrenDebug :: [TokorNode]}
              | ASTNodeParamList {astnplChildren :: [ASTNode]}
              | ASTNodeArray {astnaChildren :: [ASTNode]}
+             | ASTNodeInstructionSequence {astnisChildren :: [ASTNode]}
     deriving (Eq, Show)
 
 -- | @params:
@@ -70,6 +71,7 @@ tokOrExprToASTNode _ = ASTNodeError (TokenInfo TokError "")
 
 
 
+
 -- | @params:
 --     currWord: the current Array which we are trying to reduce to a single node
 --     lastmatch: the last valid match. First call the function with ASTNodeError
@@ -78,8 +80,8 @@ tokOrExprToASTNode _ = ASTNodeError (TokenInfo TokError "")
 tryToMatch :: [TokorNode] -> TokorNode -> [TokorNode] -> (TokorNode, [TokorNode])
 tryToMatch [] _ [] = (A (ASTNodeError (TokenInfo TokError "")), [])
 tryToMatch _ lastmatch [] = (lastmatch, [])
-tryToMatch currWord lastmatch (x:xs) = case (tokOrExprToASTNode (currWord ++ [x])) of
-    ASTNodeError _ -> tryToMatch (currWord ++ [x]) (lastmatch) xs
+tryToMatch currWord lastmatch (x:xs) = case tokOrExprToASTNode (currWord ++ [x]) of
+    ASTNodeError _ -> tryToMatch (currWord ++ [x]) lastmatch xs
     anynode -> (A anynode, xs)
 
 -- calls tryToMatch on every index of the array, while updating it
@@ -94,6 +96,15 @@ buildASTIterate (l:ls) = case tryToMatch [] (T (TokenInfo TokError "")) (l:ls) o
     (T (TokenInfo TokError _), []) -> l : buildASTIterate ls
     (something, xs) -> something : buildASTIterate xs
 
+-- Tries to create a list of instructions from a list of nodes. If there are any
+-- unresolved tokens, it returns an error.
+tryBuildInstructionList :: [TokorNode] -> ASTNode
+tryBuildInstructionList [] = ASTNodeError (TokenInfo TokError "empty")
+tryBuildInstructionList [A (ASTNodeParamList l)] = ASTNodeInstructionSequence l
+tryBuildInstructionList [A (ASTNodeInstructionSequence l)] = ASTNodeInstructionSequence l
+tryBuildInstructionList [A (ASTNodeInstructionSequence l), A n] = ASTNodeInstructionSequence (l ++ [n])
+tryBuildInstructionList [A n1, A n2] = ASTNodeInstructionSequence [n1, n2]
+tryBuildInstructionList _ = ASTNodeError (TokenInfo TokError "cannot resolve input")
 
 -- calls buildASTIterate in a loop to progressively reduce the array
 -- to a single node
@@ -103,11 +114,13 @@ buildASTIterate (l:ls) = case tryToMatch [] (T (TokenInfo TokError "")) (l:ls) o
 buildAST :: [TokorNode] -> ASTNode
 buildAST [] = ASTNodeError (TokenInfo TokError "empty")
 buildAST l = case buildASTIterate l of
+    [A (ASTNodeParamList instr)] -> ASTNodeInstructionSequence instr
     [A n] -> n
     [] -> ASTNodeError (TokenInfo TokError "empty")
     (n:ns) -> if l == n:ns
-                then ASTNodeError (TokenInfo TokError "cannot resolve input")
+                -- then ASTNodeError (TokenInfo TokError "cannot resolve input")
                 -- then ASTNodeDebug (n:ns)
+                then tryBuildInstructionList (n:ns)
                 else buildAST (n:ns)
 
 -- | @params:

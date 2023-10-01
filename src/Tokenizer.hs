@@ -25,6 +25,7 @@ data Token = TokSymbol -- ^ A variable name, function name, etc.
            | TokError  -- ^ Any other character not mentioned above
            | TokEmpty -- ^ The empty token
            | TokWhitespace -- ^ A whitespace character
+           | TokNewLine -- ^ A newline character
            deriving (Eq, Show, Enum)
 
 data TokenInfo = TokenInfo { token :: Token, value :: String} deriving (Eq, Show)
@@ -49,6 +50,8 @@ wordToTok "//" = TokenInfo {token = TokComment, value = "//"}
 wordToTok "(" = TokenInfo {token = TokOpenParen, value = "("}
 wordToTok ")" = TokenInfo {token = TokCloseParen, value = ")"}
 wordToTok " " = TokenInfo {token = TokWhitespace, value = " "}
+wordToTok "\n" = TokenInfo {token = TokNewLine, value = "\n"}
+wordToTok "\\n" = TokenInfo {token = TokNewLine, value = "\n"}
 wordToTok str | all isAlpha str = TokenInfo {token = TokSymbol, value = str}
                 | all isDigit str = TokenInfo {token = TokInteger, value = str}
                 | otherwise = TokenInfo { token = TokError, value = str}
@@ -62,8 +65,8 @@ tryTokenizeOne :: String -> TokenInfo -> String -> (TokenInfo, String)
 tryTokenizeOne [] _ [] = (TokenInfo TokEmpty "", [])
 tryTokenizeOne _ lastmatch [] = (lastmatch, [])
 -- tryTokenizeOne " " lastmatch (x:xs) = tryTokenizeOne [x] lastmatch xs
-tryTokenizeOne currword lastmatch (x:xs) = case (wordToTok (currword ++ [x])) of
-    TokenInfo TokError _ -> (lastmatch, (x:xs))
+tryTokenizeOne currword lastmatch (x:xs) = case wordToTok (currword ++ [x]) of
+    TokenInfo TokError _ -> (lastmatch, x:xs)
     anytok -> tryTokenizeOne (currword ++ [x]) anytok xs
 
 -- @params:
@@ -74,6 +77,7 @@ tryTokenizeOne currword lastmatch (x:xs) = case (wordToTok (currword ++ [x])) of
 tokenize :: String -> [TokenInfo]
 tokenize [] = []
 tokenize str | firstTok == TokenInfo TokWhitespace " " = tokenize rest
+             | firstTok == TokenInfo TokNewLine "\n" = tokenize rest
              | otherwise = firstTok : tokenize rest
             where
                 (firstTok, rest) = tryTokenizeOne "" (TokenInfo TokError "") str

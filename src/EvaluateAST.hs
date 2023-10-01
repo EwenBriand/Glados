@@ -10,7 +10,8 @@ import qualified Data.Maybe
 --               ASTNodeSymbol, ASTNodeSum, ASTNodeSub, ASTNodeMul, ASTNodeDiv,
 --               ASTNodeMod, astnsName, ASTNodeParamList, ASTNodeArray, strToAST) )
 import Lexer
-import VM (Context (..), Instruction (..), Param (..), Register (..), regGet, stackGetPointer, stackPush, symGet, symSet, labelSet, blockInitAllocVarSpace, symGetTotalSize)
+-- import VM (Context (..), Instruction (..), Param (..), Register (..), regGet, stackGetPointer, stackPush, symGet, symSet, labelSet, blockInitAllocVarSpace, symGetTotalSize)
+import VM
 
 
 -- -- | Evaluates the AST and push the instructions into the context.
@@ -29,8 +30,16 @@ instructionFromAST (ASTNodeMod x) ctx = putModInstruction x ctx
 instructionFromAST (ASTNodeDefine name x) ctx = putDefineInstruction name x ctx
 instructionFromAST (ASTNodeParamList _) ctx = ctx -- not an actual instruction, does nothing
 instructionFromAST (ASTNodeArray n) ctx = astNodeArrayToHASM ctx (ASTNodeArray n)
+instructionFromAST (ASTNodeInstructionSequence n) ctx = putInstructionSequence n ctx
 
 instructionFromAST _ _ = Nothing
+
+putInstructionSequence :: [ASTNode] -> Maybe Context -> Maybe Context
+putInstructionSequence _ Nothing = Nothing
+putInstructionSequence [] ctx = ctx
+putInstructionSequence (x:xs) ctx = do
+  ctx' <- instructionFromAST x ctx
+  putInstructionSequence xs (Just ctx')
 
 putIntegerInstruction :: Int -> Maybe Context -> Maybe Context
 putIntegerInstruction _ Nothing = Nothing
@@ -81,32 +90,47 @@ putSymbolInstruction _ Nothing = Nothing
 putSymbolInstruction s (Just ctx) = do
   let sym = symGet (Just ctx) s
   case sym of
-    Just sym' -> return (ctx {instructions = instructions ctx ++ [Xor (Reg EAX) (Reg EAX), Mov (Reg EAX) (Immediate sym')]})
+    Just sym' -> return (ctx {instructions = instructions ctx ++ [Xor (Reg EAX) (Reg EAX), MovFromStackAddr (Reg EAX) (Immediate sym')]})
     Nothing -> Nothing
+
+-- putDefineInstruction :: ASTNode -> ASTNode -> Maybe Context -> Maybe Context
+-- putDefineInstruction _ _ Nothing = Nothing
+-- putDefineInstruction name node ctx = do
+--   let newCtx = instructionFromAST name ctx
+--   case newCtx of
+--     Just _ -> Nothing
+--     Nothing -> do
+--       let ctx' = symSet ctx (astnsName name) 4
+--       let s = symGet ctx' (astnsName name)
+--       let ctx'' = instructionFromAST node ctx'
+--       case ctx'' of
+--         Nothing -> Nothing
+--         Just ctx''' ->  do
+--           let res = symGetTotalSize ctx''
+--           let res' = case res of
+--                 Nothing -> 0
+--                 Just res'' -> res''
+--           case s of
+--             Nothing -> Nothing
+--             Just s' -> do
+--               let val = res' - s'
+--               return ( ctx''' {instructions = instructions ctx''' ++ [MovStackAddr (Immediate val) (Reg EAX)]})
+
+putDefineNoErrCheck :: ASTNode -> ASTNode -> Maybe Context -> Maybe Context
+putDefineNoErrCheck _ _ Nothing = Nothing
+putDefineNoErrCheck name node c =
+    let c' = symSet c (astnsName name) 4 in
+        case instructionFromAST node c' of
+        Nothing -> Nothing
+        Just c'' -> Just c'' {instructions = instructions c'' ++ [MovStackAddr (Immediate (length (symTable (symbolTable c'')) - 1)) (Reg EAX)]}
 
 putDefineInstruction :: ASTNode -> ASTNode -> Maybe Context -> Maybe Context
 putDefineInstruction _ _ Nothing = Nothing
-putDefineInstruction name node ctx = do
-  let newCtx = instructionFromAST name ctx
-  case newCtx of
-    Just _ -> Nothing
-    Nothing -> do
-      let ctx' = symSet ctx (astnsName name) 4
-      let s = symGet ctx' (astnsName name)
-      let ctx'' = instructionFromAST node ctx'
-      case ctx'' of
-        Nothing -> Nothing
-        Just ctx''' ->  do
-          let res = symGetTotalSize ctx''
-          let res' = case res of
-                Nothing -> 0
-                Just res'' -> res''
-          case s of
-            Nothing -> Nothing
-            Just s' -> do
-              let val = res' - s'
-              return ( ctx''' {instructions = instructions ctx''' ++ [MovStackAddr (Immediate val) (Reg EAX)]})
-
+putDefineInstruction name node ctx =
+    let newCtx = instructionFromAST name ctx in
+        case newCtx of
+        Just _ -> Nothing -- error, the variable already exists!
+        Nothing -> putDefineNoErrCheck name node ctx
 
 -------------------------------------------------------------------------------
 -- SOLVING CYCLE IMPORT

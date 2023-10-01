@@ -22,7 +22,8 @@ module Instructions
     execInstructions,
     nbInstructions,
     evalOneInstruction,
-    movStackAddrImpl)
+    movStackAddrImpl,
+    movFromStackAddrImpl)
 where
 
 -- labelAlloc,
@@ -73,6 +74,7 @@ instructionTable ctx Leave = leaveImpl ctx
 instructionTable ctx (Label name p) = labelSet ctx name p
 instructionTable ctx Interrupt = execSyscallWrapper ctx
 instructionTable ctx (MovStackAddr p1 p2) = movStackAddrImpl ctx p1 p2
+instructionTable ctx (MovFromStackAddr p1 p2) = movFromStackAddrImpl ctx p1 p2
 
 
 -- execInstructions :: Maybe Context -> Maybe Context
@@ -163,7 +165,13 @@ movStackAddrImpl ctx to from = case getTrueValueFromParam ctx from of
     Nothing -> Nothing
     Just ptr -> case getTrueValueFromParam ctx to of
         Nothing -> Nothing
-        Just addr -> setStackIndex ctx (addr + ptr) val
+        Just addr -> setStackIndex ctx addr val
+
+movFromStackAddrImpl :: Maybe Context -> Param -> Param -> Maybe Context
+movFromStackAddrImpl Nothing _ _ = Nothing
+movFromStackAddrImpl (Just ctx) dest addr = case getTrueValueFromParam (Just ctx) addr of
+    Nothing -> Nothing
+    Just addr' -> setTrueValueFromParam (Just ctx) dest (pile (stack ctx) !! addr')
 
 
 movImpl :: Maybe Context -> Param -> Param -> Maybe Context

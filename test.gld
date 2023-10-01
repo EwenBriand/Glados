@@ -1,0 +1,3 @@
+(define foo 10)
+(define bee 2)
+(+ bee foo)
