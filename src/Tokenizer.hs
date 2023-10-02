@@ -52,7 +52,6 @@ wordToTok "(" = TokenInfo {token = TokOpenParen, value = "("}
 wordToTok ")" = TokenInfo {token = TokCloseParen, value = ")"}
 wordToTok " " = TokenInfo {token = TokWhitespace, value = " "}
 wordToTok "\n" = TokenInfo {token = TokNewLine, value = "\n"}
-wordToTok "\\n" = TokenInfo {token = TokNewLine, value = "\n"}
 wordToTok "#t" = TokenInfo {token = TokenBool, value = "true"}
 wordToTok "#f" = TokenInfo {token = TokenBool, value = "false"}
 wordToTok "true" = TokenInfo {token = TokenBool, value = "true"}

@@ -122,7 +122,7 @@ testMovStackAddr = TestList [
 
 testputDefineInstruction :: Test
 testputDefineInstruction = TestList [
-      "instruction from ast Node define" ~: instructionFromAST (ASTNodeDefine (ASTNodeSymbol "oui") (ASTNodeInteger 42)) (Just newContext) ~?= Just newContext {instructions = [Xor (Reg EAX) (Reg EAX),Mov (Reg EAX) (Immediate 42),MovStackAddr (Immediate 0) (Reg EAX)], symbolTable = SymTable {symTable = [("oui",4)]}}]
+      "instruction from ast Node define" ~: instructionFromAST (ASTNodeDefine (ASTNodeSymbol "oui") (ASTNodeInteger 42)) (Just newContext) ~?= Just newContext {instructions = [Xor (Reg EAX) (Reg EAX),Mov (Reg EAX) (Immediate 42),MovStackAddr (Immediate 0) (Reg EAX)], symbolTable = SymTable {symTable = [("oui", GInt)]}}]
 
 testMovFromStackAddr :: Test
 testMovFromStackAddr = TestList [
