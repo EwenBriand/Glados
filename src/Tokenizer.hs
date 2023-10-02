@@ -27,7 +27,7 @@ data Token = TokSymbol -- ^ A variable name, function name, etc.
            | TokWhitespace -- ^ A whitespace character
            | TokNewLine -- ^ A newline character
            | TokenBool -- ^ A boolean value
-           deriving (Eq, Show, Enum)
+           deriving (Eq, Show)
 
 data TokenInfo = TokenInfo { token :: Token, value :: String} deriving (Eq, Show)
 

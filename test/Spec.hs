@@ -12,7 +12,6 @@ main = do
   _ <- runTestTT testTryTokenizeOne
   _ <- runTestTT testTokenInfoFields
   _ <- runTestTT testTokenInfoShow
-  _ <- runTestTT testTokenEnum
   _ <- runTestTT testWordToToken
   _ <- runTestTT testTokenize
   _ <- runTestTT testASTNodeFields
