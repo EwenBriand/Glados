@@ -40,6 +40,10 @@ testWordToToken =
       "WordToToken comment" ~: wordToTok "//" ~?= TokenInfo TokComment "//",
       "WordToToken open paren" ~: wordToTok "(" ~?= TokenInfo TokOpenParen "(",
       "WordToToken close paren" ~: wordToTok ")" ~?= TokenInfo TokCloseParen ")",
+      "WordToToken true" ~: wordToTok "true" ~?= TokenInfo TokenBool "true",
+      "WordToToken #t" ~: wordToTok "true" ~?= TokenInfo TokenBool "true",
+      "WordToToken false" ~: wordToTok "false" ~?= TokenInfo TokenBool "false",
+      "WordToToken #f" ~: wordToTok "false" ~?= TokenInfo TokenBool "false",
       "WordToToken error" ~: wordToTok "°" ~?= TokenInfo TokError "°"
     ]
 
@@ -1051,7 +1055,7 @@ testMovStackAddr = TestList [
 
 testputDefineInstruction :: Test
 testputDefineInstruction = TestList [
-      "instruction from ast Node define" ~: instructionFromAST (ASTNodeDefine (ASTNodeSymbol "oui") (ASTNodeInteger 42)) (Just newContext) ~?= Just newContext {instructions = [Xor (Reg EAX) (Reg EAX),Mov (Reg EAX) (Immediate 42),MovStackAddr (Immediate 0) (Reg EAX)], symbolTable = SymTable {symTable = [("oui",4)]}}]
+      "instruction from ast Node define" ~: instructionFromAST (ASTNodeDefine (ASTNodeSymbol "oui") (ASTNodeInteger 42)) (Just newContext) ~?= Just newContext {instructions = [Xor (Reg EAX) (Reg EAX),Mov (Reg EAX) (Immediate 42),MovStackAddr (Immediate 0) (Reg EAX)], symbolTable = SymTable {symTable = [("oui", GInt)]}}]
 
 testMovFromStackAddr :: Test
 testMovFromStackAddr = TestList [

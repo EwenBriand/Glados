@@ -3,6 +3,7 @@ module Lexer (
     -- TokorExpr(..),
     TokorNode(..),
     ASTNode(..),
+    VarType(..),
     tokOrExprToASTNode,
     tryToMatch,
     buildASTIterate,
@@ -11,6 +12,13 @@ module Lexer (
 ) where
 
 import Tokenizer
+
+
+data VarType = GUndefinedType
+    | GInt -- 64 bit integer
+    | GBool -- True or False, #t or #f
+    | GVoid -- No return value
+    deriving (Show, Eq)
 
 data TokorNode = T TokenInfo
                | A ASTNode
@@ -30,6 +38,7 @@ data ASTNode = ASTNodeError {astnerrToken :: TokenInfo}
              | ASTNodeParamList {astnplChildren :: [ASTNode]}
              | ASTNodeArray {astnaChildren :: [ASTNode]}
              | ASTNodeInstructionSequence {astnisChildren :: [ASTNode]}
+             | ASTNodeBoolean {astnbValue :: Bool}
     deriving (Eq, Show)
 
 -- | @params:
@@ -66,6 +75,8 @@ tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokOperatorDiv _)
 tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokOperatorMod _), A (ASTNodeParamList [n1, n2]), T (TokenInfo TokCloseParen _)] = ASTNodeMod [n1, n2]
 -- declaration of a variable
 tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokKeyworddefine _), A (ASTNodeSymbol sym), A n, T (TokenInfo TokCloseParen _)] = ASTNodeDefine (ASTNodeSymbol sym) n
+-- a boolean
+tokOrExprToASTNode [T (TokenInfo TokenBool val)] = ASTNodeBoolean (val == "true")
 -- error
 tokOrExprToASTNode _ = ASTNodeError (TokenInfo TokError "")
 
