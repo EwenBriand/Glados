@@ -40,6 +40,7 @@ data ASTNode = ASTNodeError {astnerrToken :: TokenInfo}
              | ASTNodeArray {astnaChildren :: [ASTNode]}
              | ASTNodeInstructionSequence {astnisChildren :: [ASTNode]}
              | ASTNodeBoolean {astnbValue :: Bool}
+             | ASTNodeIf {astniCondition :: ASTNode, astniThen :: [ASTNode], astniElse :: Maybe [ASTNode]}
     deriving (Eq, Show)
 
 -- | @params:
@@ -52,6 +53,8 @@ tokOrExprToASTNode [] = ASTNodeError (TokenInfo TokError "")
 -- param list
 tokOrExprToASTNode [A (ASTNodeParamList l), A n] = ASTNodeParamList (l ++ [n])
 tokOrExprToASTNode [A n1, A n2] = ASTNodeParamList [n1, n2]
+-- an if statement
+tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokenKeywordIf _), A n, A (ASTNodeParamList l), T (TokenInfo TokCloseParen _)] = ASTNodeIf n l Nothing
 -- array
 tokOrExprToASTNode [T (TokenInfo TokOpenParen _), A (ASTNodeParamList l), T (TokenInfo TokCloseParen _)] = ASTNodeArray l
 tokOrExprToASTNode [T (TokenInfo TokOpenParen _), A n, T (TokenInfo TokCloseParen _)] = ASTNodeArray [n]

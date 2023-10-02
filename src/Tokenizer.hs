@@ -27,6 +27,7 @@ data Token = TokSymbol -- ^ A variable name, function name, etc.
            | TokWhitespace -- ^ A whitespace character
            | TokNewLine -- ^ A newline character
            | TokenBool -- ^ A boolean value
+           | TokenKeywordIf -- ^ The "if" keyword
            deriving (Eq, Show, Enum)
 
 data TokenInfo = TokenInfo { token :: Token, value :: String} deriving (Eq, Show)
@@ -57,6 +58,7 @@ wordToTok "#t" = TokenInfo {token = TokenBool, value = "true"}
 wordToTok "#f" = TokenInfo {token = TokenBool, value = "false"}
 wordToTok "true" = TokenInfo {token = TokenBool, value = "true"}
 wordToTok "false" = TokenInfo {token = TokenBool, value = "false"}
+wordToTok "if" = TokenInfo {token = TokenKeywordIf, value = "if"}
 wordToTok str | all isAlpha str = TokenInfo {token = TokSymbol, value = str}
                 | all isDigit str = TokenInfo {token = TokInteger, value = str}
                 | otherwise = TokenInfo { token = TokError, value = str}
