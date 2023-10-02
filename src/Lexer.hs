@@ -8,7 +8,8 @@ module Lexer (
     tryToMatch,
     buildASTIterate,
     buildAST,
-    strToAST
+    strToAST,
+    tryBuildInstructionList
 ) where
 
 import Tokenizer

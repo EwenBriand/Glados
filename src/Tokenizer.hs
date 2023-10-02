@@ -81,7 +81,8 @@ tryTokenizeOne currword lastmatch (x:xs) = case wordToTok (currword ++ [x]) of
 -- Whitespaces are ignored.
 tokenize :: String -> [TokenInfo]
 tokenize [] = []
-tokenize str | firstTok == TokenInfo TokWhitespace " " = tokenize rest
+tokenize str | str == rest = [firstTok]
+             | firstTok == TokenInfo TokWhitespace " " = tokenize rest
              | firstTok == TokenInfo TokNewLine "\n" = tokenize rest
              | otherwise = firstTok : tokenize rest
             where

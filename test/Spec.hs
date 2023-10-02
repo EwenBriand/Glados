@@ -33,9 +33,16 @@ testWordToToken =
     [ "WordToToken empty string" ~: wordToTok "" ~?= TokenInfo TokEmpty "",
       "WordToToken Symbol" ~: wordToTok "abc" ~?= TokenInfo TokSymbol "abc",
       "WordToToken integer" ~: wordToTok "123" ~?= TokenInfo TokInteger "123",
-      "WordToToken plus" ~: wordToTok "+" ~?= TokenInfo TokOperatorPlus "+",
-      "WordToToken minus" ~: wordToTok "-" ~?= TokenInfo TokOperatorMinus "-",
-      "WordToToken div" ~: wordToTok "/" ~?= TokenInfo TokOperatorDiv "/",
+      "WordToToken plus 1" ~: wordToTok "+" ~?= TokenInfo TokOperatorPlus "+",
+      "WordToToken plus 2" ~: wordToTok "add" ~?= TokenInfo TokOperatorPlus "add",
+      "WordToToken minus 1" ~: wordToTok "-" ~?= TokenInfo TokOperatorMinus "-",
+      "WordToToken minus 2" ~: wordToTok "sub" ~?= TokenInfo TokOperatorMinus "sub",
+      "WordToToken mul 1" ~: wordToTok "*" ~?= TokenInfo TokOperatorMul "*",
+      "WordToToken mul 2" ~: wordToTok "mul" ~?= TokenInfo TokOperatorMul "mul",
+      "WordToToken div 1" ~: wordToTok "/" ~?= TokenInfo TokOperatorDiv "/",
+      "WordToToken div 2" ~: wordToTok "div" ~?= TokenInfo TokOperatorDiv "div",
+      "WordToToken mod 1" ~: wordToTok "%" ~?= TokenInfo TokOperatorMod "%",
+      "WordToToken mod 2" ~: wordToTok "mod" ~?= TokenInfo TokOperatorMod "mod",
       "WordToToken define" ~: wordToTok "define" ~?= TokenInfo TokKeyworddefine "define",
       "WordToToken comment" ~: wordToTok "//" ~?= TokenInfo TokComment "//",
       "WordToToken open paren" ~: wordToTok "(" ~?= TokenInfo TokOpenParen "(",
@@ -63,20 +70,107 @@ testTryTokenizeOne =
       "TryTokenizeOne error" ~: tryTokenizeOne "" (TokenInfo TokError "") "°" ~?= (TokenInfo TokError "", "°")
     ]
 
+testTokenInfoFields :: Test
+testTokenInfoFields = test
+  [ "Test TokenInfo fields" ~:
+    let ti = TokenInfo { token = TokInteger, value = "123" }
+    in do
+      assertEqual "Token should be TokInteger" TokInteger (token ti)
+      assertEqual "Value should be 'example'" "123" (value ti)
+  ]
+
+testTokenInfoShow :: Test
+testTokenInfoShow = test
+  [ "Test TokenInfo Show instance" ~:
+    let ti = TokenInfo { token = TokInteger, value = "123" }
+    in do
+      assertEqual "Show instance should match" "TokenInfo {token = TokInteger, value = \"123\"}" (show ti)
+  ]
+
+testTokenEnum :: Test
+testTokenEnum = test
+  [ "Test Token Enum instance" ~:
+    let
+      expectedInt = 4
+      expectedToken = TokOperatorMul
+    in do
+      assertEqual "Enum conversion to Int" expectedInt (fromEnum expectedToken)
+      assertEqual "Enum conversion from Int" expectedToken (toEnum expectedInt)
+  ]
+
 testTokenize :: Test
 testTokenize =
   TestList
     [ "Tokenize empty string" ~: tokenize "" ~?= [],
       "Tokenize Symbol" ~: tokenize "abc" ~?= [TokenInfo TokSymbol "abc"],
-      "Tokenize variable definition" ~: tokenize "define oui 123" ~?= [TokenInfo TokKeyworddefine "define", TokenInfo TokSymbol "oui", TokenInfo TokInteger "123"]
+      "Tokenize variable definition" ~: tokenize "define oui 123" ~?= [TokenInfo TokKeyworddefine "define", TokenInfo TokSymbol "oui", TokenInfo TokInteger "123"],
+      "Tokenize Error" ~: tokenize "°" ~?= [TokenInfo TokError ""]
     ]
+
+testASTNodeFields :: Test
+testASTNodeFields = TestList
+  [ "Test astnerrToken field" ~: do
+      let node = ASTNodeError (TokenInfo TokError "error message")
+      let expectedToken = TokenInfo TokError "error message"
+      assertEqual "astnerrToken should match" expectedToken (astnerrToken node)
+  , "Test astniValue field" ~: do
+      let node = ASTNodeInteger 42
+      let expectedValue = 42
+      assertEqual "astniValue should match" expectedValue (astniValue node)
+  , "Test astnsName field" ~: do
+      let node = ASTNodeSymbol "symbol"
+      let expectedName = "symbol"
+      assertEqual "astnsName should match" expectedName (astnsName node)
+  , "Test astndName field" ~: do
+      let node = ASTNodeDefine (ASTNodeSymbol "symbol") (ASTNodeInteger 42)
+      let expectedName = ASTNodeSymbol "symbol"
+      assertEqual "astndName should match" expectedName (astndName node)
+  , "Test astndChildren field" ~: do
+      let node = ASTNodeDefine (ASTNodeSymbol "symbol") (ASTNodeInteger 42)
+      let expectedChildren = ASTNodeInteger 42
+      assertEqual "astndChildren should match" expectedChildren (astndChildren node)
+  , "Test astnsChildren field" ~: do
+      let node = ASTNodeSum [ASTNodeInteger 1, ASTNodeInteger 2]
+      let expectedChildren = [ASTNodeInteger 1, ASTNodeInteger 2]
+      assertEqual "astnsChildren should match" expectedChildren (astnsChildren node)
+  , "Test astndChildrenDebug field" ~: do
+      let node = ASTNodeDebug [T (TokenInfo TokInteger "1"), T (TokenInfo TokInteger "2")]
+      let expectedChildren = [T (TokenInfo TokInteger "1"), T (TokenInfo TokInteger "2")]
+      assertEqual "astndChildrenDebug should match" expectedChildren (astndChildrenDebug node)
+  , "Test astnplChildren field" ~: do
+      let node = ASTNodeParamList [ASTNodeInteger 1, ASTNodeInteger 2]
+      let expectedChildren = [ASTNodeInteger 1, ASTNodeInteger 2]
+      assertEqual "astnplChildren should match" expectedChildren (astnplChildren node)
+  , "Test astnaChildren field" ~: do
+      let node = ASTNodeArray [ASTNodeInteger 1, ASTNodeInteger 2]
+      let expectedChildren = [ASTNodeInteger 1, ASTNodeInteger 2]
+      assertEqual "astnaChildren should match" expectedChildren (astnaChildren node)
+  , "Test astnisChildren field" ~: do
+      let node = ASTNodeInstructionSequence [ASTNodeInteger 1, ASTNodeInteger 2]
+      let expectedChildren = [ASTNodeInteger 1, ASTNodeInteger 2]
+      assertEqual "astnisChildren should match" expectedChildren (astnisChildren node)
+  ]
+
+testShowASTNode :: Test
+testShowASTNode = test
+  [ "Test Show instance for ASTNode" ~:
+    let
+      exampleNode = ASTNodeInteger 42
+      expectedString = "ASTNodeInteger {astniValue = 42}"
+    in do
+      assertEqual "Show instance should match" expectedString (show exampleNode)
+  ]
 
 testTokOrExprToNode :: Test
 testTokOrExprToNode =
   TestList
     [ "node error" ~: tokOrExprToASTNode [] ~?= ASTNodeError (TokenInfo TokError ""),
       "node integer" ~: tokOrExprToASTNode [T (TokenInfo TokInteger "123")] ~?= ASTNodeInteger 123,
-      "node sum" ~: tokOrExprToASTNode [T (TokenInfo TokOpenParen "("), T (TokenInfo TokOperatorPlus "+"), A (ASTNodeParamList [ASTNodeInteger 1, ASTNodeInteger 2]), T (TokenInfo TokCloseParen ")")] ~?= ASTNodeSum [ASTNodeInteger 1, ASTNodeInteger 2]
+      "node sum" ~: tokOrExprToASTNode [T (TokenInfo TokOpenParen "("), T (TokenInfo TokOperatorPlus "+"), A (ASTNodeParamList [ASTNodeInteger 1, ASTNodeInteger 2]), T (TokenInfo TokCloseParen ")")] ~?= ASTNodeSum [ASTNodeInteger 1, ASTNodeInteger 2],
+      "node sub" ~: tokOrExprToASTNode [T (TokenInfo TokOpenParen "("), T (TokenInfo TokOperatorMinus "-"), A (ASTNodeParamList [ASTNodeInteger 1, ASTNodeInteger 2]), T (TokenInfo TokCloseParen ")")] ~?= ASTNodeSub [ASTNodeInteger 1, ASTNodeInteger 2],
+      "node mul" ~: tokOrExprToASTNode [T (TokenInfo TokOpenParen "("), T (TokenInfo TokOperatorMul "*"), A (ASTNodeParamList [ASTNodeInteger 1, ASTNodeInteger 2]), T (TokenInfo TokCloseParen ")")] ~?= ASTNodeMul [ASTNodeInteger 1, ASTNodeInteger 2],
+      "node div" ~: tokOrExprToASTNode [T (TokenInfo TokOpenParen "("), T (TokenInfo TokOperatorDiv "/"), A (ASTNodeParamList [ASTNodeInteger 1, ASTNodeInteger 2]), T (TokenInfo TokCloseParen ")")] ~?= ASTNodeDiv [ASTNodeInteger 1, ASTNodeInteger 2],
+      "node mod" ~: tokOrExprToASTNode [T (TokenInfo TokOpenParen "("), T (TokenInfo TokOperatorMod "%"), A (ASTNodeParamList [ASTNodeInteger 1, ASTNodeInteger 2]), T (TokenInfo TokCloseParen ")")] ~?= ASTNodeMod [ASTNodeInteger 1, ASTNodeInteger 2]
     ]
 
 testTryToMatch :: Test
@@ -112,6 +206,27 @@ testBuildAST =
       -- (+ (+ 123) 2)
       "build ast error invalid expr" ~: buildAST [T (TokenInfo TokOpenParen "("), T (TokenInfo TokOperatorPlus "+"), T (TokenInfo TokOpenParen "("), T (TokenInfo TokOperatorPlus "+"), T (TokenInfo TokInteger "123"), T (TokenInfo TokCloseParen ")"), T (TokenInfo TokInteger "2"), T (TokenInfo TokCloseParen ")")] ~?= ASTNodeError (TokenInfo TokError "cannot resolve input")
     ]
+
+testTryBuildInstructionList :: Test
+testTryBuildInstructionList =
+  TestList
+    [ "Test tryBuildInstructionList with empty input" ~:
+        tryBuildInstructionList []
+        ~?= ASTNodeError (TokenInfo TokError "empty"),
+      "Test tryBuildInstructionList with single ParamList" ~:
+        tryBuildInstructionList [A (ASTNodeParamList [ASTNodeError (TokenInfo TokError "param")])]
+        ~?= ASTNodeInstructionSequence [ASTNodeError (TokenInfo TokError "param")],
+      "Test tryBuildInstructionList with single InstructionSequence" ~:
+        tryBuildInstructionList [A (ASTNodeInstructionSequence [ASTNodeError (TokenInfo TokError "inst")])]
+        ~?= ASTNodeInstructionSequence [ASTNodeError (TokenInfo TokError "inst")],
+      "Test tryBuildInstructionList with append InstructionSequence" ~:
+        tryBuildInstructionList [A (ASTNodeInstructionSequence [ASTNodeError (TokenInfo TokError "inst")]), A (ASTNodeError (TokenInfo TokError "newinst"))]
+        ~?= ASTNodeInstructionSequence [ASTNodeError (TokenInfo TokError "inst"), ASTNodeError (TokenInfo TokError "newinst")],
+      "Test tryBuildInstructionList with two Instructions" ~:
+        tryBuildInstructionList [A (ASTNodeError (TokenInfo TokError "inst1")), A (ASTNodeError (TokenInfo TokError "inst2"))]
+        ~?= ASTNodeInstructionSequence [ASTNodeError (TokenInfo TokError "inst1"), ASTNodeError (TokenInfo TokError "inst2")]
+    ]
+
 
 testStrToAST :: Test
 testStrToAST = TestList [
@@ -1064,12 +1179,18 @@ testMovFromStackAddr = TestList [
 main :: IO()
 main = do
   _ <- runTestTT testTryTokenizeOne
+  _ <- runTestTT testTokenInfoFields
+  _ <- runTestTT testTokenInfoShow
+  _ <- runTestTT testTokenEnum
   _ <- runTestTT testWordToToken
   _ <- runTestTT testTokenize
+  _ <- runTestTT testASTNodeFields
+  _ <- runTestTT testShowASTNode
   _ <- runTestTT testTokOrExprToNode
   _ <- runTestTT testTryToMatch
   _ <- runTestTT testBuildASTIterate
   _ <- runTestTT testBuildAST
+  _ <- runTestTT testTryBuildInstructionList
   _ <- runTestTT testStrToAST
   _ <- runTestTT testIncRegister
   _ <- runTestTT testIncRegisterInvalidContext
