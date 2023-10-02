@@ -35,6 +35,7 @@ module VM
     symSet,
     symGet,
     symGetTotalSize,
+    symGetFull,
     Labels (..),
     newLabels,
     labelSet,
@@ -61,9 +62,10 @@ module VM
     blockInitAllocVarSpace)
 where
 
-import Data.Bits
+import Data.Bits ( Bits(xor, complement, (.&.), (.|.)) )
 import qualified Data.Map as Map
 import Data.Maybe
+import Lexer
 
 ---------------------------------------------------------------------------
 -- SYSCALLS
@@ -320,42 +322,16 @@ heapFree (Just context) address = Just context {heap = Heap (Map.delete address 
 
 -- | The symbol table of the VM. It holds all the created symbols that can be
 -- referenced by their name, and maps them to their address in the stack.
--- newtype SymTable = SymTable {symTable :: Map.Map String Int} deriving (Show, Eq)
-
--- -- | Creates a new empty symbol table.
--- newSymTable :: SymTable
--- newSymTable = SymTable Map.empty
-
--- -- | Sets the address of a symbol in the symbol table.
--- symSet :: Maybe Context -> String -> Int -> Maybe Context
--- symSet Nothing _ _ = Nothing
--- symSet (Just context) name address = Just context {symbolTable = SymTable (Map.insert name address (symTable (symbolTable context)))}
-
--- -- | Gets the address of a symbol in the symbol table. If the symbol isnt
--- -- allocated, it returns Nothing.
--- symGet :: Maybe Context -> String -> Maybe Int
--- symGet Nothing _ = Nothing
--- symGet (Just context) name = Map.lookup name (symTable (symbolTable context))
-
--- -- | Allocates a new symbol in the symbol table, and returns its address.
--- symAlloc :: Maybe Context -> String -> Maybe Context
--- symAlloc Nothing _ = Nothing
--- symAlloc (Just context) name = Just context {symbolTable = SymTable (Map.insert name (length (mem (heap context))) (symTable (symbolTable context)))}
-
--- -- | Frees a symbol in the symbol table.
--- symFree :: Maybe Context -> String -> Maybe Context
--- symFree Nothing _ = Nothing
--- symFree (Just context) name = Just context {symbolTable = SymTable (Map.delete name (symTable (symbolTable context)))}
 
 -- | variable names with their size
-newtype SymTable = SymTable {symTable :: [(String, Int)]} deriving (Show, Eq)
+newtype SymTable = SymTable {symTable :: [(String, VarType)]} deriving (Show, Eq)
 
 newSymTable :: SymTable
 newSymTable = SymTable []
 
-symSet :: Maybe Context -> String -> Int -> Maybe Context
+symSet :: Maybe Context -> String -> VarType -> Maybe Context
 symSet Nothing _ _ = Nothing
-symSet (Just c) name size = Just c {symbolTable = SymTable (symTable (symbolTable c) ++ [(name, size)])}
+symSet (Just c) name tp = Just c {symbolTable = SymTable (symTable (symbolTable c) ++ [(name, tp)])}
 
 symGet :: Maybe Context -> String -> Maybe Int
 symGet Nothing _ = Nothing
@@ -363,31 +339,25 @@ symGet (Just c) name = case getSymAddress (symTable (symbolTable c)) name of
     -1 -> Nothing
     address -> Just (address)
 
+symGetFull :: Maybe Context -> String -> Maybe (String, VarType)
+symGetFull Nothing _ = Nothing
+symGetFull (Just c) name = case getSymAddress (symTable (symbolTable c)) name of
+    -1 -> Nothing
+    address -> Just (symTable (symbolTable c) !! address)
+
 -- returns the index of the element with the given name in the symbol table, or -1
 -- if it doesn't exist
-getSymAddress :: [(String, Int)] -> String -> Int
+getSymAddress :: [(String, VarType)] -> String -> Int
 getSymAddress [] _ = -1
-getSymAddress ((name, size) : xs) target = if name == target
+getSymAddress ((name, _) : xs) target = if name == target
     then 0
     else case getSymAddress xs target of
         -1 -> -1
         address -> address + 1
 
-
--- symGet (Just c) name = getSymAddress (symTable (symbolTable c)) name
-
--- getSymAddress :: [(String, Int)] -> String -> Maybe Int
--- getSymAddress [] _ = Nothing
--- getSymAddress ((name, size) : xs) target = if name == target
---     then Just size
---     else case getSymAddress xs target of
---         Nothing -> Nothing
---         Just address -> Just (address + size)
-
-
 symGetTotalSize :: Maybe Context -> Maybe Int
 symGetTotalSize Nothing = Nothing
-symGetTotalSize (Just c) = Just (sum (map snd (symTable (symbolTable c))))
+symGetTotalSize (Just c) = Just (length (symTable (symbolTable c)))
 
 --------------------------------------------------------------------------------
 -- LABELS

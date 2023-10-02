@@ -116,10 +116,24 @@ putSymbolInstruction s (Just ctx) = do
 --               let val = res' - s'
 --               return ( ctx''' {instructions = instructions ctx''' ++ [MovStackAddr (Immediate val) (Reg EAX)]})
 
+inferTypeFromNode :: Maybe Context -> ASTNode -> VarType
+inferTypeFromNode Nothing _ = GUndefinedType
+inferTypeFromNode _ (ASTNodeInteger _) = GInt
+inferTypeFromNode c (ASTNodeSymbol name) = case symGetFull c name of
+    Nothing -> GUndefinedType
+    Just (_, t) -> t
+inferTypeFromNode c (ASTNodeSum (x:_)) = inferTypeFromNode c x
+inferTypeFromNode c (ASTNodeSub (x:_)) = inferTypeFromNode c x
+inferTypeFromNode c (ASTNodeMul (x:_)) = inferTypeFromNode c x
+inferTypeFromNode c (ASTNodeDiv (x:_)) = inferTypeFromNode c x
+inferTypeFromNode c (ASTNodeMod (x:_)) = inferTypeFromNode c x
+inferTypeFromNode _ _ = GUndefinedType
+
+
 putDefineNoErrCheck :: ASTNode -> ASTNode -> Maybe Context -> Maybe Context
 putDefineNoErrCheck _ _ Nothing = Nothing
 putDefineNoErrCheck name node c =
-    let c' = symSet c (astnsName name) 4 in
+    let c' = symSet c (astnsName name) (inferTypeFromNode c node) in
         case instructionFromAST node c' of
         Nothing -> Nothing
         Just c'' -> Just c'' {instructions = instructions c'' ++ [MovStackAddr (Immediate (length (symTable (symbolTable c'')) - 1)) (Reg EAX)]}
