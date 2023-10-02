@@ -51,7 +51,6 @@ wordToTok "(" = TokenInfo {token = TokOpenParen, value = "("}
 wordToTok ")" = TokenInfo {token = TokCloseParen, value = ")"}
 wordToTok " " = TokenInfo {token = TokWhitespace, value = " "}
 wordToTok "\n" = TokenInfo {token = TokNewLine, value = "\n"}
-wordToTok "\\n" = TokenInfo {token = TokNewLine, value = "\n"}
 wordToTok str | all isAlpha str = TokenInfo {token = TokSymbol, value = str}
                 | all isDigit str = TokenInfo {token = TokInteger, value = str}
                 | otherwise = TokenInfo { token = TokError, value = str}
@@ -76,7 +75,8 @@ tryTokenizeOne currword lastmatch (x:xs) = case wordToTok (currword ++ [x]) of
 -- Whitespaces are ignored.
 tokenize :: String -> [TokenInfo]
 tokenize [] = []
-tokenize str | firstTok == TokenInfo TokWhitespace " " = tokenize rest
+tokenize str | str == rest = [firstTok]
+             | firstTok == TokenInfo TokWhitespace " " = tokenize rest
              | firstTok == TokenInfo TokNewLine "\n" = tokenize rest
              | otherwise = firstTok : tokenize rest
             where
