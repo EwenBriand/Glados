@@ -14,7 +14,8 @@ module TestEvaluateAST (
     testMovStackAddrImpl,
     testMovStackAddr,
     testputDefineInstruction,
-    testMovFromStackAddr
+    testMovFromStackAddr,
+    testInstructionFromAST
 ) where
 
 import Test.HUnit
@@ -23,6 +24,7 @@ import VM
 import Lexer
 import Instructions
 import qualified Data.Maybe as Data
+import Lexer
 
 
 testInstructionFromAST :: Test
@@ -30,7 +32,19 @@ testInstructionFromAST =
   TestList
     [ "instruction from ast Node interger" ~: instructionFromAST (ASTNodeInteger 123) (Just newContext) ~?= Just (newContext {instructions = [Xor (Reg EAX) (Reg EAX), Mov (Reg EAX) (Immediate 123)]}),
       "instruction from ast Node sum" ~: instructionFromAST (ASTNodeSum [ASTNodeInteger 123, ASTNodeInteger 678]) (Just newContext) ~?= Just (newContext {instructions = [Xor (Reg EAX) (Reg EAX),Mov (Reg EAX) (Immediate 123),Push (Reg EAX),Xor (Reg EAX) (Reg EAX),Mov (Reg EAX) (Immediate 678),Pop (Reg EDI),Add EAX (Reg EDI)]}),
-      "instruction from ast Node sub" ~: instructionFromAST (ASTNodeSub [ASTNodeInteger 123, ASTNodeInteger 678]) (Just newContext) ~?= Just (newContext {instructions = [Xor (Reg EAX) (Reg EAX),Mov (Reg EAX) (Immediate 678),Push (Reg EAX),Xor (Reg EAX) (Reg EAX),Mov (Reg EAX) (Immediate 123),Pop (Reg EDI),Sub (Reg EAX) (Reg EDI)]})
+      "instruction from ast Node sub" ~: instructionFromAST (ASTNodeSub [ASTNodeInteger 123, ASTNodeInteger 678]) (Just newContext) ~?= Just (newContext {instructions = [Xor (Reg EAX) (Reg EAX),Mov (Reg EAX) (Immediate 678),Push (Reg EAX),Xor (Reg EAX) (Reg EAX),Mov (Reg EAX) (Immediate 123),Pop (Reg EDI),Sub (Reg EAX) (Reg EDI)]}),
+      "instructions if statement" ~: instructionFromAST (ASTNodeIf (ASTNodeBoolean True) [ASTNodeInteger 1] Nothing) (Just newContext) ~?= Just (newContext {instructions = [
+        Xor (Reg EAX) (Reg EAX),
+        Mov (Reg EAX) (Immediate 1),
+        Cmp (Reg EAX) (Immediate 0),
+        Je "0else",
+        VM.Label "0then" 5,
+        Xor (Reg EAX) (Reg EAX),
+        Mov (Reg EAX) (Immediate 1),
+        Jmp "0end",
+        VM.Label "0else" 8,
+        VM.Label "0end" 10
+        ], uuids = 1})
     ]
 
 testAstPush :: Int

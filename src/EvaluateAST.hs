@@ -31,6 +31,8 @@ instructionFromAST (ASTNodeDefine name x) ctx = putDefineInstruction name x ctx
 instructionFromAST (ASTNodeParamList _) ctx = ctx -- not an actual instruction, does nothing
 instructionFromAST (ASTNodeArray n) ctx = astNodeArrayToHASM ctx (ASTNodeArray n)
 instructionFromAST (ASTNodeInstructionSequence n) ctx = putInstructionSequence n ctx
+instructionFromAST (ASTNodeBoolean b) ctx = putIntegerInstruction (if b then 1 else 0) ctx
+instructionFromAST (ASTNodeIf cond thenBlock elseBlock) ctx = putIfInstruction ctx (ASTNodeIf cond thenBlock elseBlock)
 
 instructionFromAST _ _ = Nothing
 
@@ -146,6 +148,50 @@ putDefineInstruction name node ctx =
         Just _ -> Nothing -- error, the variable already exists!
         Nothing -> putDefineNoErrCheck name node ctx
 
+-- | Implements the following behaviour:
+-- - tests the condition
+-- stores the result in EAX
+-- - if the condition is true, executes the then block and jumps after the else block
+-- - if the condition is false, jumps to the else block and executes it
+-- This is equivalent to the following nasm code:
+-- cmp eax, 0
+-- je <uuid>_else
+-- <uuid>_then:
+-- ...; executes the instructions in the then block
+-- jmp <uuid>_end
+-- <uuid>_else:
+-- ...; executes the instructions of the children
+-- <uuid>_end:
+putIfInstruction :: Maybe Context -> ASTNode -> Maybe Context
+putIfInstruction Nothing _ = Nothing
+putIfInstruction (Just c) (ASTNodeIf cond thenBlock elseBlock) =
+    let (uuid, c') = nextUUID c in do
+        let c1 = ifPutCondition (Just c') cond
+        let c2 = case c1 of
+                Nothing -> Nothing
+                Just c3 -> Just c3 { instructions = instructions c3 ++ [
+                    Cmp (Reg EAX) (Immediate 0),
+                    Je (show uuid ++ "else"),
+                    Label (show uuid ++ "then") (length (instructions c3) + 3)]}
+        let c3 = putInstructionSequence thenBlock c2
+        let c4 = case c3 of
+                Nothing -> Nothing
+                Just c5 -> Just c5 { instructions = instructions c5 ++ [
+                    Jmp (show uuid ++ "end"),
+                    Label (show uuid ++ "else") (length (instructions c5) + 1)]}
+        let c6 = case elseBlock of
+                Nothing -> c4
+                Just elseBlock' -> putInstructionSequence elseBlock' c4
+        case c6 of
+                Nothing -> Nothing
+                Just c7 -> Just c7 { instructions = instructions c7 ++ [
+                    Label (show uuid ++ "end") (length (instructions c7) + 1)]}
+putIfInstruction _ _ = Nothing
+
+
+ifPutCondition :: Maybe Context -> ASTNode -> Maybe Context
+ifPutCondition Nothing _ = Nothing
+ifPutCondition (Just c) cond = instructionFromAST cond (Just c)
 -------------------------------------------------------------------------------
 -- SOLVING CYCLE IMPORT
 -------------------------------------------------------------------------------

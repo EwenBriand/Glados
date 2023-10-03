@@ -40,6 +40,7 @@ data ASTNode = ASTNodeError {astnerrToken :: TokenInfo}
              | ASTNodeArray {astnaChildren :: [ASTNode]}
              | ASTNodeInstructionSequence {astnisChildren :: [ASTNode]}
              | ASTNodeBoolean {astnbValue :: Bool}
+             | ASTNodeIf {astniCondition :: ASTNode, astniThen :: [ASTNode], astniElse :: Maybe [ASTNode]}
     deriving (Eq, Show)
 
 -- | @params:
@@ -52,6 +53,12 @@ tokOrExprToASTNode [] = ASTNodeError (TokenInfo TokError "")
 -- param list
 tokOrExprToASTNode [A (ASTNodeParamList l), A n] = ASTNodeParamList (l ++ [n])
 tokOrExprToASTNode [A n1, A n2] = ASTNodeParamList [n1, n2]
+-- an if statement
+tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokenKeywordIf _), T (TokenInfo TokOpenParen _), A n, T (TokenInfo TokCloseParen _), T (TokenInfo TokenKeywordThen _), A (ASTNodeParamList l), T (TokenInfo TokCloseParen _)] = ASTNodeIf n l Nothing
+tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokenKeywordIf _), T (TokenInfo TokOpenParen _), A n, T (TokenInfo TokCloseParen _), T (TokenInfo TokenKeywordThen _), A (ASTNodeParamList l), T (TokenInfo TokenKeywordElse _), A (ASTNodeParamList lelse), T (TokenInfo TokCloseParen _)] = ASTNodeIf n l (Just lelse)
+tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokenKeywordIf _), T (TokenInfo TokOpenParen _), A n, T (TokenInfo TokCloseParen _), T (TokenInfo TokenKeywordThen _), A l, T (TokenInfo TokCloseParen _)] = ASTNodeIf n [l] Nothing
+tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokenKeywordIf _), T (TokenInfo TokOpenParen _), A n, T (TokenInfo TokCloseParen _), T (TokenInfo TokenKeywordThen _), A l, T (TokenInfo TokenKeywordElse _), A lelse, T (TokenInfo TokCloseParen _)] = ASTNodeIf n [l] (Just [lelse])
+tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokenKeywordIf _), T (TokenInfo TokOpenParen _), A n, T (TokenInfo TokCloseParen _), T (TokenInfo TokenKeywordThen _), T (TokenInfo TokOpenParen _), A l, T (TokenInfo TokCloseParen _), T (TokenInfo TokenKeywordElse _), T (TokenInfo TokOpenParen _), A lelse, T (TokenInfo TokCloseParen _), T (TokenInfo TokCloseParen _)] = ASTNodeIf n [l] (Just [lelse])
 -- array
 tokOrExprToASTNode [T (TokenInfo TokOpenParen _), A (ASTNodeParamList l), T (TokenInfo TokCloseParen _)] = ASTNodeArray l
 tokOrExprToASTNode [T (TokenInfo TokOpenParen _), A n, T (TokenInfo TokCloseParen _)] = ASTNodeArray [n]
@@ -79,7 +86,7 @@ tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokKeyworddefine 
 -- a boolean
 tokOrExprToASTNode [T (TokenInfo TokenBool val)] = ASTNodeBoolean (val == "true")
 -- error
-tokOrExprToASTNode _ = ASTNodeError (TokenInfo TokError "")
+tokOrExprToASTNode unresolved = ASTNodeError (TokenInfo TokError (show unresolved))
 
 
 
@@ -116,6 +123,7 @@ tryBuildInstructionList [A (ASTNodeParamList l)] = ASTNodeInstructionSequence l
 tryBuildInstructionList [A (ASTNodeInstructionSequence l)] = ASTNodeInstructionSequence l
 tryBuildInstructionList [A (ASTNodeInstructionSequence l), A n] = ASTNodeInstructionSequence (l ++ [n])
 tryBuildInstructionList [A n1, A n2] = ASTNodeInstructionSequence [n1, n2]
+-- tryBuildInstructionList l = ASTNodeError (TokenInfo TokError (show l))
 tryBuildInstructionList _ = ASTNodeError (TokenInfo TokError "cannot resolve input")
 
 -- calls buildASTIterate in a loop to progressively reduce the array

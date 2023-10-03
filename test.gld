@@ -1,3 +1,1 @@
-(define foo 10)
-(define bee 2)
-(+ bee foo)
+(if (false) then (3) else (2))
