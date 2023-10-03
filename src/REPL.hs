@@ -35,6 +35,19 @@ readContents = do
             rest <- readContents
             return (c:rest)
 
+parseLabels :: Maybe Context -> [Instruction] -> Int -> Maybe Context
+parseLabels Nothing _ _ = Nothing
+parseLabels (Just c) [] _ = Just c
+parseLabels (Just c) (i:is) idx = case i of
+    Label name _ -> parseLabels (labelSet (Just c) name idx) is (idx + 1)
+    _ -> parseLabels (Just c) is (idx + 1)
+
+
+-- detects the labels in the instructions and adds them to the context
+detectLabels :: Maybe Context -> Maybe Context
+detectLabels Nothing = Nothing
+detectLabels (Just c) = parseLabels (Just c) (instructions c) 0
+
 -- Runs an interactive console that allows the user to enter commands,
 -- and redirects these commands to the lexer in order to build and evaluate the
 -- AST.
@@ -51,7 +64,7 @@ runREPL (Just c) = do
             case strToHASM (Just c) input of
                 Nothing -> putStrLn "Error no HASM"
                 Just ctx -> do
-                    let c' = execInstructions (Just ctx)
+                    let c' = execInstructions (detectLabels (Just ctx))
                     case getTrueValueFromParam c' (Reg EAX) of
                         Nothing -> putStrLn "Error EAX is null"
                         Just v -> print v

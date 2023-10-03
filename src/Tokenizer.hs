@@ -28,6 +28,8 @@ data Token = TokSymbol -- ^ A variable name, function name, etc.
            | TokNewLine -- ^ A newline character
            | TokenBool -- ^ A boolean value
            | TokenKeywordIf -- ^ The "if" keyword
+           | TokenKeywordThen -- ^ The "then" keyword
+              | TokenKeywordElse -- ^ The "else" keyword
            deriving (Eq, Show, Enum)
 
 data TokenInfo = TokenInfo { token :: Token, value :: String} deriving (Eq, Show)
@@ -54,10 +56,12 @@ wordToTok ")" = TokenInfo {token = TokCloseParen, value = ")"}
 wordToTok " " = TokenInfo {token = TokWhitespace, value = " "}
 wordToTok "\n" = TokenInfo {token = TokNewLine, value = "\n"}
 wordToTok "#t" = TokenInfo {token = TokenBool, value = "true"}
-wordToTok "#f" = TokenInfo {token = TokenBool, value = "false"}
 wordToTok "true" = TokenInfo {token = TokenBool, value = "true"}
+wordToTok "#f" = TokenInfo {token = TokenBool, value = "false"}
 wordToTok "false" = TokenInfo {token = TokenBool, value = "false"}
 wordToTok "if" = TokenInfo {token = TokenKeywordIf, value = "if"}
+wordToTok "then" = TokenInfo {token = TokenKeywordThen, value = "then"}
+wordToTok "else" = TokenInfo {token = TokenKeywordElse, value = "else"}
 wordToTok str | all isAlpha str = TokenInfo {token = TokSymbol, value = str}
                 | all isDigit str = TokenInfo {token = TokInteger, value = str}
                 | otherwise = TokenInfo { token = TokError, value = str}

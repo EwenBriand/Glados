@@ -81,4 +81,6 @@ main = do
   _ <- runTestTT testMovStackAddr
   _ <- runTestTT testputDefineInstruction
   _ <- runTestTT testMovFromStackAddr
+  _ <- runTestTT testInstructionFromAST
+  _ <- runTestTT testIf
   return ()

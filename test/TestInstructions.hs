@@ -53,7 +53,8 @@ module TestInstructions (
     testPush,
     testExec,
     testPushExec,
-    testPushInstr
+    testPushInstr,
+    testIf,
 ) where
 
 import Test.HUnit
@@ -61,6 +62,8 @@ import Instructions
 import VM
 import qualified Data.Maybe as Data
 import Data.Bits
+import EvaluateAST
+import Lexer
 
 
 testMovImpl :: Bool
@@ -540,3 +543,24 @@ testPushInstr =
       "Eval One instruction" ~: testExec ~?= 42,
       "push and execute multiple instructions" ~: testPushExec ~?= 50
     ]
+
+testIfImpl :: [Instruction]
+testIfImpl = instructions (Data.fromMaybe newContext (strToHASM (Just newContext) "(if (true) then 1)"))
+
+testIf :: Test
+testIf = TestList [
+    "build if ast" ~: strToAST "(if (true) then 1)" ~?= ASTNodeIf (ASTNodeBoolean True) [ASTNodeInteger 1] Nothing,
+    "instructions if statement" ~: testIfImpl ~?= [
+        Enter,
+        Xor (Reg EAX) (Reg EAX),
+        Mov (Reg EAX) (Immediate 1),
+        Cmp (Reg EAX) (Immediate 0),
+        Je "0else",
+        VM.Label "0then" 5,
+        Xor (Reg EAX) (Reg EAX),
+        Mov (Reg EAX) (Immediate 1),
+        Jmp "0end",
+        VM.Label "0else" 8,
+        VM.Label "0end" 10
+        ],
+        "build if else ast" ~: strToAST "(if (true) then 1 else 2)" ~?= ASTNodeIf (ASTNodeBoolean True) [ASTNodeInteger 1] (Just [ASTNodeInteger 2])]
