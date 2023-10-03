@@ -29,8 +29,8 @@ data Token = TokSymbol -- ^ A variable name, function name, etc.
            | TokenBool -- ^ A boolean value
            | TokenKeywordIf -- ^ The "if" keyword
            | TokenKeywordThen -- ^ The "then" keyword
-              | TokenKeywordElse -- ^ The "else" keyword
-           deriving (Eq, Show, Enum)
+           | TokenKeywordElse -- ^ The "else" keyword
+           deriving (Eq, Show)
 
 data TokenInfo = TokenInfo { token :: Token, value :: String} deriving (Eq, Show)
 

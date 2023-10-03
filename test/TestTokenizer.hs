@@ -3,7 +3,6 @@ module TestTokenizer (
     testTryTokenizeOne,
     testTokenInfoFields,
     testTokenInfoShow,
-    testTokenEnum,
     testTokenize
 ) where
 
@@ -71,17 +70,6 @@ testTokenInfoShow = test
     let ti = TokenInfo { token = TokInteger, value = "123" }
     in do
       assertEqual "Show instance should match" "TokenInfo {token = TokInteger, value = \"123\"}" (show ti)
-  ]
-
-testTokenEnum :: Test
-testTokenEnum = test
-  [ "Test Token Enum instance" ~:
-    let
-      expectedInt = 4
-      expectedToken = TokOperatorMul
-    in do
-      assertEqual "Enum conversion to Int" expectedInt (fromEnum expectedToken)
-      assertEqual "Enum conversion from Int" expectedToken (toEnum expectedInt)
   ]
 
 testTokenize :: Test
