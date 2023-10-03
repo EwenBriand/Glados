@@ -7,7 +7,9 @@ module TestLexer (
     testBuildASTIterate,
     testBuildAST,
     testTryBuildInstructionList,
-    testStrToAST
+    testStrToAST,
+    testShowVarType,
+    testShowTokorNode
 ) where
 
 import Test.HUnit
@@ -61,6 +63,10 @@ testASTNodeFields = TestList
       let node = ASTNodeInstructionSequence [ASTNodeInteger 1, ASTNodeInteger 2]
       let expectedChildren = [ASTNodeInteger 1, ASTNodeInteger 2]
       assertEqual "astnisChildren should match" expectedChildren (astnisChildren node)
+  , "Test astnbValue field" ~: do
+      let node = ASTNodeBoolean True
+      let expectedValue = True
+      assertEqual "astnbValue should match" expectedValue (astnbValue node)
   ]
 
 testShowASTNode :: Test
@@ -73,6 +79,26 @@ testShowASTNode = test
       assertEqual "Show instance should match" expectedString (show exampleNode)
   ]
 
+testShowVarType :: Test
+testShowVarType = test
+  [ "Test Show instance for VarType" ~:
+    let
+      exampleVarType = GInt
+      expectedString = "GInt"
+    in do
+      assertEqual "Show instance should match" expectedString (show exampleVarType)
+  ]
+
+testShowTokorNode :: Test
+testShowTokorNode = test
+  [ "Test Show instance for TokorNode" ~:
+    let
+      exampleTokorNode = T (TokenInfo TokInteger "42")
+      expectedString = "T (TokenInfo {token = TokInteger, value = \"42\"})"
+    in do
+      assertEqual "Show instance should match" expectedString (show exampleTokorNode)
+  ]
+
 testTokOrExprToNode :: Test
 testTokOrExprToNode =
   TestList
@@ -80,21 +106,23 @@ testTokOrExprToNode =
       "node integer" ~: tokOrExprToASTNode [T (TokenInfo TokInteger "123")] ~?= ASTNodeInteger 123,
       "node symbol" ~: tokOrExprToASTNode [T (TokenInfo TokSymbol "abc")] ~?= ASTNodeSymbol "abc",
       "node define" ~: tokOrExprToASTNode [T (TokenInfo TokOpenParen "("), T (TokenInfo TokKeyworddefine "define"), A (ASTNodeSymbol "foo"), A (ASTNodeInteger 123), T (TokenInfo TokCloseParen ")")] ~?= ASTNodeDefine (ASTNodeSymbol "foo") (ASTNodeInteger 123),
-      -- "node array" ~: tokOrExprToASTNode [T (TokenInfo TokOpenParen "("), A (ASTNodeArray [ASTNodeInteger 1, ASTNodeInteger 2]), T (TokenInfo TokCloseParen ")")] ~?= ASTNodeArray [ASTNodeInteger 1, ASTNodeInteger 2],
+      "node param 1" ~: tokOrExprToASTNode [A (ASTNodeParamList [ASTNodeInteger 1]), A (ASTNodeInteger 2)] ~?= ASTNodeParamList [ASTNodeInteger 1, ASTNodeInteger 2],
       "node sum" ~: tokOrExprToASTNode [T (TokenInfo TokOpenParen "("), T (TokenInfo TokOperatorPlus "+"), A (ASTNodeParamList [ASTNodeInteger 1, ASTNodeInteger 2]), T (TokenInfo TokCloseParen ")")] ~?= ASTNodeSum [ASTNodeInteger 1, ASTNodeInteger 2],
       "node sub" ~: tokOrExprToASTNode [T (TokenInfo TokOpenParen "("), T (TokenInfo TokOperatorMinus "-"), A (ASTNodeParamList [ASTNodeInteger 1, ASTNodeInteger 2]), T (TokenInfo TokCloseParen ")")] ~?= ASTNodeSub [ASTNodeInteger 1, ASTNodeInteger 2],
       "node mul" ~: tokOrExprToASTNode [T (TokenInfo TokOpenParen "("), T (TokenInfo TokOperatorMul "*"), A (ASTNodeParamList [ASTNodeInteger 1, ASTNodeInteger 2]), T (TokenInfo TokCloseParen ")")] ~?= ASTNodeMul [ASTNodeInteger 1, ASTNodeInteger 2],
       "node div" ~: tokOrExprToASTNode [T (TokenInfo TokOpenParen "("), T (TokenInfo TokOperatorDiv "/"), A (ASTNodeParamList [ASTNodeInteger 1, ASTNodeInteger 2]), T (TokenInfo TokCloseParen ")")] ~?= ASTNodeDiv [ASTNodeInteger 1, ASTNodeInteger 2],
-      "node mod" ~: tokOrExprToASTNode [T (TokenInfo TokOpenParen "("), T (TokenInfo TokOperatorMod "%"), A (ASTNodeParamList [ASTNodeInteger 1, ASTNodeInteger 2]), T (TokenInfo TokCloseParen ")")] ~?= ASTNodeMod [ASTNodeInteger 1, ASTNodeInteger 2]
+      "node mod" ~: tokOrExprToASTNode [T (TokenInfo TokOpenParen "("), T (TokenInfo TokOperatorMod "%"), A (ASTNodeParamList [ASTNodeInteger 1, ASTNodeInteger 2]), T (TokenInfo TokCloseParen ")")] ~?= ASTNodeMod [ASTNodeInteger 1, ASTNodeInteger 2],
+      "node true" ~: tokOrExprToASTNode [T (TokenInfo TokenBool "true")] ~?= ASTNodeBoolean True,
+      "node error" ~: tokOrExprToASTNode [T (TokenInfo TokError "#?!&")] ~?= ASTNodeError (TokenInfo TokError "")
     ]
 
 testTryToMatch :: Test
 testTryToMatch =
   TestList
     [ "no match" ~: tryToMatch [] (T (TokenInfo TokError "")) [] ~?= (A (ASTNodeError (TokenInfo TokError "")), []),
-      "node match integer 0" ~: tryToMatch [] (T (TokenInfo TokError "")) [T (TokenInfo TokInteger "123")] ~?= (A (ASTNodeInteger {astniValue = 123}), []),
-      "node match integer 1" ~: tryToMatch [] (T (TokenInfo TokError "")) [T (TokenInfo TokInteger "123"), T (TokenInfo TokInteger "567")] ~?= (A (ASTNodeInteger {astniValue = 123}), [T (TokenInfo TokInteger "567")]),
-      "node match integer 2" ~: tryToMatch [] (T (TokenInfo TokError "")) [T (TokenInfo TokInteger "123"), T (TokenInfo TokInteger "567"), T (TokenInfo TokInteger "000")] ~?= (A (ASTNodeInteger {astniValue = 123}), [T (TokenInfo TokInteger "567"), T (TokenInfo TokInteger "000")]),
+      "node match integer 0" ~: tryToMatch [] (T (TokenInfo TokError "")) [T (TokenInfo TokInteger "123")] ~?= (A (ASTNodeInteger 123), []),
+      "node match integer 1" ~: tryToMatch [] (T (TokenInfo TokError "")) [T (TokenInfo TokInteger "123"), T (TokenInfo TokInteger "567")] ~?= (A (ASTNodeInteger 123), [T (TokenInfo TokInteger "567")]),
+      "node match integer 2" ~: tryToMatch [] (T (TokenInfo TokError "")) [T (TokenInfo TokInteger "123"), T (TokenInfo TokInteger "567"), T (TokenInfo TokInteger "000")] ~?= (A (ASTNodeInteger 123), [T (TokenInfo TokInteger "567"), T (TokenInfo TokInteger "000")]),
       "node match simple sum" ~: tryToMatch [] (T (TokenInfo TokError "")) [T (TokenInfo TokOpenParen "("), T (TokenInfo TokOperatorPlus "+"), A (ASTNodeParamList [ASTNodeInteger 123, ASTNodeInteger 678]), T (TokenInfo TokCloseParen ")")] ~?= (A (ASTNodeSum [ASTNodeInteger 123, ASTNodeInteger 678]), [])
     ]
 
@@ -119,7 +147,9 @@ testBuildAST =
       -- (+ (+ 123 678) 000)
       "build ast nested sum 2" ~: buildAST [T (TokenInfo TokOpenParen "("), T (TokenInfo TokOperatorPlus "+"), T (TokenInfo TokOpenParen "("), T (TokenInfo TokOperatorPlus "+"), T (TokenInfo TokInteger "123"), T (TokenInfo TokInteger "678"), T (TokenInfo TokCloseParen ")"), T (TokenInfo TokInteger "000"), T (TokenInfo TokCloseParen ")")] ~?= ASTNodeSum [ASTNodeSum [ASTNodeInteger 123, ASTNodeInteger 678], ASTNodeInteger 0],
       -- (+ (+ 123) 2)
-      "build ast error invalid expr" ~: buildAST [T (TokenInfo TokOpenParen "("), T (TokenInfo TokOperatorPlus "+"), T (TokenInfo TokOpenParen "("), T (TokenInfo TokOperatorPlus "+"), T (TokenInfo TokInteger "123"), T (TokenInfo TokCloseParen ")"), T (TokenInfo TokInteger "2"), T (TokenInfo TokCloseParen ")")] ~?= ASTNodeError (TokenInfo TokError "cannot resolve input")
+      "build ast error invalid expr" ~: buildAST [T (TokenInfo TokOpenParen "("), T (TokenInfo TokOperatorPlus "+"), T (TokenInfo TokOpenParen "("), T (TokenInfo TokOperatorPlus "+"), T (TokenInfo TokInteger "123"), T (TokenInfo TokCloseParen ")"), T (TokenInfo TokInteger "2"), T (TokenInfo TokCloseParen ")")] ~?= ASTNodeError (TokenInfo TokError "cannot resolve input"),
+      -- empty
+      "build ast empty" ~: buildAST [] ~?= ASTNodeError (TokenInfo TokError "empty")
     ]
 
 testTryBuildInstructionList :: Test

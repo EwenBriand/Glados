@@ -65,7 +65,7 @@ tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokOperatorPlus _
 -- a sub of expressions
 -- tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokOperatorMinus _), A n1, A n2, T (TokenInfo TokCloseParen _)] = ASTNodeSub [n1, n2]
 tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokOperatorMinus _), A (ASTNodeParamList [n1, n2]), T (TokenInfo TokCloseParen _)] = ASTNodeSub [n1, n2]
--- a mul of expressionsk
+-- a mul of expressions
 -- tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokOperatorMul _), A n1, A n2, T (TokenInfo TokCloseParen _)] = ASTNodeMul [n1, n2]
 tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokOperatorMul _), A (ASTNodeParamList [n1, n2]), T (TokenInfo TokCloseParen _)] = ASTNodeMul [n1, n2]
 -- a div of expressions
@@ -128,12 +128,12 @@ buildAST [] = ASTNodeError (TokenInfo TokError "empty")
 buildAST l = case buildASTIterate l of
     [A (ASTNodeParamList instr)] -> ASTNodeInstructionSequence instr
     [A n] -> n
-    [] -> ASTNodeError (TokenInfo TokError "empty")
-    (n:ns) -> if l == n:ns
+    -- [] -> ASTNodeError (TokenInfo TokError "empty")
+    ns -> if l == ns
                 -- then ASTNodeError (TokenInfo TokError "cannot resolve input")
                 -- then ASTNodeDebug (n:ns)
-                then tryBuildInstructionList (n:ns)
-                else buildAST (n:ns)
+                then tryBuildInstructionList ns
+                else buildAST ns
 
 -- | @params:
 --     str: the string to convert to an AST

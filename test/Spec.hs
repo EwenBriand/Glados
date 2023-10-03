@@ -16,6 +16,8 @@ main = do
   _ <- runTestTT testTokenize
   _ <- runTestTT testASTNodeFields
   _ <- runTestTT testShowASTNode
+  _ <- runTestTT testShowVarType
+  _ <- runTestTT testShowTokorNode
   _ <- runTestTT testTokOrExprToNode
   _ <- runTestTT testTryToMatch
   _ <- runTestTT testBuildASTIterate
@@ -72,8 +74,6 @@ main = do
   _ <- runTestTT testNot
   _ <- runTestTT testPushInstr
   _ <- runTestTT testAstToInstr
-  -- _ <- runTestTT testASTNodeParamList
-  -- _ <- runTestTT testASTNodeArray
   _ <- runTestTT testArrToHASM
   _ <- runTestTT testStrToHASM
   _ <- runTestTT testInstructionList
