@@ -123,8 +123,8 @@ tryBuildInstructionList [A (ASTNodeParamList l)] = ASTNodeInstructionSequence l
 tryBuildInstructionList [A (ASTNodeInstructionSequence l)] = ASTNodeInstructionSequence l
 tryBuildInstructionList [A (ASTNodeInstructionSequence l), A n] = ASTNodeInstructionSequence (l ++ [n])
 tryBuildInstructionList [A n1, A n2] = ASTNodeInstructionSequence [n1, n2]
-tryBuildInstructionList l = ASTNodeError (TokenInfo TokError (show l))
--- tryBuildInstructionList _ = ASTNodeError (TokenInfo TokError "cannot resolve input")
+-- tryBuildInstructionList l = ASTNodeError (TokenInfo TokError (show l))
+tryBuildInstructionList _ = ASTNodeError (TokenInfo TokError "cannot resolve input")
 
 -- calls buildASTIterate in a loop to progressively reduce the array
 -- to a single node
