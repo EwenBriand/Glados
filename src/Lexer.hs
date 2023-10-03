@@ -13,6 +13,7 @@ module Lexer (
 ) where
 
 import Tokenizer
+import ValidState
 
 
 data VarType = GUndefinedType
@@ -40,7 +41,7 @@ data ASTNode = ASTNodeError {astnerrToken :: TokenInfo}
              | ASTNodeArray {astnaChildren :: [ASTNode]}
              | ASTNodeInstructionSequence {astnisChildren :: [ASTNode]}
              | ASTNodeBoolean {astnbValue :: Bool}
-             | ASTNodeIf {astniCondition :: ASTNode, astniThen :: [ASTNode], astniElse :: Maybe [ASTNode]}
+             | ASTNodeIf {astniCondition :: ASTNode, astniThen :: [ASTNode], astniElse :: ValidState [ASTNode]}
     deriving (Eq, Show)
 
 -- | @params:
@@ -54,11 +55,11 @@ tokOrExprToASTNode [] = ASTNodeError (TokenInfo TokError "")
 tokOrExprToASTNode [A (ASTNodeParamList l), A n] = ASTNodeParamList (l ++ [n])
 tokOrExprToASTNode [A n1, A n2] = ASTNodeParamList [n1, n2]
 -- an if statement
-tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokenKeywordIf _), T (TokenInfo TokOpenParen _), A n, T (TokenInfo TokCloseParen _), T (TokenInfo TokenKeywordThen _), A (ASTNodeParamList l), T (TokenInfo TokCloseParen _)] = ASTNodeIf n l Nothing
-tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokenKeywordIf _), T (TokenInfo TokOpenParen _), A n, T (TokenInfo TokCloseParen _), T (TokenInfo TokenKeywordThen _), A (ASTNodeParamList l), T (TokenInfo TokenKeywordElse _), A (ASTNodeParamList lelse), T (TokenInfo TokCloseParen _)] = ASTNodeIf n l (Just lelse)
-tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokenKeywordIf _), T (TokenInfo TokOpenParen _), A n, T (TokenInfo TokCloseParen _), T (TokenInfo TokenKeywordThen _), A l, T (TokenInfo TokCloseParen _)] = ASTNodeIf n [l] Nothing
-tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokenKeywordIf _), T (TokenInfo TokOpenParen _), A n, T (TokenInfo TokCloseParen _), T (TokenInfo TokenKeywordThen _), A l, T (TokenInfo TokenKeywordElse _), A lelse, T (TokenInfo TokCloseParen _)] = ASTNodeIf n [l] (Just [lelse])
-tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokenKeywordIf _), T (TokenInfo TokOpenParen _), A n, T (TokenInfo TokCloseParen _), T (TokenInfo TokenKeywordThen _), T (TokenInfo TokOpenParen _), A l, T (TokenInfo TokCloseParen _), T (TokenInfo TokenKeywordElse _), T (TokenInfo TokOpenParen _), A lelse, T (TokenInfo TokCloseParen _), T (TokenInfo TokCloseParen _)] = ASTNodeIf n [l] (Just [lelse])
+tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokenKeywordIf _), T (TokenInfo TokOpenParen _), A n, T (TokenInfo TokCloseParen _), T (TokenInfo TokenKeywordThen _), A (ASTNodeParamList l), T (TokenInfo TokCloseParen _)] = ASTNodeIf n l (Invalid "nop")
+tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokenKeywordIf _), T (TokenInfo TokOpenParen _), A n, T (TokenInfo TokCloseParen _), T (TokenInfo TokenKeywordThen _), A (ASTNodeParamList l), T (TokenInfo TokenKeywordElse _), A (ASTNodeParamList lelse), T (TokenInfo TokCloseParen _)] = ASTNodeIf n l (Valid lelse)
+tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokenKeywordIf _), T (TokenInfo TokOpenParen _), A n, T (TokenInfo TokCloseParen _), T (TokenInfo TokenKeywordThen _), A l, T (TokenInfo TokCloseParen _)] = ASTNodeIf n [l] (Invalid "nop")
+tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokenKeywordIf _), T (TokenInfo TokOpenParen _), A n, T (TokenInfo TokCloseParen _), T (TokenInfo TokenKeywordThen _), A l, T (TokenInfo TokenKeywordElse _), A lelse, T (TokenInfo TokCloseParen _)] = ASTNodeIf n [l] (Valid [lelse])
+tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokenKeywordIf _), T (TokenInfo TokOpenParen _), A n, T (TokenInfo TokCloseParen _), T (TokenInfo TokenKeywordThen _), T (TokenInfo TokOpenParen _), A l, T (TokenInfo TokCloseParen _), T (TokenInfo TokenKeywordElse _), T (TokenInfo TokOpenParen _), A lelse, T (TokenInfo TokCloseParen _), T (TokenInfo TokCloseParen _)] = ASTNodeIf n [l] (Valid [lelse])
 -- array
 tokOrExprToASTNode [T (TokenInfo TokOpenParen _), A (ASTNodeParamList l), T (TokenInfo TokCloseParen _)] = ASTNodeArray l
 tokOrExprToASTNode [T (TokenInfo TokOpenParen _), A n, T (TokenInfo TokCloseParen _)] = ASTNodeArray [n]

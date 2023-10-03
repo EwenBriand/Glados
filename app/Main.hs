@@ -4,7 +4,8 @@ import REPL
 import VM
 import Lexer
 import EvaluateAST
+import ValidState
 
 main :: IO ()
-main = runREPL Nothing
+main = runREPL (Valid newContext)
 

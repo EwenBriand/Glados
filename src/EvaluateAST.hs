@@ -4,7 +4,7 @@ module EvaluateAST
     strToHASM)
 where
 
-import qualified Data.Maybe
+-- import qualified Data.ValidState
 -- import Lexer
 --     ( ASTNode(ASTNodeDefine, ASTNodeError, ASTNodeInteger,
 --               ASTNodeSymbol, ASTNodeSum, ASTNodeSub, ASTNodeMul, ASTNodeDiv,
@@ -12,14 +12,15 @@ import qualified Data.Maybe
 import Lexer
 -- import VM (Context (..), Instruction (..), Param (..), Register (..), regGet, stackGetPointer, stackPush, symGet, symSet, labelSet, blockInitAllocVarSpace, symGetTotalSize)
 import VM
+import ValidState
 
 
 -- -- | Evaluates the AST and push the instructions into the context.
--- evaluateAST :: ASTNode -> Context -> Maybe Context
--- evaluateAST (ASTNodeError _) ctx = Nothing
+-- evaluateAST :: ASTNode -> Context -> ValidState Context
+-- evaluateAST (ASTNodeError _) ctx = (Invalid "Error")
 
-instructionFromAST :: ASTNode -> Maybe Context -> Maybe Context
-instructionFromAST _ Nothing = Nothing
+instructionFromAST :: ASTNode -> ValidState Context -> ValidState Context
+instructionFromAST _ (Invalid s) = Invalid s
 instructionFromAST (ASTNodeInteger i) ctx = putIntegerInstruction (fromIntegral i) ctx
 instructionFromAST (ASTNodeSymbol s) ctx = putSymbolInstruction s ctx
 instructionFromAST (ASTNodeSum x) ctx = putSumInstruction x ctx
@@ -28,102 +29,102 @@ instructionFromAST (ASTNodeMul x) ctx = putMulInstruction x ctx
 instructionFromAST (ASTNodeDiv x) ctx = putDivInstruction x ctx
 instructionFromAST (ASTNodeMod x) ctx = putModInstruction x ctx
 instructionFromAST (ASTNodeDefine name x) ctx = putDefineInstruction name x ctx
-instructionFromAST (ASTNodeParamList _) ctx = ctx -- not an actual instruction, does nothing
+instructionFromAST (ASTNodeParamList _) ctx = ctx -- not an actual instruction, does (Invalid "Error")
 instructionFromAST (ASTNodeArray n) ctx = astNodeArrayToHASM ctx (ASTNodeArray n)
 instructionFromAST (ASTNodeInstructionSequence n) ctx = putInstructionSequence n ctx
 instructionFromAST (ASTNodeBoolean b) ctx = putIntegerInstruction (if b then 1 else 0) ctx
 instructionFromAST (ASTNodeIf cond thenBlock elseBlock) ctx = putIfInstruction ctx (ASTNodeIf cond thenBlock elseBlock)
 
-instructionFromAST _ _ = Nothing
+instructionFromAST _ _ = Invalid "Error"
 
-putInstructionSequence :: [ASTNode] -> Maybe Context -> Maybe Context
-putInstructionSequence _ Nothing = Nothing
+putInstructionSequence :: [ASTNode] -> ValidState Context -> ValidState Context
+putInstructionSequence _ (Invalid s) = Invalid s
 putInstructionSequence [] ctx = ctx
 putInstructionSequence (x:xs) ctx = do
   ctx' <- instructionFromAST x ctx
-  putInstructionSequence xs (Just ctx')
+  putInstructionSequence xs (Valid ctx')
 
-putIntegerInstruction :: Int -> Maybe Context -> Maybe Context
-putIntegerInstruction _ Nothing = Nothing
-putIntegerInstruction i (Just ctx) = Just ctx {instructions = instructions ctx ++ [Xor (Reg EAX) (Reg EAX), Mov (Reg EAX) (Immediate i)]}
+putIntegerInstruction :: Int -> ValidState Context -> ValidState Context
+putIntegerInstruction _ (Invalid s) = Invalid s
+putIntegerInstruction i (Valid ctx) = Valid ctx {instructions = instructions ctx ++ [Xor (Reg EAX) (Reg EAX), Mov (Reg EAX) (Immediate i)]}
 
-putSumInstruction :: [ASTNode] -> Maybe Context -> Maybe Context
-putSumInstruction _ Nothing = Nothing
+putSumInstruction :: [ASTNode] -> ValidState Context -> ValidState Context
+putSumInstruction _ (Invalid s) = Invalid s
 putSumInstruction [x, y] ctx = do
   ctx' <- instructionFromAST x ctx
-  ctx'' <- instructionFromAST y (Just ctx' {instructions = instructions ctx' ++ [Push (Reg EAX)]})
+  ctx'' <- instructionFromAST y (Valid ctx' {instructions = instructions ctx' ++ [Push (Reg EAX)]})
   return (ctx'' {instructions = instructions ctx'' ++ [Pop (Reg EDI), Add EAX (Reg EDI)]})
-putSumInstruction _ _ = Nothing
+putSumInstruction _ _ = Invalid "Error"
 
-putSubInstruction :: [ASTNode] -> Maybe Context -> Maybe Context
-putSubInstruction _ Nothing = Nothing
+putSubInstruction :: [ASTNode] -> ValidState Context -> ValidState Context
+putSubInstruction _ (Invalid s) = Invalid s
 putSubInstruction [x, y] ctx = do
   ctx' <- instructionFromAST y ctx
-  ctx'' <- instructionFromAST x (Just ctx' {instructions = instructions ctx' ++ [Push (Reg EAX)]})
+  ctx'' <- instructionFromAST x (Valid ctx' {instructions = instructions ctx' ++ [Push (Reg EAX)]})
   return (ctx'' {instructions = instructions ctx'' ++ [Pop (Reg EDI), Sub (Reg EAX) (Reg EDI)]})
-putSubInstruction _ _ = Nothing
+putSubInstruction _ _ = Invalid "Error"
 
-putMulInstruction :: [ASTNode] -> Maybe Context -> Maybe Context
-putMulInstruction _ Nothing = Nothing
+putMulInstruction :: [ASTNode] -> ValidState Context -> ValidState Context
+putMulInstruction _ (Invalid "Error") = (Invalid "Error")
 putMulInstruction [x, y] ctx = do
   ctx' <- instructionFromAST x ctx
-  ctx'' <- instructionFromAST y (Just ctx' {instructions = instructions ctx' ++ [Push (Reg EAX)]})
+  ctx'' <- instructionFromAST y (Valid ctx' {instructions = instructions ctx' ++ [Push (Reg EAX)]})
   return (ctx'' {instructions = instructions ctx'' ++ [Pop (Reg EDI), Mult (Reg EAX) (Reg EDI)]})
-putMulInstruction _ _ = Nothing
+putMulInstruction _ _ = Invalid "Error"
 
-putDivInstruction :: [ASTNode] -> Maybe Context -> Maybe Context
-putDivInstruction _ Nothing = Nothing
+putDivInstruction :: [ASTNode] -> ValidState Context -> ValidState Context
+putDivInstruction _ (Invalid s) = Invalid s
 putDivInstruction [x, y] ctx = do
   ctx' <- instructionFromAST x ctx
-  ctx'' <- instructionFromAST y (Just ctx' {instructions = instructions ctx' ++ [Push (Reg EAX)]})
+  ctx'' <- instructionFromAST y (Valid ctx' {instructions = instructions ctx' ++ [Push (Reg EAX)]})
   return (ctx'' {instructions = instructions ctx'' ++ [Pop (Reg EDI), Mov (Reg EBX) (Reg EAX), Mov (Reg EAX) (Reg EDI), Mov (Reg EDI) (Reg EBX), Div (Reg EDI)]})
-putDivInstruction _ _ = Nothing
+putDivInstruction _ _ = Invalid "Error"
 
-putModInstruction :: [ASTNode] -> Maybe Context -> Maybe Context
-putModInstruction _ Nothing = Nothing
+putModInstruction :: [ASTNode] -> ValidState Context -> ValidState Context
+putModInstruction _ (Invalid s) = Invalid s
 putModInstruction [x, y] ctx = do
   ctx' <- instructionFromAST x ctx
-  ctx'' <- instructionFromAST y (Just ctx' {instructions = instructions ctx' ++ [Push (Reg EAX)]})
+  ctx'' <- instructionFromAST y (Valid ctx' {instructions = instructions ctx' ++ [Push (Reg EAX)]})
   return (ctx'' {instructions = instructions ctx'' ++ [Pop (Reg EDI), Mov (Reg EBX) (Reg EAX), Mov (Reg EAX) (Reg EDI), Mov (Reg EDI) (Reg EBX), Div (Reg EDI), Mov (Reg EAX) (Reg EDX)]})
-putModInstruction _ _ = Nothing
+putModInstruction _ _ = Invalid "Error"
 
-putSymbolInstruction :: String -> Maybe Context -> Maybe Context
-putSymbolInstruction _ Nothing = Nothing
-putSymbolInstruction s (Just ctx) = do
-  let sym = symGet (Just ctx) s
+putSymbolInstruction :: String -> ValidState Context -> ValidState Context
+putSymbolInstruction _ (Invalid s) = Invalid s
+putSymbolInstruction s (Valid ctx) = do
+  let sym = symGet (Valid ctx) s
   case sym of
-    Just sym' -> return (ctx {instructions = instructions ctx ++ [Xor (Reg EAX) (Reg EAX), MovFromStackAddr (Reg EAX) (Immediate sym')]})
-    Nothing -> Nothing
+    Valid sym' -> return (ctx {instructions = instructions ctx ++ [Xor (Reg EAX) (Reg EAX), MovFromStackAddr (Reg EAX) (Immediate sym')]})
+    Invalid s -> Invalid s
 
--- putDefineInstruction :: ASTNode -> ASTNode -> Maybe Context -> Maybe Context
--- putDefineInstruction _ _ Nothing = Nothing
+-- putDefineInstruction :: ASTNode -> ASTNode -> ValidState Context -> ValidState Context
+-- putDefineInstruction _ _ (Invalid "Error") = (Invalid "Error")
 -- putDefineInstruction name node ctx = do
 --   let newCtx = instructionFromAST name ctx
 --   case newCtx of
---     Just _ -> Nothing
---     Nothing -> do
+--     Valid _ -> (Invalid "Error")
+--     (Invalid "Error") -> do
 --       let ctx' = symSet ctx (astnsName name) 4
 --       let s = symGet ctx' (astnsName name)
 --       let ctx'' = instructionFromAST node ctx'
 --       case ctx'' of
---         Nothing -> Nothing
---         Just ctx''' ->  do
+--         (Invalid "Error") -> (Invalid "Error")
+--         Valid ctx''' ->  do
 --           let res = symGetTotalSize ctx''
 --           let res' = case res of
---                 Nothing -> 0
---                 Just res'' -> res''
+--                 (Invalid "Error") -> 0
+--                 Valid res'' -> res''
 --           case s of
---             Nothing -> Nothing
---             Just s' -> do
+--             (Invalid "Error") -> (Invalid "Error")
+--             Valid s' -> do
 --               let val = res' - s'
 --               return ( ctx''' {instructions = instructions ctx''' ++ [MovStackAddr (Immediate val) (Reg EAX)]})
 
-inferTypeFromNode :: Maybe Context -> ASTNode -> VarType
-inferTypeFromNode Nothing _ = GUndefinedType
+inferTypeFromNode :: ValidState Context -> ASTNode -> VarType
+inferTypeFromNode (Invalid s) _ = GUndefinedType
 inferTypeFromNode _ (ASTNodeInteger _) = GInt
 inferTypeFromNode c (ASTNodeSymbol name) = case symGetFull c name of
-    Nothing -> GUndefinedType
-    Just (_, t) -> t
+    (Invalid _) -> GUndefinedType
+    Valid (_, t) -> t
 inferTypeFromNode c (ASTNodeSum (x:_)) = inferTypeFromNode c x
 inferTypeFromNode c (ASTNodeSub (x:_)) = inferTypeFromNode c x
 inferTypeFromNode c (ASTNodeMul (x:_)) = inferTypeFromNode c x
@@ -132,21 +133,21 @@ inferTypeFromNode c (ASTNodeMod (x:_)) = inferTypeFromNode c x
 inferTypeFromNode _ _ = GUndefinedType
 
 
-putDefineNoErrCheck :: ASTNode -> ASTNode -> Maybe Context -> Maybe Context
-putDefineNoErrCheck _ _ Nothing = Nothing
+putDefineNoErrCheck :: ASTNode -> ASTNode -> ValidState Context -> ValidState Context
+putDefineNoErrCheck _ _ (Invalid s) = Invalid s
 putDefineNoErrCheck name node c =
     let c' = symSet c (astnsName name) (inferTypeFromNode c node) in
         case instructionFromAST node c' of
-        Nothing -> Nothing
-        Just c'' -> Just c'' {instructions = instructions c'' ++ [MovStackAddr (Immediate (length (symTable (symbolTable c'')) - 1)) (Reg EAX)]}
+        Invalid s -> Invalid s
+        Valid c'' -> Valid c'' {instructions = instructions c'' ++ [MovStackAddr (Immediate (length (symTable (symbolTable c'')) - 1)) (Reg EAX)]}
 
-putDefineInstruction :: ASTNode -> ASTNode -> Maybe Context -> Maybe Context
-putDefineInstruction _ _ Nothing = Nothing
+putDefineInstruction :: ASTNode -> ASTNode -> ValidState Context -> ValidState Context
+putDefineInstruction _ _ (Invalid s) = Invalid s
 putDefineInstruction name node ctx =
     let newCtx = instructionFromAST name ctx in
         case newCtx of
-        Just _ -> Nothing -- error, the variable already exists!
-        Nothing -> putDefineNoErrCheck name node ctx
+        Valid _ -> Invalid "Error: Variable already exists" -- error, the variable already exists!
+        Invalid _ -> putDefineNoErrCheck name node ctx
 
 -- | Implements the following behaviour:
 -- - tests the condition
@@ -162,46 +163,45 @@ putDefineInstruction name node ctx =
 -- <uuid>_else:
 -- ...; executes the instructions of the children
 -- <uuid>_end:
-putIfInstruction :: Maybe Context -> ASTNode -> Maybe Context
-putIfInstruction Nothing _ = Nothing
-putIfInstruction (Just c) (ASTNodeIf cond thenBlock elseBlock) =
+putIfInstruction :: ValidState Context -> ASTNode -> ValidState Context
+putIfInstruction (Invalid s) _ = Invalid s
+putIfInstruction (Valid c) (ASTNodeIf cond thenBlock elseBlock) =
     let (uuid, c') = nextUUID c in do
-        let c1 = ifPutCondition (Just c') cond
+        let c1 = ifPutCondition (Valid c') cond
         let c2 = case c1 of
-                Nothing -> Nothing
-                Just c3 -> Just c3 { instructions = instructions c3 ++ [
+                (Invalid s) -> Invalid s
+                Valid c3 -> Valid c3 { instructions = instructions c3 ++ [
                     Cmp (Reg EAX) (Immediate 0),
                     Je (show uuid ++ "else"),
                     Label (show uuid ++ "then") (length (instructions c3) + 3)]}
         let c3 = putInstructionSequence thenBlock c2
         let c4 = case c3 of
-                Nothing -> Nothing
-                Just c5 -> Just c5 { instructions = instructions c5 ++ [
+                (Invalid s) -> Invalid s
+                Valid c5 -> Valid c5 { instructions = instructions c5 ++ [
                     Jmp (show uuid ++ "end"),
                     Label (show uuid ++ "else") (length (instructions c5) + 1)]}
         let c6 = case elseBlock of
-                Nothing -> c4
-                Just elseBlock' -> putInstructionSequence elseBlock' c4
+                (Invalid s) -> c4
+                Valid elseBlock' -> putInstructionSequence elseBlock' c4
         case c6 of
-                Nothing -> Nothing
-                Just c7 -> Just c7 { instructions = instructions c7 ++ [
+                (Invalid s) -> Invalid s
+                Valid c7 -> Valid c7 { instructions = instructions c7 ++ [
                     Label (show uuid ++ "end") (length (instructions c7) + 1)]}
-putIfInstruction _ _ = Nothing
+putIfInstruction _ _ = Invalid "Invalid arguments to if clause"
 
-
-ifPutCondition :: Maybe Context -> ASTNode -> Maybe Context
-ifPutCondition Nothing _ = Nothing
-ifPutCondition (Just c) cond = instructionFromAST cond (Just c)
+ifPutCondition :: ValidState Context -> ASTNode -> ValidState Context
+ifPutCondition (Invalid s) _ = Invalid s
+ifPutCondition (Valid c) cond = instructionFromAST cond (Valid c)
 -------------------------------------------------------------------------------
 -- SOLVING CYCLE IMPORT
 -------------------------------------------------------------------------------
 
-astNodeArrayToHASMLoopBody :: Maybe Context -> [ASTNode] -> Maybe Context
-astNodeArrayToHASMLoopBody Nothing _ = Nothing
-astNodeArrayToHASMLoopBody (Just ctx) [] = Just ctx
-astNodeArrayToHASMLoopBody (Just ctx) (x:xs) = case instructionFromAST x (Just ctx) of
-    Nothing -> Nothing
-    Just c -> astNodeArrayToHASMLoopBody (Just c {
+astNodeArrayToHASMLoopBody :: ValidState Context -> [ASTNode] -> ValidState Context
+astNodeArrayToHASMLoopBody (Invalid s) _ = Invalid s
+astNodeArrayToHASMLoopBody (Valid ctx) [] = Valid ctx
+astNodeArrayToHASMLoopBody (Valid ctx) (x:xs) = case instructionFromAST x (Valid ctx) of
+    (Invalid s) -> Invalid s
+    Valid c -> astNodeArrayToHASMLoopBody (Valid c {
         instructions = instructions c ++ [
             MovPtr (Reg ESI) (Reg EAX),       -- storing the value of the child node in the allocated memory
             Add ESI (Immediate 4)]}) xs      -- incrementing the pointer to the next element of the array
@@ -209,10 +209,10 @@ astNodeArrayToHASMLoopBody (Just ctx) (x:xs) = case instructionFromAST x (Just c
 -- | @params:
 --     ctx: the context to use
 --     arr: the array to convert to HASM
-astNodeArrayToHASM :: Maybe Context -> ASTNode -> Maybe Context
-astNodeArrayToHASM Nothing _ = Nothing
-astNodeArrayToHASM (Just ctx) (ASTNodeArray arr) = astNodeArrayToHASMEnd (astNodeArrayToHASMLoopBody (aSTNodeArrayToHASMPreLoop (Just ctx) arr) arr)
-astNodeArrayToHASM _ _ = Nothing
+astNodeArrayToHASM :: ValidState Context -> ASTNode -> ValidState Context
+astNodeArrayToHASM (Invalid s) _ = Invalid s
+astNodeArrayToHASM (Valid ctx) (ASTNodeArray arr) = astNodeArrayToHASMEnd (astNodeArrayToHASMLoopBody (aSTNodeArrayToHASMPreLoop (Valid ctx) arr) arr)
+astNodeArrayToHASM _ _ = Invalid "Error: could not resolve array"
 
 
 hasmBackupRegisters :: [Register] -> [Instruction]
@@ -221,7 +221,7 @@ hasmBackupRegisters = foldr (\ x -> (++) [Push (Reg x)]) []
 hasmRestoreRegisters :: [Register] -> [Instruction]
 hasmRestoreRegisters = foldl (\ acc x -> acc ++ [Pop (Reg x)]) []
 
-labelImpl :: Maybe Context -> String -> Int -> Maybe Context
+labelImpl :: ValidState Context -> String -> Int -> ValidState Context
 labelImpl = labelSet
 
 hASMPointerAlloc :: Int -> [Instruction]
@@ -231,27 +231,27 @@ hASMPointerAlloc size = [
     Interrupt,                        -- exec sbrk with int 0x80
     Mov (Reg EBX) (Reg EAX)]                    -- we put the pointer to the array in ebx we put the pointer to the array in ebx
 
-aSTNodeArrayToHASMPreLoop :: Maybe Context -> [ASTNode] -> Maybe Context
-aSTNodeArrayToHASMPreLoop Nothing _ = Nothing
-aSTNodeArrayToHASMPreLoop (Just ctx) arr = Just ctx {instructions = instructions ctx ++
+aSTNodeArrayToHASMPreLoop :: ValidState Context -> [ASTNode] -> ValidState Context
+aSTNodeArrayToHASMPreLoop (Invalid s) _ = Invalid s
+aSTNodeArrayToHASMPreLoop (Valid ctx) arr = Valid ctx {instructions = instructions ctx ++
     hasmBackupRegisters [EBX, ESI] ++
     hASMPointerAlloc (length arr)
     ++ [Mov (Reg ESI) (Reg EBX)]}                    -- esi will be used to iterate over the array
 
-astNodeArrayToHASMEnd :: Maybe Context -> Maybe Context
-astNodeArrayToHASMEnd Nothing = Nothing
-astNodeArrayToHASMEnd (Just ctx) = Just ctx {instructions = instructions ctx ++ [
+astNodeArrayToHASMEnd :: ValidState Context -> ValidState Context
+astNodeArrayToHASMEnd (Invalid s) = Invalid s
+astNodeArrayToHASMEnd (Valid ctx) = Valid ctx {instructions = instructions ctx ++ [
     Mov (Reg EAX) (Reg EBX)]
     ++ hasmRestoreRegisters [EBX, ESI]} -- we put the pointer to the array in eax
 
-strToHASM :: Maybe Context -> String -> Maybe Context
-strToHASM Nothing _ = Nothing
-strToHASM (Just ctx) str = c'
+strToHASM :: ValidState Context -> String -> ValidState Context
+strToHASM (Invalid s) _ = Invalid s
+strToHASM (Valid ctx) str = c'
     where
         c' = case c of
-            Nothing -> Nothing
-            Just c2 -> Just c2 {instructions = blockInitAllocVarSpace (Just c2) ++ instructions c2}
+            (Invalid s) -> Invalid s
+            Valid c2 -> Valid c2 {instructions = blockInitAllocVarSpace (Valid c2) ++ instructions c2}
         c = case strToAST str of
-            ASTNodeError _ -> Nothing
-            ast -> instructionFromAST ast (Just ctx)
+            ASTNodeError e -> Invalid ("Error: not a valid expression: " ++ show e)
+            ast -> instructionFromAST ast (Valid ctx)
 

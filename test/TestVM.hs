@@ -37,22 +37,21 @@ module TestVM (
 
 import Test.HUnit
 import VM
-import qualified Data.Maybe as Data
-
+import ValidState
 
 testIncRegisterImpl :: Bool
 testIncRegisterImpl =
-  regGet context EAX == Just 1
+  regGet context EAX == Valid 1
   where
-    context = regInc (Just newContext) EAX
+    context = regInc (Valid newContext) EAX
 
 testIncRegister :: Test
 testIncRegister = TestCase (assertBool "inc register" testIncRegisterImpl)
 
 testIncRegisterInvalidContextImpl :: Bool
 testIncRegisterInvalidContextImpl =
-  case regInc Nothing EAX of
-    Nothing -> True
+  case regInc (Invalid "err") EAX of
+    (Invalid _) -> True
     _ -> False
 
 testIncRegisterInvalidContext :: Test
@@ -60,17 +59,17 @@ testIncRegisterInvalidContext = TestCase (assertBool "inc register invalid conte
 
 testDecRegisterImpl :: Bool
 testDecRegisterImpl =
-  regGet context EAX == Just (-1)
+  regGet context EAX == Valid (-1)
   where
-    context = regDec (Just newContext) EAX
+    context = regDec (Valid newContext) EAX
 
 testDecRegister :: Test
 testDecRegister = TestCase (assertBool "dec register" testDecRegisterImpl)
 
 testDecRegisterInvalidContextImpl :: Bool
 testDecRegisterInvalidContextImpl =
-  case regDec Nothing EAX of
-    Nothing -> True
+  case regDec (Invalid "err") EAX of
+    (Invalid _) -> True
     _ -> False
 
 testDecRegisterInvalidContext :: Test
@@ -78,17 +77,17 @@ testDecRegisterInvalidContext = TestCase (assertBool "dec register invalid conte
 
 testAddRegisterImpl :: Bool
 testAddRegisterImpl =
-  regGet context EAX == Just 3
+  regGet context EAX == Valid 3
   where
-    context = regAdd (Just newContext) EAX 3
+    context = regAdd (Valid newContext) EAX 3
 
 testAddRegister :: Test
 testAddRegister = TestCase (assertBool "add register" testAddRegisterImpl)
 
 testAddRegisterInvalidContextImpl :: Bool
 testAddRegisterInvalidContextImpl =
-  case regAdd Nothing EAX 3 of
-    Nothing -> True
+  case regAdd (Invalid "err") EAX 3 of
+    (Invalid _) -> True
     _ -> False
 
 testAddRegisterInvalidContext :: Test
@@ -96,17 +95,17 @@ testAddRegisterInvalidContext = TestCase (assertBool "add register invalid conte
 
 testSubRegisterImpl :: Bool
 testSubRegisterImpl =
-  regGet context EAX == Just (-3)
+  regGet context EAX == Valid (-3)
   where
-    context = regSub (Just newContext) EAX 3
+    context = regSub (Valid newContext) EAX 3
 
 testSubRegister :: Test
 testSubRegister = TestCase (assertBool "sub register" testSubRegisterImpl)
 
 testSubRegisterInvalidContextImpl :: Bool
 testSubRegisterInvalidContextImpl =
-  case regSub Nothing EAX 3 of
-    Nothing -> True
+  case regSub (Invalid "err") EAX 3 of
+    (Invalid _) -> True
     _ -> False
 
 testSubRegisterInvalidContext :: Test
@@ -114,17 +113,17 @@ testSubRegisterInvalidContext = TestCase (assertBool "sub register invalid conte
 
 testMulRegisterImpl :: Bool
 testMulRegisterImpl =
-  regGet context EAX == Just 9
+  regGet context EAX == Valid 9
   where
-    context = regMul (regSet (Just newContext) EAX 3) EAX 3
+    context = regMul (regSet (Valid newContext) EAX 3) EAX 3
 
 testMulRegister :: Test
 testMulRegister = TestCase (assertBool "mul register" testMulRegisterImpl)
 
 testMulRegisterInvalidContextImpl :: Bool
 testMulRegisterInvalidContextImpl =
-  case regMul Nothing EAX 3 of
-    Nothing -> True
+  case regMul (Invalid "err") EAX 3 of
+    (Invalid _) -> True
     _ -> False
 
 testMulRegisterInvalidContext :: Test
@@ -132,17 +131,17 @@ testMulRegisterInvalidContext = TestCase (assertBool "mul register invalid conte
 
 testDivRegisterImpl :: Bool
 testDivRegisterImpl =
-  regGet context EAX == Just 3
+  regGet context EAX == Valid 3
   where
-    context = regDiv (regSet (Just newContext) EAX 9) EAX 3
+    context = regDiv (regSet (Valid newContext) EAX 9) EAX 3
 
 testDivRegister :: Test
 testDivRegister = TestCase (assertBool "div register" testDivRegisterImpl)
 
 testDivZeroRegisterImpl :: Bool
 testDivZeroRegisterImpl =
-  case regDiv (regSet (Just newContext) EAX 9) EAX 0 of
-    Nothing -> True
+  case regDiv (regSet (Valid newContext) EAX 9) EAX 0 of
+    (Invalid _) -> True
     _ -> False
 
 testDivZeroRegister :: Test
@@ -150,8 +149,8 @@ testDivZeroRegister = TestCase (assertBool "div zero register" testDivZeroRegist
 
 testDivRegisterInvalidContextImpl :: Bool
 testDivRegisterInvalidContextImpl =
-  case regDiv Nothing EAX 3 of
-    Nothing -> True
+  case regDiv (Invalid "err") EAX 3 of
+    (Invalid _) -> True
     _ -> False
 
 testDivRegisterInvalidContext :: Test
@@ -159,17 +158,17 @@ testDivRegisterInvalidContext = TestCase (assertBool "div register invalid conte
 
 testModRegisterImpl :: Bool
 testModRegisterImpl =
-  regGet context EAX == Just 1
+  regGet context EAX == Valid 1
   where
-    context = regMod (regSet (Just newContext) EAX 9) EAX 2
+    context = regMod (regSet (Valid newContext) EAX 9) EAX 2
 
 testModRegister :: Test
 testModRegister = TestCase (assertBool "mod register" testModRegisterImpl)
 
 testModZeroRegisterImpl :: Bool
 testModZeroRegisterImpl =
-  case regMod (regSet (Just newContext) EAX 9) EAX 0 of
-    Nothing -> True
+  case regMod (regSet (Valid newContext) EAX 9) EAX 0 of
+    (Invalid _) -> True
     _ -> False
 
 testModZeroRegister :: Test
@@ -177,8 +176,8 @@ testModZeroRegister = TestCase (assertBool "mod zero register" testModZeroRegist
 
 testModRegisterInvalidContextImpl :: Bool
 testModRegisterInvalidContextImpl =
-  case regMod Nothing EAX 3 of
-    Nothing -> True
+  case regMod (Invalid "err") EAX 3 of
+    (Invalid _) -> True
     _ -> False
 
 testModRegisterInvalidContext :: Test
@@ -186,17 +185,17 @@ testModRegisterInvalidContext = TestCase (assertBool "mod register invalid conte
 
 testAndRegisterImpl :: Bool
 testAndRegisterImpl =
-  regGet context EAX == Just 1
+  regGet context EAX == Valid 1
   where
-    context = regAnd (regSet (Just newContext) EAX 5) EAX 3
+    context = regAnd (regSet (Valid newContext) EAX 5) EAX 3
 
 testAndRegister :: Test
 testAndRegister = TestCase (assertBool "and register" testAndRegisterImpl)
 
 testAndRegisterInvalidContextImpl :: Bool
 testAndRegisterInvalidContextImpl =
-  case regAnd Nothing EAX 3 of
-    Nothing -> True
+  case regAnd (Invalid "err") EAX 3 of
+    (Invalid _) -> True
     _ -> False
 
 testAndRegisterInvalidContext :: Test
@@ -204,17 +203,17 @@ testAndRegisterInvalidContext = TestCase (assertBool "and register invalid conte
 
 testOrRegisterImpl :: Bool
 testOrRegisterImpl =
-  regGet context EAX == Just 7
+  regGet context EAX == Valid 7
   where
-    context = regOr (regSet (Just newContext) EAX 5) EAX 3
+    context = regOr (regSet (Valid newContext) EAX 5) EAX 3
 
 testOrRegister :: Test
 testOrRegister = TestCase (assertBool "or register" testOrRegisterImpl)
 
 testOrRegisterInvalidContextImpl :: Bool
 testOrRegisterInvalidContextImpl =
-  case regOr Nothing EAX 3 of
-    Nothing -> True
+  case regOr (Invalid "err") EAX 3 of
+    (Invalid _) -> True
     _ -> False
 
 testOrRegisterInvalidContext :: Test
@@ -222,17 +221,17 @@ testOrRegisterInvalidContext = TestCase (assertBool "or register invalid context
 
 testXorRegisterImpl :: Bool
 testXorRegisterImpl =
-  regGet context EAX == Just 6
+  regGet context EAX == Valid 6
   where
-    context = regXor (regSet (Just newContext) EAX 5) EAX 3
+    context = regXor (regSet (Valid newContext) EAX 5) EAX 3
 
 testXorRegister :: Test
 testXorRegister = TestCase (assertBool "xor register" testXorRegisterImpl)
 
 testXorRegisterInvalidContextImpl :: Bool
 testXorRegisterInvalidContextImpl =
-  case regXor Nothing EAX 3 of
-    Nothing -> True
+  case regXor (Invalid "err") EAX 3 of
+    (Invalid _) -> True
     _ -> False
 
 testXorRegisterInvalidContext :: Test
@@ -240,17 +239,17 @@ testXorRegisterInvalidContext = TestCase (assertBool "xor register invalid conte
 
 testNotRegisterImpl :: Bool
 testNotRegisterImpl =
-  regGet context EAX == Just (-2)
+  regGet context EAX == Valid (-2)
   where
-    context = regNot (regSet (Just newContext) EAX 1) EAX
+    context = regNot (regSet (Valid newContext) EAX 1) EAX
 
 testNotRegister :: Test
 testNotRegister = TestCase (assertBool "not register" testNotRegisterImpl)
 
 testNotRegisterInvalidContextImpl :: Bool
 testNotRegisterInvalidContextImpl =
-  case regNot Nothing EAX of
-    Nothing -> True
+  case regNot (Invalid "err") EAX of
+    (Invalid _) -> True
     _ -> False
 
 testNotRegisterInvalidContext :: Test
@@ -260,28 +259,28 @@ testStackPushPopImpl :: Bool
 testStackPushPopImpl =
   value == 3
   where
-    (v, _) = case stackPop (stackPush (stackPush (Just newContext) 2) 3) of
-      Nothing -> (Nothing, Nothing)
-      Just (one, Just two) -> (Just one, Just two)
-      Just (_, Nothing) -> (Just 987654321, Nothing)
-    value = Data.fromMaybe 987654321 v
+    (v, _) = case stackPop (stackPush (stackPush (Valid newContext) 2) 3) of
+      (Invalid s) -> ((Invalid s), (Invalid s))
+      Valid (one, Valid two) -> (Valid one, Valid two)
+      Valid (_, (Invalid s)) -> (Valid 987654321, (Invalid s))
+    value = fromValidState 987654321 v
 
 testStackPushPop :: Test
 testStackPushPop = TestCase (assertBool "stack push pop peek" testStackPushPopImpl)
 
 testStackPushPopPeekImpl :: Bool
 testStackPushPopPeekImpl =
-  Data.fromMaybe 0 value == 2
+  fromValidState 0 value == 2
   where
     -- caution, the code executes from the bottom to the top
-    (_, c) = case stackPop (stackPush (stackPush (Just newContext) 2) 3) of
-      Nothing -> (Nothing, Nothing)
-      Just (one, Just two) -> (Just one, Just two)
-      Just (_, Nothing) -> (Just 987654321, Nothing)
+    (_, c) = case stackPop (stackPush (stackPush (Valid newContext) 2) 3) of
+      (Invalid s) -> ((Invalid s), (Invalid s))
+      Valid (one, Valid two) -> (Valid one, Valid two)
+      Valid (_, (Invalid s)) -> (Valid 987654321, (Invalid s))
     (value, _) = case stackPeek c of
-      Nothing -> (Nothing, Nothing)
-      Just (one, Just two) -> (Just one, Just two)
-      Just (_, Nothing) -> (Just 987654321, Nothing)
+      (Invalid s) -> ((Invalid s), (Invalid s))
+      Valid (one, Valid two) -> (Valid one, Valid two)
+      Valid (_, (Invalid s)) -> (Valid 987654321, (Invalid s))
 
 testStackPushPopPeek :: Test
 testStackPushPopPeek = TestCase (assertBool "stack push pop peek" testStackPushPopPeekImpl)
@@ -291,72 +290,72 @@ testStackDup = TestCase (assertBool "stack dup" testStackDupImpl)
 
 testStackDupImpl :: Bool
 testStackDupImpl =
-  Data.fromMaybe 0 value == 2
+  fromValidState 0 value == 2
   where
     -- caution, the code executes from the bottom to the top
-    (_, c) = case stackPop (stackPush (stackPush (Just newContext) 2) 3) of
-      Nothing -> (Nothing, Nothing)
-      Just (one, Just two) -> (Just one, Just two)
-      Just (_, Nothing) -> (Just 987654321, Nothing)
+    (_, c) = case stackPop (stackPush (stackPush (Valid newContext) 2) 3) of
+      (Invalid s) -> ((Invalid s), (Invalid s))
+      Valid (one, Valid two) -> (Valid one, Valid two)
+      Valid (_, (Invalid s)) -> (Valid 987654321, (Invalid s))
     (value, _) = case stackPeek (stackDup c) of
-      Nothing -> (Nothing, Nothing)
-      Just (one, Just two) -> (Just one, Just two)
-      Just (_, Nothing) -> (Just 987654321, Nothing)
+      (Invalid s) -> ((Invalid s), (Invalid s))
+      Valid (one, Valid two) -> (Valid one, Valid two)
+      Valid (_, (Invalid s)) -> (Valid 987654321, (Invalid s))
 
 testStackSwap :: Test
 testStackSwap = TestCase (assertBool "stack swap" testStackSwapImpl)
 
 testStackSwapImpl :: Bool
 testStackSwapImpl =
-  Data.fromMaybe 0 value == 3
+  fromValidState 0 value == 3
   where
     -- caution, the code executes from the bottom to the top
-    c = stackPush (stackPush (Just newContext) 2) 3
+    c = stackPush (stackPush (Valid newContext) 2) 3
     (value, _) = case stackPeek (stackSwap c) of
-      Nothing -> (Nothing, Nothing)
-      Just (one, Just two) -> (Just one, Just two)
-      Just (_, Nothing) -> (Just 987654321, Nothing)
+      (Invalid s) -> ((Invalid s), (Invalid s))
+      Valid (one, Valid two) -> (Valid one, Valid two)
+      Valid (_, (Invalid s)) -> (Valid 987654321, (Invalid s))
 
 testStackRot :: Test
 testStackRot = TestCase (assertBool "stack rot" testStackRotImpl)
 
 testStackRotImpl :: Bool
 testStackRotImpl =
-  Data.fromMaybe 0 value == 4
+  fromValidState 0 value == 4
   where
     -- caution, the code executes from the bottom to the top
-    c = stackPush (stackPush (stackPush (Just newContext) 2) 3) 4
+    c = stackPush (stackPush (stackPush (Valid newContext) 2) 3) 4
     (value, _) = case stackPeek (stackRot c) of
-      Nothing -> (Nothing, Nothing)
-      Just (one, Just two) -> (Just one, Just two)
-      Just (_, Nothing) -> (Just 987654321, Nothing)
+      (Invalid s) -> ((Invalid s), (Invalid s))
+      Valid (one, Valid two) -> (Valid one, Valid two)
+      Valid (_, (Invalid s)) -> (Valid 987654321, (Invalid s))
 
 testHeapAlloc :: Test
 testHeapAlloc = TestCase (assertBool "heap set get" testHeapAllocImpl)
 
 testHeapAllocImpl :: Bool
 testHeapAllocImpl =
-  addr == Just 2
+  addr == Valid 2
   where
     -- caution, the code executes from the bottom to the top
     (addr, _) = case heapAlloc c of
-      Nothing -> (Nothing, Nothing)
-      Just (one, Just two) -> (Just one, Just two)
-      Just (_, Nothing) -> (Just 987654321, Nothing)
-    (_, c) = case heapAlloc (Just newContext) of
-      Nothing -> (Nothing, Nothing)
-      Just (one, Just two) -> (Just one, Just two)
-      Just (_, Nothing) -> (Just 987654321, Nothing)
+      (Invalid s) -> ((Invalid s), (Invalid s))
+      Valid (one, Valid two) -> (Valid one, Valid two)
+      Valid (_, (Invalid s)) -> (Valid 987654321, (Invalid s))
+    (_, c) = case heapAlloc (Valid newContext) of
+      (Invalid s) -> ((Invalid s), (Invalid s))
+      Valid (one, Valid two) -> (Valid one, Valid two)
+      Valid (_, (Invalid s)) -> (Valid 987654321, (Invalid s))
 
 testHeapAllocBisImpl :: Int
 testHeapAllocBisImpl =
   addr
   where
     -- caution, the code executes from the bottom to the top
-    (addr, _) = case heapAlloc (Just newContext) of
-      Nothing -> (-1, Nothing)
-      Just (one, Just two) -> (one, Just two)
-      Just (_, Nothing) -> (-1, Nothing)
+    (addr, _) = case heapAlloc (Valid newContext) of
+      (Invalid s) -> (-1, (Invalid s))
+      Valid (one, Valid two) -> (one, Valid two)
+      Valid (_, (Invalid s)) -> (-1, (Invalid s))
 
 testHeapAllocBis :: Test
 testHeapAllocBis = TestCase (assertEqual "heap alloc bis" 1 testHeapAllocBisImpl)
@@ -368,18 +367,18 @@ testHeapSetGetImpl :: Bool
 testHeapSetGetImpl =
   value == 42
   where
-    value = Data.fromMaybe 98764321 (heapGet (heapSet ctx 1 42) 1)
-    ctx = case heapAlloc (Just newContext) of
-      Nothing -> Nothing
-      Just (_, Just two) -> Just two
-      Just (_, Nothing) -> Nothing
+    value = fromValidState 98764321 (heapGet (heapSet ctx 1 42) 1)
+    ctx = case heapAlloc (Valid newContext) of
+      (Invalid s) -> (Invalid s)
+      Valid (_, Valid two) -> Valid two
+      Valid (_, (Invalid s)) -> (Invalid s)
 
 testLabelSetGetImpl :: Bool
 testLabelSetGetImpl =
-  value == Just 42
+  value == Valid 42
   where
     value = labelGet c "ouioui"
-    c = labelSet (Just newContext) "ouioui" 42
+    c = labelSet (Valid newContext) "ouioui" 42
 
 testLabelSetGet :: Test
 testLabelSetGet = TestCase (assertBool "label set get" testLabelSetGetImpl)
@@ -389,7 +388,7 @@ testFlagGetSetImpl =
   value == True
   where
     value = flagGet c ZF
-    c = flagSet (Just newContext) ZF True
+    c = flagSet (Valid newContext) ZF True
 
 testFlagGetSet :: Test
 testFlagGetSet = TestCase (assertBool "flag get set" testFlagGetSetImpl)

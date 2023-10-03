@@ -64,53 +64,54 @@ where
 
 import Data.Bits ( Bits(xor, complement, (.&.), (.|.)) )
 import qualified Data.Map as Map
-import Data.Maybe
 import Lexer
+import ValidState
+import Data.Maybe (fromMaybe)
 
 ---------------------------------------------------------------------------
 -- SYSCALLS
 ---------------------------------------------------------------------------
 
 
--- when adding a syscall value don't forget to add it to the codeFromMaybeInt function
--- just below
+-- when adding a syscall value don't forget to add it to the codeFromValidStateInt function
+-- Valid below
 data SyscallCode = SCExit
                     | SCEasyPrint
                     deriving (Show, Eq, Ord)
 
 
-codeFromMaybeInt :: Maybe Int -> SyscallCode
-codeFromMaybeInt Nothing = SCExit
-codeFromMaybeInt (Just i) = case i of
+codeFromValidStateInt :: ValidState Int -> SyscallCode
+codeFromValidStateInt (Invalid _) = SCExit
+codeFromValidStateInt (Valid i) = case i of
     1 -> SCExit
     123456789 -> SCEasyPrint -- this is not a real syscall
     _ -> SCExit
 
-callExit :: Maybe Context -> Maybe Context
-callExit Nothing = Nothing
-callExit (Just ctx) = Just ctx { exit = True }
+callExit :: ValidState Context -> ValidState Context
+callExit (Invalid s) = Invalid s
+callExit (Valid ctx) = Valid ctx { exit = True }
 
-callEasyPrint :: Maybe Context -> IO()
+callEasyPrint :: ValidState Context -> IO()
 callEasyPrint ctx = case getTrueValueFromParam ctx (Reg EAX) of
-    Nothing -> putStrLn "Register error"
-    Just val -> print val
+    (Invalid s) -> putStrLn "Register error"
+    Valid val -> print val
 
 
 -- | Gets a syscall Code from EAX (int) returns the SyscallCode value associated
 codeFromEAX :: Context -> SyscallCode
-codeFromEAX ctx = codeFromMaybeInt (getTrueValueFromParam (Just ctx) (Reg EAX))
+codeFromEAX ctx = codeFromValidStateInt (getTrueValueFromParam (Valid ctx) (Reg EAX))
 
 -- | executes a syscall from its code. (use SyscallCode datatype)
-execSyscall :: Maybe Context -> SyscallCode -> (Maybe Context, Maybe (IO()))
-execSyscall Nothing _ = (Nothing, Nothing)
+execSyscall :: ValidState Context -> SyscallCode -> (ValidState Context, ValidState (IO()))
+execSyscall (Invalid s) _ = (Invalid s, Invalid s)
 -- printf
-execSyscall (Just ctx) SCEasyPrint = (Just ctx, Just (callEasyPrint (Just ctx)))
+execSyscall (Valid ctx) SCEasyPrint = (Valid ctx, Valid (callEasyPrint (Valid ctx)))
 -- exit
-execSyscall (Just ctx) SCExit = (callExit (Just ctx), Nothing)
+execSyscall (Valid ctx) SCExit = (callExit (Valid ctx), Invalid "exit")
 
-execSyscallWrapper :: Maybe Context -> Maybe Context
-execSyscallWrapper Nothing = Nothing
-execSyscallWrapper (Just ctx) = fst (execSyscall (Just ctx) (codeFromEAX ctx))
+execSyscallWrapper :: ValidState Context -> ValidState Context
+execSyscallWrapper (Invalid s) = Invalid s
+execSyscallWrapper (Valid ctx) = fst (execSyscall (Valid ctx) (codeFromEAX ctx))
 
 
 -------------------------------------------------------------------------------
@@ -128,70 +129,72 @@ newRegisters :: Registers
 newRegisters = Registers (Map.fromList [(EAX, 0), (EBX, 0), (ECX, 0), (EDX, 0), (ESI, 0), (EDI, 0), (EBP, 0), (ESP, 0)])
 
 -- | Sets the value of a register.
-regSet :: Maybe Context -> Register -> Int -> Maybe Context
-regSet Nothing _ _ = Nothing
-regSet (Just context) register value = Just context {registers = Registers (Map.insert register value (regs (registers context)))}
+regSet :: ValidState Context -> Register -> Int -> ValidState Context
+regSet (Invalid s) _ _ = Invalid s
+regSet (Valid context) register value = Valid context {registers = Registers (Map.insert register value (regs (registers context)))}
 
-regNot :: Maybe Context -> Register -> Maybe Context
-regNot Nothing _ = Nothing
-regNot (Just context) register = Just context {registers = Registers (Map.adjust complement register (regs (registers context)))}
+regNot :: ValidState Context -> Register -> ValidState Context
+regNot (Invalid s) _ = Invalid s
+regNot (Valid context) register = Valid context {registers = Registers (Map.adjust complement register (regs (registers context)))}
 
 -- | Gets the value of a register.
-regGet :: Maybe Context -> Register -> Maybe Int
-regGet Nothing _ = Nothing
-regGet (Just context) register = Map.lookup register (regs (registers context))
+regGet :: ValidState Context -> Register -> ValidState Int
+regGet (Invalid s) _ = Invalid s
+regGet (Valid context) register = case Map.lookup register (regs (registers context)) of
+  Nothing -> Invalid "Register not found"
+  Just value -> Valid value
 
 -- | Increments the value of a register.
-regInc :: Maybe Context -> Register -> Maybe Context
-regInc Nothing _ = Nothing
-regInc (Just context) register = Just context {registers = Registers (Map.adjust (+ 1) register (regs (registers context)))}
+regInc :: ValidState Context -> Register -> ValidState Context
+regInc (Invalid s) _ = Invalid s
+regInc (Valid context) register = Valid context {registers = Registers (Map.adjust (+ 1) register (regs (registers context)))}
 
 -- | Decrements the value of a register.
-regDec :: Maybe Context -> Register -> Maybe Context
-regDec Nothing _ = Nothing
-regDec (Just context) register = Just context {registers = Registers (Map.adjust (subtract 1) register (regs (registers context)))}
+regDec :: ValidState Context -> Register -> ValidState Context
+regDec (Invalid s) _ = Invalid s
+regDec (Valid context) register = Valid context {registers = Registers (Map.adjust (subtract 1) register (regs (registers context)))}
 
 -- | Adds a value to the value of a register.
-regAdd :: Maybe Context -> Register -> Int -> Maybe Context
-regAdd Nothing _ _ = Nothing
-regAdd (Just context) register value = Just context {registers = Registers (Map.adjust (+ value) register (regs (registers context)))}
+regAdd :: ValidState Context -> Register -> Int -> ValidState Context
+regAdd (Invalid s) _ _ = Invalid s
+regAdd (Valid context) register value = Valid context {registers = Registers (Map.adjust (+ value) register (regs (registers context)))}
 
 -- | Subtracts a value from the value of a register.
-regSub :: Maybe Context -> Register -> Int -> Maybe Context
-regSub Nothing _ _ = Nothing
-regSub (Just context) register value = Just context {registers = Registers (Map.adjust (subtract value) register (regs (registers context)))}
+regSub :: ValidState Context -> Register -> Int -> ValidState Context
+regSub (Invalid s) _ _ = Invalid s
+regSub (Valid context) register value = Valid context {registers = Registers (Map.adjust (subtract value) register (regs (registers context)))}
 
 -- | Multiplies the value of a register by a value.
-regMul :: Maybe Context -> Register -> Int -> Maybe Context
-regMul Nothing _ _ = Nothing
-regMul (Just context) register value = Just context {registers = Registers (Map.adjust (* value) register (regs (registers context)))}
+regMul :: ValidState Context -> Register -> Int -> ValidState Context
+regMul (Invalid s) _ _ = Invalid s
+regMul (Valid context) register value = Valid context {registers = Registers (Map.adjust (* value) register (regs (registers context)))}
 
 -- | Divides the value of a register by a value.
-regDiv :: Maybe Context -> Register -> Int -> Maybe Context
-regDiv _ _ 0 = Nothing
-regDiv Nothing _ _ = Nothing
-regDiv (Just context) register value = Just context {registers = Registers (Map.adjust (`div` value) register (regs (registers context)))}
+regDiv :: ValidState Context -> Register -> Int -> ValidState Context
+regDiv _ _ 0 = Invalid "Division by zero"
+regDiv (Invalid s) _ _ = Invalid s
+regDiv (Valid context) register value = Valid context {registers = Registers (Map.adjust (`div` value) register (regs (registers context)))}
 
 -- | Modulo the value of a register by a value.
-regMod :: Maybe Context -> Register -> Int -> Maybe Context
-regMod _ _ 0 = Nothing
-regMod Nothing _ _ = Nothing
-regMod (Just context) register value = Just context {registers = Registers (Map.adjust (`mod` value) register (regs (registers context)))}
+regMod :: ValidState Context -> Register -> Int -> ValidState Context
+regMod _ _ 0 = Invalid "Modulo by zero"
+regMod (Invalid s) _ _ = Invalid s
+regMod (Valid context) register value = Valid context {registers = Registers (Map.adjust (`mod` value) register (regs (registers context)))}
 
 -- | Bitwise AND the value of a register by a value.
-regAnd :: Maybe Context -> Register -> Int -> Maybe Context
-regAnd Nothing _ _ = Nothing
-regAnd (Just context) register value = Just context {registers = Registers (Map.adjust (.&. value) register (regs (registers context)))}
+regAnd :: ValidState Context -> Register -> Int -> ValidState Context
+regAnd (Invalid s) _ _ = Invalid s
+regAnd (Valid context) register value = Valid context {registers = Registers (Map.adjust (.&. value) register (regs (registers context)))}
 
 -- | Bitwise OR the value of a register by a value.
-regOr :: Maybe Context -> Register -> Int -> Maybe Context
-regOr Nothing _ _ = Nothing
-regOr (Just context) register value = Just context {registers = Registers (Map.adjust (.|. value) register (regs (registers context)))}
+regOr :: ValidState Context -> Register -> Int -> ValidState Context
+regOr (Invalid s) _ _ = Invalid s
+regOr (Valid context) register value = Valid context {registers = Registers (Map.adjust (.|. value) register (regs (registers context)))}
 
 -- | Bitwise XOR the value of a register by a value.
-regXor :: Maybe Context -> Register -> Int -> Maybe Context
-regXor Nothing _ _ = Nothing
-regXor (Just context) register value = Just context {registers = Registers (Map.adjust (`xor` value) register (regs (registers context)))}
+regXor :: ValidState Context -> Register -> Int -> ValidState Context
+regXor (Invalid s) _ _ = Invalid s
+regXor (Valid context) register value = Valid context {registers = Registers (Map.adjust (`xor` value) register (regs (registers context)))}
 
 -------------------------------------------------------------------------------
 -- STACK
@@ -204,51 +207,51 @@ newStack :: Stack
 newStack = Stack []
 
 -- | Pushes a value on the stack.
-stackPush :: Maybe Context -> Int -> Maybe Context
-stackPush Nothing _ = Nothing
-stackPush (Just context) value = Just context {stack = Stack (pile (stack context) ++ [value]), registers = Registers (Map.adjust (+ 1) ESP (regs (registers context)))}
+stackPush :: ValidState Context -> Int -> ValidState Context
+stackPush (Invalid s) _ = Invalid s
+stackPush (Valid context) value = Valid context {stack = Stack (pile (stack context) ++ [value]), registers = Registers (Map.adjust (+ 1) ESP (regs (registers context)))}
 
 -- | Pops a value from the stack.
-stackPop :: Maybe Context -> Maybe (Int, Maybe Context)
-stackPop Nothing = Nothing
-stackPop (Just context) = case pile (stack context) of
-  [] -> Nothing
-  arr -> Just (last arr, Just context {stack = Stack (init arr), registers = Registers (Map.adjust (subtract 1) ESP (regs (registers context)))})
---   (x : xs) -> Just (x, Just context {stack = Stack xs, registers = Registers (Map.adjust (subtract 1) ESP (regs (registers context)))})
+stackPop :: ValidState Context -> ValidState (Int, ValidState Context)
+stackPop (Invalid s) = Invalid s
+stackPop (Valid context) = case pile (stack context) of
+  [] -> Invalid "Empty stack"
+  arr -> Valid (last arr, Valid context {stack = Stack (init arr), registers = Registers (Map.adjust (subtract 1) ESP (regs (registers context)))})
+--   (x : xs) -> Valid (x, Valid context {stack = Stack xs, registers = Registers (Map.adjust (subtract 1) ESP (regs (registers context)))})
 
 -- | Peeks a value from the stack.
-stackPeek :: Maybe Context -> Maybe (Int, Maybe Context)
-stackPeek Nothing = Nothing
-stackPeek (Just context) = case pile (stack context) of
-  [] -> Nothing
-  (x : _) -> Just (x, Just context)
+stackPeek :: ValidState Context -> ValidState (Int, ValidState Context)
+stackPeek (Invalid s) = Invalid s
+stackPeek (Valid context) = case pile (stack context) of
+  [] -> Invalid "Empty stack"
+  (x : _) -> Valid (x, Valid context)
 
 -- | Duplicates the top value of the stack.
-stackDup :: Maybe Context -> Maybe Context
-stackDup Nothing = Nothing
-stackDup (Just context) = case pile (stack context) of
-  [] -> Nothing
-  (x : xs) -> Just context {stack = Stack (x : x : xs)}
+stackDup :: ValidState Context -> ValidState Context
+stackDup (Invalid s) = Invalid s
+stackDup (Valid context) = case pile (stack context) of
+  [] -> Invalid "Empty stack"
+  (x : xs) -> Valid context {stack = Stack (x : x : xs)}
 
 -- | Swaps the two top values of the stack.
-stackSwap :: Maybe Context -> Maybe Context
-stackSwap Nothing = Nothing
-stackSwap (Just context) = case pile (stack context) of
-  [] -> Nothing
-  (x : y : xs) -> Just context {stack = Stack (y : x : xs)}
-  (_ : _) -> Nothing
+stackSwap :: ValidState Context -> ValidState Context
+stackSwap (Invalid s) = Invalid s
+stackSwap (Valid context) = case pile (stack context) of
+  [] -> Invalid "Empty stack"
+  (x : y : xs) -> Valid context {stack = Stack (y : x : xs)}
+  (_ : _) -> Invalid "Not enough values on the stack"
 
 -- | Rotates the three top values of the stack.
-stackRot :: Maybe Context -> Maybe Context
-stackRot Nothing = Nothing
-stackRot (Just context) = case pile (stack context) of
-  [] -> Nothing
-  (x : y : z : xs) -> Just context {stack = Stack (z : x : y : xs)}
-  (_ : _) -> Nothing
+stackRot :: ValidState Context -> ValidState Context
+stackRot (Invalid s) = Invalid s
+stackRot (Valid context) = case pile (stack context) of
+  [] -> Invalid "Empty stack"
+  (x : y : z : xs) -> Valid context {stack = Stack (z : x : y : xs)}
+  (_ : _) -> Invalid "Not enough values on the stack"
 
-stackGetPointer :: Maybe Context -> (Int, Maybe Context)
-stackGetPointer Nothing = (0, Nothing)
-stackGetPointer (Just context) = (length (pile (stack context)), Just context)
+stackGetPointer :: ValidState Context -> (Int, ValidState Context)
+stackGetPointer (Invalid s) = (0, Invalid s)
+stackGetPointer (Valid context) = (length (pile (stack context)), Valid context)
 
 --------------------------------------------------------------------------------
 -- HEAP
@@ -264,57 +267,59 @@ newHeap = Heap Map.empty
 
 addressDoesntExist :: Map.Map Int Int -> Int -> Bool
 addressDoesntExist m address = case Map.lookup address m of
-  Nothing -> True
-  Just _ -> False
+    Nothing -> True
+    Just _-> False
 
 -- | Sets the value of a symbol in the heap.
 -- @params:
 --     context: the context of the VM
 --     address: the address of the symbol
 --     value: the value to set
--- @return: the new context, or Nothing if the address is negative or if the
+-- @return: the new context, or Invalid s if the address is negative or if the
 -- address is not allocated.
-heapSet :: Maybe Context -> Int -> Int -> Maybe Context
-heapSet Nothing _ _ = Nothing
-heapSet (Just context) address value
-  | address < 0 = Nothing
-  | Map.lookup address (mem (heap context)) == Nothing = Nothing
-  | otherwise = Just context {heap = Heap (Map.insert address value (mem (heap context)))}
+heapSet :: ValidState Context -> Int -> Int -> ValidState Context
+heapSet (Invalid s) _ _ = Invalid s
+heapSet (Valid context) address value
+  | address < 0 = Invalid "Negative address"
+  | Map.lookup address (mem (heap context)) == Nothing = Invalid ("Address not allocated: " ++ show address)
+  | otherwise = Valid context {heap = Heap (Map.insert address value (mem (heap context)))}
 
 -- | Gets the value of a symbol in the heap. If the address isnt allocated, it
--- returns Nothing.
-heapGet :: Maybe Context -> Int -> Maybe Int
-heapGet Nothing _ = Nothing
-heapGet (Just context) address = Map.lookup address (mem (heap context))
+-- returns Invalid s.
+heapGet :: ValidState Context -> Int -> ValidState Int
+heapGet (Invalid s) _ = Invalid s
+heapGet (Valid context) address = case Map.lookup address (mem (heap context)) of
+    Nothing -> Invalid "Address not allocated"
+    Just value -> Valid value
 
 -- | Returns the maximum address of the given map.
-maxKey :: Map.Map Int Int -> Maybe Int
+maxKey :: Map.Map Int Int -> ValidState Int
 maxKey m = case Map.keys m of
-  [] -> Nothing
-  keys -> Just (maximum keys)
+  [] -> Invalid "Empty map"
+  keys -> Valid (maximum keys)
 
 -- | Allocates a new symbol in the heap, and returns its address. If the alloc fails, it returns 0. (null)
-heapAlloc :: Maybe Context -> Maybe (Int, Maybe Context)
-heapAlloc Nothing = Nothing
-heapAlloc (Just context) = Just (addr, Just context {heap = Heap (Map.insert addr 0 (mem (heap context)))})
+heapAlloc :: ValidState Context -> ValidState (Int, ValidState Context)
+heapAlloc (Invalid s) = Invalid s
+heapAlloc (Valid context) = Valid (addr, Valid context {heap = Heap (Map.insert addr 0 (mem (heap context)))})
   where
     addr = case maxKey (mem (heap context)) of
-      Nothing -> 1
-      Just key -> key + 1
+      (Invalid _) -> 1
+      Valid key -> key + 1
 
 -- | Allocates a range in the memory.
-heapAllocRange :: Maybe Context -> Int -> (Int, Maybe Context)
-heapAllocRange Nothing _ = (0, Nothing)
-heapAllocRange (Just context) size = (addr, Just context {heap = Heap (Map.union (Map.fromList (zip [addr .. addr + size - 1] (repeat 0))) (mem (heap context)))})
+heapAllocRange :: ValidState Context -> Int -> (Int, ValidState Context)
+heapAllocRange (Invalid s) _ = (0, Invalid s)
+heapAllocRange (Valid context) size = (addr, Valid context {heap = Heap (Map.union (Map.fromList (zip [addr .. addr + size - 1] (repeat 0))) (mem (heap context)))})
   where
     addr = case maxKey (mem (heap context)) of
-      Nothing -> 1
-      Just key -> key + 1
+      (Invalid _) -> 1
+      Valid key -> key + 1
 
 -- | Frees a symbol in the heap.
-heapFree :: Maybe Context -> Int -> Maybe Context
-heapFree Nothing _ = Nothing
-heapFree (Just context) address = Just context {heap = Heap (Map.delete address (mem (heap context)))}
+heapFree :: ValidState Context -> Int -> ValidState Context
+heapFree (Invalid s) _ = Invalid s
+heapFree (Valid context) address = Valid context {heap = Heap (Map.delete address (mem (heap context)))}
 
 --------------------------------------------------------------------------------
 -- SYMBOL TABLE
@@ -329,21 +334,21 @@ newtype SymTable = SymTable {symTable :: [(String, VarType)]} deriving (Show, Eq
 newSymTable :: SymTable
 newSymTable = SymTable []
 
-symSet :: Maybe Context -> String -> VarType -> Maybe Context
-symSet Nothing _ _ = Nothing
-symSet (Just c) name tp = Just c {symbolTable = SymTable (symTable (symbolTable c) ++ [(name, tp)])}
+symSet :: ValidState Context -> String -> VarType -> ValidState Context
+symSet (Invalid s) _ _ = Invalid s
+symSet (Valid c) name tp = Valid c {symbolTable = SymTable (symTable (symbolTable c) ++ [(name, tp)])}
 
-symGet :: Maybe Context -> String -> Maybe Int
-symGet Nothing _ = Nothing
-symGet (Just c) name = case getSymAddress (symTable (symbolTable c)) name of
-    -1 -> Nothing
-    address -> Just (address)
+symGet :: ValidState Context -> String -> ValidState Int
+symGet (Invalid s) _ = Invalid s
+symGet (Valid c) name = case getSymAddress (symTable (symbolTable c)) name of
+    -1 -> Invalid "Symbol not found"
+    address -> Valid address
 
-symGetFull :: Maybe Context -> String -> Maybe (String, VarType)
-symGetFull Nothing _ = Nothing
-symGetFull (Just c) name = case getSymAddress (symTable (symbolTable c)) name of
-    -1 -> Nothing
-    address -> Just (symTable (symbolTable c) !! address)
+symGetFull :: ValidState Context -> String -> ValidState (String, VarType)
+symGetFull (Invalid s) _ = Invalid s
+symGetFull (Valid c) name = case getSymAddress (symTable (symbolTable c)) name of
+    -1 -> Invalid "Symbol not found"
+    address -> Valid (symTable (symbolTable c) !! address)
 
 -- returns the index of the element with the given name in the symbol table, or -1
 -- if it doesn't exist
@@ -355,9 +360,9 @@ getSymAddress ((name, _) : xs) target = if name == target
         -1 -> -1
         address -> address + 1
 
-symGetTotalSize :: Maybe Context -> Maybe Int
-symGetTotalSize Nothing = Nothing
-symGetTotalSize (Just c) = Just (length (symTable (symbolTable c)))
+symGetTotalSize :: ValidState Context -> ValidState Int
+symGetTotalSize (Invalid s) = Invalid s
+symGetTotalSize (Valid c) = Valid (length (symTable (symbolTable c)))
 
 --------------------------------------------------------------------------------
 -- LABELS
@@ -372,20 +377,22 @@ newLabels :: Labels
 newLabels = Labels Map.empty
 
 -- | Sets the address of a label in the label pile.
-labelSet :: Maybe Context -> String -> Int -> Maybe Context
-labelSet Nothing _ _ = Nothing
-labelSet (Just context) name address = Just context {labels = Labels (Map.insert name address (labelMap (labels context)))}
+labelSet :: ValidState Context -> String -> Int -> ValidState Context
+labelSet (Invalid s) _ _ = Invalid s
+labelSet (Valid context) name address = Valid context {labels = Labels (Map.insert name address (labelMap (labels context)))}
 
 -- | Gets the address of a label in the label pile. If the label isnt
--- allocated, it returns Nothing.
-labelGet :: Maybe Context -> String -> Maybe Int
-labelGet Nothing _ = Nothing
-labelGet (Just context) name = Map.lookup name (labelMap (labels context))
+-- allocated, it returns Invalid s.
+labelGet :: ValidState Context -> String -> ValidState Int
+labelGet (Invalid s) _ = Invalid s
+labelGet (Valid context) name = case Map.lookup name (labelMap (labels context)) of
+    Nothing -> Invalid "Label not allocated"
+    Just value -> Valid value
 
 -- | Frees a label in the label pile.
-labelFree :: Maybe Context -> String -> Maybe Context
-labelFree Nothing _ = Nothing
-labelFree (Just context) name = Just context {labels = Labels (Map.delete name (labelMap (labels context)))}
+labelFree :: ValidState Context -> String -> ValidState Context
+labelFree (Invalid s) _ = Invalid s
+labelFree (Valid context) name = Valid context {labels = Labels (Map.delete name (labelMap (labels context)))}
 
 --------------------------------------------------------------------------------
 -- Flags
@@ -408,16 +415,14 @@ newFlags :: Flags
 newFlags = Flags (Map.fromList [(ZF, False), (SF, False), (OF, False), (CF, False), (PF, False), (AF, False)])
 
 -- | Sets the value of a flag.
-flagSet :: Maybe Context -> Flag -> Bool -> Maybe Context
-flagSet Nothing _ _ = Nothing
-flagSet (Just context) flag value = Just context {flags = Flags (Map.insert flag value (flagMap (flags context)))}
+flagSet :: ValidState Context -> Flag -> Bool -> ValidState Context
+flagSet (Invalid s) _ _ = Invalid s
+flagSet (Valid context) flag value = Valid context {flags = Flags (Map.insert flag value (flagMap (flags context)))}
 
 -- | Gets the value of a flag.
-flagGet :: Maybe Context -> Flag -> Bool
-flagGet Nothing _ = False
-flagGet (Just context) flag = case Map.lookup flag (flagMap (flags context)) of
-  Nothing -> False
-  Just value -> value
+flagGet :: ValidState Context -> Flag -> Bool
+flagGet (Invalid _) _ = False
+flagGet (Valid context) flag = fromMaybe False (Map.lookup flag (flagMap (flags context)))
 
 --------------------------------------------------------------------------------
 -- INSTRUCTIONS
@@ -476,25 +481,25 @@ data Instruction
 -- contained in the register. An immediate will return its value, Memory will
 -- return the value contained at the address in the heap, and Symbol will return
 -- the value contained in the symbol table.
-getTrueValueFromParam :: Maybe Context -> Param -> Maybe Int
-getTrueValueFromParam Nothing _ = Nothing
-getTrueValueFromParam (Just context) param = case param of
-  Reg register -> regGet (Just context) register
-  Immediate value -> Just value
-  Memory address -> heapGet (Just context) address
-  Symbol name -> case symGet (Just context) name of
-    Nothing -> Nothing
-    Just address -> heapGet (Just context) address
+getTrueValueFromParam :: ValidState Context -> Param -> ValidState Int
+getTrueValueFromParam (Invalid s) _ = Invalid s
+getTrueValueFromParam (Valid context) param = case param of
+  Reg register -> regGet (Valid context) register
+  Immediate value -> Valid value
+  Memory address -> heapGet (Valid context) address
+  Symbol name -> case symGet (Valid context) name of
+    (Invalid s) -> Invalid s
+    Valid address -> heapGet (Valid context) address
 
-setTrueValueFromParam :: Maybe Context -> Param -> Int -> Maybe Context
-setTrueValueFromParam Nothing _ _ = Nothing
-setTrueValueFromParam (Just context) param value = case param of
-  Reg register -> regSet (Just context) register value
-  Immediate _ -> Nothing
-  Memory address -> heapSet (Just context) address value
-  Symbol name -> case symGet (Just context) name of
-    Nothing -> Nothing
-    Just address -> heapSet (Just context) address value
+setTrueValueFromParam :: ValidState Context -> Param -> Int -> ValidState Context
+setTrueValueFromParam (Invalid s) _ _ = Invalid s
+setTrueValueFromParam (Valid context) param value = case param of
+  Reg register -> regSet (Valid context) register value
+  Immediate _ -> Invalid "Cannot set value of an immediate type parameter"
+  Memory address -> heapSet (Valid context) address value
+  Symbol name -> case symGet (Valid context) name of
+    (Invalid s) -> Invalid s
+    Valid address -> heapSet (Valid context) address value
 
 --------------------------------------------------------------------------------
 -- CONTEXT
@@ -533,58 +538,58 @@ nextUUID :: Context -> (Int, Context)
 nextUUID context = (uuids context, context {uuids = uuids context + 1})
 
 -- | Sets the value of the instruction pointer.
-ipSet :: Maybe Context -> Int -> Maybe Context
-ipSet Nothing _ = Nothing
-ipSet (Just context) value =
+ipSet :: ValidState Context -> Int -> ValidState Context
+ipSet (Invalid s) _ = Invalid s
+ipSet (Valid context) value =
   --   if value < 0 || value >= length (instructions context) -- to decoment when we have the real instructions count
   if value < 0
-    then Nothing
-    else Just context {instructionPointer = value}
+    then Invalid "Invalid instruction pointer value"
+    else Valid context {instructionPointer = value}
 
 -- | Gets the value of the instruction pointer.
-ipGet :: Maybe Context -> Maybe Int
-ipGet Nothing = Nothing
-ipGet (Just context) = Just (instructionPointer context)
+ipGet :: ValidState Context -> ValidState Int
+ipGet (Invalid s) = Invalid s
+ipGet (Valid context) = Valid (instructionPointer context)
 
 -- | Increments the value of the instruction pointer.
-ipInc :: Maybe Context -> Maybe Context
-ipInc Nothing = Nothing
-ipInc (Just context) =
+ipInc :: ValidState Context -> ValidState Context
+ipInc (Invalid s) = Invalid s
+ipInc (Valid context) =
   if instructionPointer context + 1 > length (instructions context)
-    then Nothing
-    else Just context {instructionPointer = instructionPointer context + 1}
+    then Invalid "Invalid instruction pointer value"
+    else Valid context {instructionPointer = instructionPointer context + 1}
 
 -- | Executes the next instruction.
 -- TODO CALL THE ACTUAL INSTRUCTION
 -- TODO ADD NEW INSTRUCTION TO THE PILE
 -- TODO ADD NEW INSTRUCTION TO THE PILE
--- ipNext :: Maybe Context -> Maybe Context
--- ipNext Nothing = Nothing
--- ipNext (Just context) = case instructionPointer context + 1 >= length (instructions context) of
---     True -> Nothing
---     False -> Just context { instructionPointer = instructionPointer context + 1 }
+-- ipNext :: ValidState Context -> ValidState Context
+-- ipNext (Invalid s) = Invalid s
+-- ipNext (Valid context) = case instructionPointer context + 1 >= length (instructions context) of
+--     True -> Invalid s
+--     False -> Valid context { instructionPointer = instructionPointer context + 1 }
 
 -- | Evaluates one instruction and returns the resulting context. Does not increase the instruction count.
--- evalOneInstruction :: Context -> Instruction -> Maybe Context
+-- evalOneInstruction :: Context -> Instruction -> ValidState Context
 -- evalOneInstruction c i = instructionTable
 
 -- | Executes all the instructions until the instruction pointer reaches the end of the program.
 -- Increases the instruction pointer after each call.
--- execInstructions :: Maybe Context -> Maybe Context
--- execInstructions Nothing = Nothing
+-- execInstructions :: ValidState Context -> ValidState Context
+-- execInstructions (Invalid s) = Invalid s
 -- execInstructions ctx = execInstructions (ipInc c)
 --   where
 --     c = case ctx of
---       Nothing -> Nothing
---       Just context ->
+--       (Invalid s) -> Invalid s
+--       Valid context ->
 --         if instructionPointer context + 1 >= length (instructions context)
---           then Nothing
+--           then Invalid s
 --           else evalOneInstruction context (instructions context !! instructionPointer context)
 
 -- | Push instruction on the ins pile
-insPush :: Maybe Context -> Instruction -> Maybe Context
-insPush Nothing _ = Nothing
-insPush (Just context) instruction = Just context {instructions = instruction : instructions context}
+insPush :: ValidState Context -> Instruction -> ValidState Context
+insPush (Invalid s) _ = Invalid s
+insPush (Valid context) instruction = Valid context {instructions = instruction : instructions context}
 
 hasmNStackPush :: Int -> [Instruction]
 hasmNStackPush 0 = []
@@ -599,9 +604,9 @@ hasmNStackPush n = Push (Immediate 0) : hasmNStackPush (n - 1)
 -- push ebp
 -- mov ebp, esp
 -- sub esp, <size the space needed for all variables>
-blockInitAllocVarSpace :: Maybe Context -> [Instruction]
-blockInitAllocVarSpace Nothing = []
-blockInitAllocVarSpace (Just c) =
+blockInitAllocVarSpace :: ValidState Context -> [Instruction]
+blockInitAllocVarSpace (Invalid _) = []
+blockInitAllocVarSpace (Valid c) =
     Enter : hasmNStackPush neededSpace
     where
         neededSpace = length (symTable (symbolTable c)) - length (pile (stack c))

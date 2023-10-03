@@ -21,19 +21,18 @@ module TestEvaluateAST (
 import Test.HUnit
 import EvaluateAST
 import VM
-import Lexer
 import Instructions
-import qualified Data.Maybe as Data
 import Lexer
+import ValidState
 
 
 testInstructionFromAST :: Test
 testInstructionFromAST =
   TestList
-    [ "instruction from ast Node interger" ~: instructionFromAST (ASTNodeInteger 123) (Just newContext) ~?= Just (newContext {instructions = [Xor (Reg EAX) (Reg EAX), Mov (Reg EAX) (Immediate 123)]}),
-      "instruction from ast Node sum" ~: instructionFromAST (ASTNodeSum [ASTNodeInteger 123, ASTNodeInteger 678]) (Just newContext) ~?= Just (newContext {instructions = [Xor (Reg EAX) (Reg EAX),Mov (Reg EAX) (Immediate 123),Push (Reg EAX),Xor (Reg EAX) (Reg EAX),Mov (Reg EAX) (Immediate 678),Pop (Reg EDI),Add EAX (Reg EDI)]}),
-      "instruction from ast Node sub" ~: instructionFromAST (ASTNodeSub [ASTNodeInteger 123, ASTNodeInteger 678]) (Just newContext) ~?= Just (newContext {instructions = [Xor (Reg EAX) (Reg EAX),Mov (Reg EAX) (Immediate 678),Push (Reg EAX),Xor (Reg EAX) (Reg EAX),Mov (Reg EAX) (Immediate 123),Pop (Reg EDI),Sub (Reg EAX) (Reg EDI)]}),
-      "instructions if statement" ~: instructionFromAST (ASTNodeIf (ASTNodeBoolean True) [ASTNodeInteger 1] Nothing) (Just newContext) ~?= Just (newContext {instructions = [
+    [ "instruction from ast Node interger" ~: instructionFromAST (ASTNodeInteger 123) (Valid newContext) ~?= Valid (newContext {instructions = [Xor (Reg EAX) (Reg EAX), Mov (Reg EAX) (Immediate 123)]}),
+      "instruction from ast Node sum" ~: instructionFromAST (ASTNodeSum [ASTNodeInteger 123, ASTNodeInteger 678]) (Valid newContext) ~?= Valid (newContext {instructions = [Xor (Reg EAX) (Reg EAX),Mov (Reg EAX) (Immediate 123),Push (Reg EAX),Xor (Reg EAX) (Reg EAX),Mov (Reg EAX) (Immediate 678),Pop (Reg EDI),Add EAX (Reg EDI)]}),
+      "instruction from ast Node sub" ~: instructionFromAST (ASTNodeSub [ASTNodeInteger 123, ASTNodeInteger 678]) (Valid newContext) ~?= Valid (newContext {instructions = [Xor (Reg EAX) (Reg EAX),Mov (Reg EAX) (Immediate 678),Push (Reg EAX),Xor (Reg EAX) (Reg EAX),Mov (Reg EAX) (Immediate 123),Pop (Reg EDI),Sub (Reg EAX) (Reg EDI)]}),
+      "instructions if statement" ~: instructionFromAST (ASTNodeIf (ASTNodeBoolean True) [ASTNodeInteger 1] (Invalid "nop")) (Valid newContext) ~?= Valid (newContext {instructions = [
         Xor (Reg EAX) (Reg EAX),
         Mov (Reg EAX) (Immediate 1),
         Cmp (Reg EAX) (Immediate 0),
@@ -51,48 +50,48 @@ testAstPush :: Int
 testAstPush =
   nbInstructions c
   where
-    c = instructionFromAST (ASTNodeSum [ASTNodeInteger 123, ASTNodeInteger 678]) (Just newContext)
+    c = instructionFromAST (ASTNodeSum [ASTNodeInteger 123, ASTNodeInteger 678]) (Valid newContext)
 
 testAstPushExec :: Int
 testAstPushExec =
-  Data.fromMaybe (-1) (regGet context2 EAX)
+  fromValidState (-1) (regGet context2 EAX)
   where
     context2 = execInstructions c
-    c = instructionFromAST (ASTNodeSum [ASTNodeInteger 40, ASTNodeInteger 10]) (Just newContext)
+    c = instructionFromAST (ASTNodeSum [ASTNodeInteger 40, ASTNodeInteger 10]) (Valid newContext)
 
 -- (+ 40 10)
 
 testAstPushExec2 :: Int
 testAstPushExec2 =
-  Data.fromMaybe (-1) (regGet context2 EAX)
+  fromValidState (-1) (regGet context2 EAX)
   where
     context2 = execInstructions c
-    c = instructionFromAST (ASTNodeSub [(ASTNodeSum [ASTNodeInteger 40, ASTNodeInteger 10]), (ASTNodeSum [(ASTNodeSum [ASTNodeInteger 40, ASTNodeInteger 10]), (ASTNodeSum [ASTNodeInteger 40, ASTNodeInteger 10])])]) (Just newContext)
+    c = instructionFromAST (ASTNodeSub [(ASTNodeSum [ASTNodeInteger 40, ASTNodeInteger 10]), (ASTNodeSum [(ASTNodeSum [ASTNodeInteger 40, ASTNodeInteger 10]), (ASTNodeSum [ASTNodeInteger 40, ASTNodeInteger 10])])]) (Valid newContext)
 
 -- (- (+ 40 10) (+ (+ 40 10) (+ 40 10))
 testAstPushExec3 :: Int
 testAstPushExec3 =
-  Data.fromMaybe (-1) (regGet context2 EAX)
+  fromValidState (-1) (regGet context2 EAX)
   where
     context2 = execInstructions c
-    c = instructionFromAST (ASTNodeMul [ASTNodeInteger 5, ASTNodeInteger 10]) (Just newContext)
+    c = instructionFromAST (ASTNodeMul [ASTNodeInteger 5, ASTNodeInteger 10]) (Valid newContext)
 
 -- (* 5 10)
 
 testAstPushExec4 :: Int
 testAstPushExec4 =
-  Data.fromMaybe (-1) (regGet context2 EAX)
+  fromValidState (-1) (regGet context2 EAX)
   where
     context2 = execInstructions c
-    c = instructionFromAST (ASTNodeDiv [ASTNodeInteger 100, ASTNodeInteger 2]) (Just newContext)
+    c = instructionFromAST (ASTNodeDiv [ASTNodeInteger 100, ASTNodeInteger 2]) (Valid newContext)
 
 -- (/ 100 2)
 testAstPushExec5 :: Int
 testAstPushExec5 =
-  Data.fromMaybe (-1) (regGet context2 EAX)
+  fromValidState (-1) (regGet context2 EAX)
   where
     context2 = execInstructions c
-    c = instructionFromAST (ASTNodeMod [ASTNodeInteger 10, ASTNodeInteger 4]) (Just newContext)
+    c = instructionFromAST (ASTNodeMod [ASTNodeInteger 10, ASTNodeInteger 4]) (Valid newContext)
 
 -- (% 10 4)
 
@@ -108,16 +107,18 @@ testAstToInstr =
     ]
 
 testArrToHASMImpl :: [Instruction]
-testArrToHASMImpl = maybe [] instructions (astNodeArrayToHASM
-    (Just newContext)
-    (ASTNodeArray [ASTNodeInteger 1, ASTNodeInteger 2]))
+testArrToHASMImpl = case astNodeArrayToHASM (Valid newContext) (ASTNodeArray [ASTNodeInteger 1, ASTNodeInteger 2]) of
+    Valid c -> instructions c
+    Invalid s -> []
 
 testArrToHASM :: Test
 testArrToHASM = TestList [
     "Array to ASM" ~: testArrToHASMImpl ~?= [Push (Reg EBX),Push (Reg ESI),Mov (Reg EAX) (Immediate 45),Mov (Reg EBX) (Immediate 8),Interrupt,Mov (Reg EBX) (Reg EAX),Mov (Reg ESI) (Reg EBX),Xor (Reg EAX) (Reg EAX),Mov (Reg EAX) (Immediate 1),MovPtr (Reg ESI) (Reg EAX),Add ESI (Immediate 4),Xor (Reg EAX) (Reg EAX),Mov (Reg EAX) (Immediate 2),MovPtr (Reg ESI) (Reg EAX),Add ESI (Immediate 4),Mov (Reg EAX) (Reg EBX),Pop (Reg EBX),Pop (Reg ESI)]]
 
 testStrToHASMImp :: String -> [Instruction]
-testStrToHASMImp str = maybe [] instructions (strToHASM (Just newContext) str)
+testStrToHASMImp str = case strToHASM (Valid newContext) str of
+    Valid c -> instructions c
+    Invalid s -> []
 
 testStrToHASM :: Test
 testStrToHASM = TestList [
@@ -128,8 +129,8 @@ testStrToHASM = TestList [
 testMovStackAddrImpl :: [Int]
 testMovStackAddrImpl = pile (stack c)
     where
-        c = Data.fromMaybe newContext (movStackAddrImpl ctx (Immediate 2) (Immediate 1))
-        ctx = stackPush (stackPush (stackPush (stackPush (Just newContext) 0) 0) 0) 0
+        c = fromValidState newContext (movStackAddrImpl ctx (Immediate 2) (Immediate 1))
+        ctx = stackPush (stackPush (stackPush (stackPush (Valid newContext) 0) 0) 0) 0
 
 testMovStackAddr :: Test
 testMovStackAddr = TestList [
@@ -137,8 +138,8 @@ testMovStackAddr = TestList [
 
 testputDefineInstruction :: Test
 testputDefineInstruction = TestList [
-      "instruction from ast Node define" ~: instructionFromAST (ASTNodeDefine (ASTNodeSymbol "oui") (ASTNodeInteger 42)) (Just newContext) ~?= Just newContext {instructions = [Xor (Reg EAX) (Reg EAX),Mov (Reg EAX) (Immediate 42),MovStackAddr (Immediate 0) (Reg EAX)], symbolTable = SymTable {symTable = [("oui", GInt)]}}]
+      "instruction from ast Node define" ~: instructionFromAST (ASTNodeDefine (ASTNodeSymbol "oui") (ASTNodeInteger 42)) (Valid newContext) ~?= Valid newContext {instructions = [Xor (Reg EAX) (Reg EAX),Mov (Reg EAX) (Immediate 42),MovStackAddr (Immediate 0) (Reg EAX)], symbolTable = SymTable {symTable = [("oui", GInt)]}}]
 
 testMovFromStackAddr :: Test
 testMovFromStackAddr = TestList [
-      "getting index two of the stack" ~: movFromStackAddrImpl (Just newContext {stack = Stack [0, 1, 2, 3]}) (Reg EAX) (Immediate 2) ~?= regSet (Just newContext {stack = Stack [0, 1, 2, 3]}) EAX 2]
+      "getting index two of the stack" ~: movFromStackAddrImpl (Valid newContext {stack = Stack [0, 1, 2, 3]}) (Reg EAX) (Immediate 2) ~?= regSet (Valid newContext {stack = Stack [0, 1, 2, 3]}) EAX 2]

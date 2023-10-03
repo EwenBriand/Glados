@@ -31,6 +31,7 @@ library
       Lib
       REPL
       Tokenizer
+      ValidState
       VM
   other-modules:
       Paths_glados
