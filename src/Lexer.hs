@@ -1,35 +1,38 @@
 {-# OPTIONS_GHC -Wno-partial-fields #-}
-module Lexer (
-    -- Expr(..),
+
+module Lexer
+  ( -- Expr(..),
     -- TokorExpr(..),
-    TokorNode(..),
-    ASTNode(..),
-    VarType(..),
+    TokorNode (..),
+    ASTNode (..),
+    VarType (..),
     tokOrExprToASTNode,
     tryToMatch,
     buildASTIterate,
     buildAST,
     strToAST,
-    tryBuildInstructionList
-) where
+    tryBuildInstructionList,
+  )
+where
 
 import Tokenizer
 import ValidState
 
+data VarType
+  = GUndefinedType
+  | GInt -- 64 bit integer
+  | GBool -- True or False, #t or #f
+  | GVoid -- No Prelude.return value
+  deriving (Show, Eq)
 
-data VarType = GUndefinedType
-    | GInt -- 64 bit integer
-    | GBool -- True or False, #t or #f
-    | GVoid -- No return value
-    deriving (Show, Eq)
-
-data TokorNode = T TokenInfo
-               | A ASTNode
-                deriving (Eq)
+data TokorNode
+  = T TokenInfo
+  | A ASTNode
+  deriving (Eq)
 
 instance Show TokorNode where
-    show (T t) = show t
-    show (A a) = show a
+  show (T t) = show t
+  show (A a) = show a
 
 data ASTNode = ASTNodeError {astnerrToken :: TokenInfo}
              | ASTNodeInteger {astniValue :: Integer}
@@ -118,6 +121,10 @@ tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokKeywordDefine 
 tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokenKeywordIf _), A (ASTNodeArray [cond]), A (ASTNodeArray thenOps), A (ASTNodeArray elseOps), T (TokenInfo TokCloseParen _)] = ASTNodeIf cond thenOps (Valid elseOps)
 tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokenKeywordIf _), A (ASTNodeArray [cond]), T (TokenInfo TokenKeywordThen _), A (ASTNodeArray thenOps), T (TokenInfo TokCloseParen _)] = ASTNodeIf cond thenOps (Invalid "3")
 tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokenKeywordIf _), A (ASTNodeArray [cond]), T (TokenInfo TokenKeywordThen _), A (ASTNodeArray thenOps), T (TokenInfo TokenKeywordElse _), A (ASTNodeArray elseOps), T (TokenInfo TokCloseParen _)] = ASTNodeIf cond thenOps (Valid elseOps)
+
+tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokenKeywordIf _), A (ASTNodeArray [cond]), A thenOps,  A elseOps, T (TokenInfo TokCloseParen _)] = ASTNodeIf cond [thenOps] (Valid [elseOps])
+tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokenKeywordIf _), A (ASTNodeArray [cond]), T (TokenInfo TokenKeywordThen _), A thenOps, T (TokenInfo TokCloseParen _)] = ASTNodeIf cond [thenOps] (Invalid "3")
+tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokenKeywordIf _), A (ASTNodeArray [cond]), T (TokenInfo TokenKeywordThen _), A thenOps, T (TokenInfo TokenKeywordElse _), A elseOps, T (TokenInfo TokCloseParen _)] = ASTNodeIf cond [thenOps] (Valid [elseOps])
 -- array
 tokOrExprToASTNode [T (TokenInfo TokOpenParen _), A (ASTNodeParamList l), T (TokenInfo TokCloseParen _)] = isThisReallyAnArrayOrIsItATrap (ASTNodeArray l)
 tokOrExprToASTNode [T (TokenInfo TokOpenParen _), A n, T (TokenInfo TokCloseParen _)] = isThisReallyAnArrayOrIsItATrap (ASTNodeArray [n])
@@ -159,24 +166,25 @@ tokOrExprToASTNode unresolved = ASTNodeError (TokenInfo TokError (show unresolve
 tryToMatch :: [TokorNode] -> TokorNode -> [TokorNode] -> (TokorNode, [TokorNode])
 tryToMatch [] _ [] = (A (ASTNodeError (TokenInfo TokError "")), [])
 tryToMatch _ lastmatch [] = (lastmatch, [])
-tryToMatch currWord lastmatch (x:xs) = case tokOrExprToASTNode (currWord ++ [x]) of
-    ASTNodeError _ -> tryToMatch (currWord ++ [x]) lastmatch xs
-    anynode -> (A anynode, xs)
+tryToMatch currWord lastmatch (x : xs) = case tokOrExprToASTNode (currWord ++ [x]) of
+  ASTNodeError _ -> tryToMatch (currWord ++ [x]) lastmatch xs
+  anynode -> (A anynode, xs)
 
 -- calls tryToMatch on every index of the array, while updating it
 -- with the response to remove the consumed elements
+
 -- | @params:
 --     l: the array to reduce
 -- @return: an array of tokens and / or nodes
 buildASTIterate :: [TokorNode] -> [TokorNode]
 buildASTIterate [] = []
-buildASTIterate (l:ls) = case tryToMatch [] (T (TokenInfo TokError "")) (l:ls) of
-    (A (ASTNodeError _), _) -> l : buildASTIterate ls
-    (T (TokenInfo TokError _), []) -> l : buildASTIterate ls
-    (something, xs) -> something : buildASTIterate xs
+buildASTIterate (l : ls) = case tryToMatch [] (T (TokenInfo TokError "")) (l : ls) of
+  (A (ASTNodeError _), _) -> l : buildASTIterate ls
+  (T (TokenInfo TokError _), []) -> l : buildASTIterate ls
+  (something, xs) -> something : buildASTIterate xs
 
 -- Tries to create a list of instructions from a list of nodes. If there are any
--- unresolved tokens, it returns an error.
+-- unresolved tokens, it Prelude.returns an error.
 tryBuildInstructionList :: [TokorNode] -> ASTNode
 tryBuildInstructionList [] = ASTNodeError (TokenInfo TokError "empty")
 tryBuildInstructionList [A (ASTNodeParamList l)] = ASTNodeInstructionSequence l
@@ -184,24 +192,27 @@ tryBuildInstructionList [A (ASTNodeInstructionSequence l)] = ASTNodeInstructionS
 tryBuildInstructionList [A (ASTNodeInstructionSequence l), A n] = ASTNodeInstructionSequence (l ++ [n])
 tryBuildInstructionList [A n1, A n2] = ASTNodeInstructionSequence [n1, n2]
 tryBuildInstructionList l = ASTNodeError (TokenInfo TokError (show l))
+
 -- tryBuildInstructionList _ = ASTNodeError (TokenInfo TokError "cannot resolve input")
 
 -- calls buildASTIterate in a loop to progressively reduce the array
 -- to a single node
+
 -- | @params:
 --     l: the array to reduce
 -- @return: the root node of the AST
 buildAST :: [TokorNode] -> ASTNode
 buildAST [] = ASTNodeError (TokenInfo TokError "empty")
 buildAST l = case buildASTIterate l of
-    [A (ASTNodeParamList instr)] -> ASTNodeInstructionSequence instr
-    [A n] -> n
-    -- [] -> ASTNodeError (TokenInfo TokError "empty")
-    ns -> if l == ns
-                -- then ASTNodeError (TokenInfo TokError "cannot resolve input")
-                -- then ASTNodeDebug (n:ns)
-                then tryBuildInstructionList ns
-                else buildAST ns
+  [A (ASTNodeParamList instr)] -> ASTNodeInstructionSequence instr
+  [A n] -> n
+  -- [] -> ASTNodeError (TokenInfo TokError "empty")
+  ns ->
+    if l == ns
+      then -- then ASTNodeError (TokenInfo TokError "cannot resolve input")
+      -- then ASTNodeDebug (n:ns)
+        tryBuildInstructionList ns
+      else buildAST ns
 
 -- | @params:
 --     str: the string to convert to an AST

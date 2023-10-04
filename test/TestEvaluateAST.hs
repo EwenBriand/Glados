@@ -15,8 +15,8 @@ module TestEvaluateAST (
     testMovStackAddr,
     testputDefineInstruction,
     testMovFromStackAddr,
-    testFuncCall
-) where
+    testFuncCall,
+    testPutSymbolInstruction) where
 
 import Test.HUnit
 import EvaluateAST
@@ -43,7 +43,9 @@ testInstructionFromAST =
         Jmp "0end",
         VM.Label "0else" 8,
         VM.Label "0end" 10
-        ], uuids = 1})
+        ], uuids = 1}),
+      "instruction invalid context" ~: instructionFromAST (ASTNodeInteger 123) (Invalid "nop") ~?= Invalid "nop",
+      "instruction AstSymbol" ~: instructionFromAST (ASTNodeSymbol "oui") (Valid newContext) ~?= Invalid "Symbol or Function not found: oui"
     ]
 
 testAstPush :: Int
@@ -173,3 +175,8 @@ testFuncCall = TestList [
         Mov (Reg EAX) (Immediate 1),
         Mov (Reg EDI) (Reg EAX),
         Call "foo"]]
+
+testPutSymbolInstruction :: Test
+testPutSymbolInstruction = TestList [
+      "instruction from ast Node symbol" ~: instructionFromAST (ASTNodeSymbol "oui") (Valid newContext) ~?= Invalid "Symbol or Function not found: oui"
+      ]

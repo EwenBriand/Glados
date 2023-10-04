@@ -70,6 +70,7 @@ test-suite glados-test
       TestInstructions
       TestLexer
       TestTokenizer
+      TestValidState
       TestVM
       Paths_glados
   hs-source-dirs:

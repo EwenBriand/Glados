@@ -1,14 +1,14 @@
-module TestTokenizer (
-    testWordToToken,
+module TestTokenizer
+  ( testWordToToken,
     testTryTokenizeOne,
     testTokenInfoFields,
     testTokenInfoShow,
-    testTokenize
-) where
+    testTokenize,
+  )
+where
 
 import Test.HUnit
 import Tokenizer
-
 
 testWordToToken :: Test
 testWordToToken =
@@ -36,7 +36,9 @@ testWordToToken =
       "WordToToken close paren" ~: wordToTok ")" ~?= TokenInfo TokCloseParen ")",
       "WordToToken whitespace" ~: wordToTok " " ~?= TokenInfo TokWhitespace " ",
       "WordToToken newline" ~: wordToTok "\n" ~?= TokenInfo TokNewLine "\n",
-      "WordToToken error" ~: wordToTok "°" ~?= TokenInfo TokError "°"
+      "WordToToken error" ~: wordToTok "°" ~?= TokenInfo TokError "°",
+      "WordToToken then" ~: wordToTok "then" ~?= TokenInfo TokenKeywordThen "then",
+      "WordToToken else" ~: wordToTok "else" ~?= TokenInfo TokenKeywordElse "else"
     ]
 
 testTryTokenizeOne :: Test
@@ -56,21 +58,23 @@ testTryTokenizeOne =
     ]
 
 testTokenInfoFields :: Test
-testTokenInfoFields = test
-  [ "Test TokenInfo fields" ~:
-    let ti = TokenInfo { token = TokInteger, value = "123" }
-    in do
-      assertEqual "Token should be TokInteger" TokInteger (token ti)
-      assertEqual "Value should be 'example'" "123" (value ti)
-  ]
+testTokenInfoFields =
+  test
+    [ "Test TokenInfo fields"
+        ~: let ti = TokenInfo {token = TokInteger, value = "123"}
+            in do
+                 assertEqual "Token should be TokInteger" TokInteger (token ti)
+                 assertEqual "Value should be 'example'" "123" (value ti)
+    ]
 
 testTokenInfoShow :: Test
-testTokenInfoShow = test
-  [ "Test TokenInfo Show instance" ~:
-    let ti = TokenInfo { token = TokInteger, value = "123" }
-    in do
-      assertEqual "Show instance should match" "123" (show ti)
-  ]
+testTokenInfoShow =
+  test
+    [ "Test TokenInfo Show instance"
+        ~: let ti = TokenInfo {token = TokInteger, value = "123"}
+            in do
+                 assertEqual "Show instance should match" "123" (show ti)
+    ]
 
 testTokenize :: Test
 testTokenize =
@@ -78,5 +82,8 @@ testTokenize =
     [ "Tokenize empty string" ~: tokenize "" ~?= [],
       "Tokenize Symbol" ~: tokenize "abc" ~?= [TokenInfo TokSymbol "abc"],
       "Tokenize variable definition" ~: tokenize "mutable oui 123" ~?= [TokenInfo TokKeywordMutable "mutable", TokenInfo TokSymbol "oui", TokenInfo TokInteger "123"],
-      "Tokenize Error" ~: tokenize "°" ~?= [TokenInfo TokError ""]
+      "Tokenize Error" ~: tokenize "°" ~?= [TokenInfo TokError ""],
+      "converts a Token to a string"
+        ~: let x = TokInteger
+            in show x ~?= "TokInteger"
     ]
