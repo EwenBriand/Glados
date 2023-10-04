@@ -55,6 +55,8 @@ module TestInstructions (
     testPushExec,
     testPushInstr,
     testIf,
+    testInstructionTable,
+    -- testAllTests,
 ) where
 
 import Test.HUnit
@@ -564,3 +566,64 @@ testIf = TestList [
         VM.Label "0end" 10
         ],
         "build if else ast" ~: strToAST "(if (true) then 1 else 2)" ~?= ASTNodeIf (ASTNodeBoolean True) [ASTNodeInteger 1] (Valid [ASTNodeInteger 2])]
+
+testInstructionTableInvalid :: Bool
+testInstructionTableInvalid =
+    instructionTable invalid instruction == invalid
+    where
+        invalid = Invalid "invalid instruction"
+        instruction = (Nop)
+
+testInstructionTableNop :: Bool
+testInstructionTableNop =
+    instructionTable context instruction == context
+    where
+        context = Valid newContext
+        instruction = (Nop)
+
+
+testInstructionTable :: Test
+testInstructionTable = TestList [
+    "instruction table invalid" ~: testInstructionTableInvalid ~?= True,
+    "instruction table nop" ~: testInstructionTableNop ~?= True
+    ]
+
+
+-- testAllTestsInvalid :: Bool
+-- testAllTestsInvalid = allTest (Invalid "invalid state") (Reg EAX) (Reg EBX) == Invalid "invalid state"
+
+-- testAllTestsRegReg :: Bool
+-- testAllTestsRegReg = allTest ctx (Reg EAX) (Reg EBX) == Valid ctx
+--     where
+--         ctx' = contextSet (Valid newContext) (Reg EAX) (Valid 42)
+--         ctx = Valid newContext
+
+-- testAllTestsRegIm :: Bool
+-- testAllTestsRegIm = allTest (Valid ctx) (Reg EAX) (Immediate 42) == Valid ctx
+--     where
+--         ctx = Context [] [] [] [RegValue EAX (Valid 42)]
+
+-- testAllTestsRegMem :: Bool
+-- testAllTestsRegMem = allTest (Valid ctx) (Reg EAX) (Memory 0) == Valid ctx
+--     where
+--         ctx = (Context [] [] [HeapValue 0 (Valid 42)] [RegValue EAX (Valid 0)])
+
+-- testAllTestsRegSym :: Bool
+-- testAllTestsRegSym = allTest (Valid ctx) (Reg EAX) (Symbol "x") == Valid ctx
+--     where
+--         ctx = Context [] [SymbolValue "x" (Valid 42)] [] [RegValue EAX (Valid 0)]
+
+-- testAllTestsInvalidParam :: Bool
+-- testAllTestsInvalidParam = allTest (Valid ctx) (Reg EAX) (Invalid "invalid parameter") == Invalid "invalid parameter"
+--     where
+--         ctx = Context [] [] [] []
+
+
+-- testAllTests :: Test
+-- testAllTests = TestList [
+--     "all test invalid" ~: testAllTestsInvalid ~?= True,
+--     "all test reg reg" ~: testAllTestsRegReg ~?= True,
+--     "all test reg im" ~: testAllTestsRegIm ~?= True,
+--     "all test reg mem" ~: testAllTestsRegMem ~?= True,
+--     "all test reg sym" ~: testAllTestsRegSym ~?= True,
+--     "all test invalid param" ~: testAllTestsInvalidParam ~?= True]

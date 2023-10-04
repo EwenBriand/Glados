@@ -82,4 +82,7 @@ main = do
   _ <- runTestTT testMovFromStackAddr
   _ <- runTestTT testInstructionFromAST
   _ <- runTestTT testIf
+  _ <- runTestTT testInstructionTable
+  -- _ <- runTestTT testAllTests
+  _ <- runTestTT testPutSymbolInstruction
   return ()

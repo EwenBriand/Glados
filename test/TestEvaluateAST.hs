@@ -15,7 +15,7 @@ module TestEvaluateAST (
     testMovStackAddr,
     testputDefineInstruction,
     testMovFromStackAddr,
-    testInstructionFromAST
+    testPutSymbolInstruction
 ) where
 
 import Test.HUnit
@@ -43,7 +43,9 @@ testInstructionFromAST =
         Jmp "0end",
         VM.Label "0else" 8,
         VM.Label "0end" 10
-        ], uuids = 1})
+        ], uuids = 1}),
+      "instruction invalid context" ~: instructionFromAST (ASTNodeInteger 123) (Invalid "nop") ~?= Invalid "nop",
+      "instruction AstSymbol" ~: instructionFromAST (ASTNodeSymbol "oui") (Valid newContext) ~?= Valid (newContext {instructions = [Xor (Reg EAX) (Reg EAX),Mov (Reg EAX) (Immediate 0),MovStackAddr (Immediate 0) (Reg EAX)]})
     ]
 
 testAstPush :: Int
@@ -143,3 +145,8 @@ testputDefineInstruction = TestList [
 testMovFromStackAddr :: Test
 testMovFromStackAddr = TestList [
       "getting index two of the stack" ~: movFromStackAddrImpl (Valid newContext {stack = Stack [0, 1, 2, 3]}) (Reg EAX) (Immediate 2) ~?= regSet (Valid newContext {stack = Stack [0, 1, 2, 3]}) EAX 2]
+
+testPutSymbolInstruction :: Test
+testPutSymbolInstruction = TestList [
+      "instruction from ast Node symbol" ~: instructionFromAST (ASTNodeSymbol "oui") (Valid newContext) ~?= Valid newContext {instructions = [Xor (Reg EAX) (Reg EAX),Mov (Reg EAX) (Immediate 0),MovStackAddr (Immediate 0) (Reg EAX)]}
+      ]
