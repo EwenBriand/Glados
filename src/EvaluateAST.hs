@@ -21,6 +21,8 @@ import ValidState
 
 instructionFromAST :: ASTNode -> ValidState Context -> ValidState Context
 instructionFromAST _ (Invalid s) = Invalid s
+instructionFromAST (ASTNodeIf cond thenBlock elseBlock) ctx = putIfInstruction ctx (ASTNodeIf cond thenBlock elseBlock)
+instructionFromAST (ASTNodeDefine name params body) c = putDefineInstruction c name params body
 instructionFromAST (ASTNodeInteger i) ctx = putIntegerInstruction (fromIntegral i) ctx
 instructionFromAST (ASTNodeSymbol s) ctx = putSymbolInstruction s ctx
 instructionFromAST (ASTNodeSum x) ctx = putSumInstruction x ctx
@@ -33,9 +35,7 @@ instructionFromAST (ASTNodeParamList _) ctx = ctx -- not an actual instruction, 
 instructionFromAST (ASTNodeArray n) ctx = astNodeArrayToHASM ctx (ASTNodeArray n)
 instructionFromAST (ASTNodeInstructionSequence n) ctx = putInstructionSequence n ctx
 instructionFromAST (ASTNodeBoolean b) ctx = putIntegerInstruction (if b then 1 else 0) ctx
-instructionFromAST (ASTNodeIf cond thenBlock elseBlock) ctx = putIfInstruction ctx (ASTNodeIf cond thenBlock elseBlock)
-instructionsFromAST (ASTNodeDefine name params body) c = putDefineInstruction c name (params) body
-instructionsFromAST _ _ = Invalid "Error"
+instructionFromAST _ _ = Invalid "Error"
 
 pushParamTypeToBlock :: Block -> [ASTNode] -> Block
 pushParamTypeToBlock blk (x:xs) = (pushParamTypeToBlock
