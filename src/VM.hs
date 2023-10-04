@@ -60,55 +60,61 @@ module VM
     insPush,
     execSyscallWrapper,
     blockInitAllocVarSpace,
-    BlockMap(..),
-    Block(..),
+    BlockMap (..),
+    Block (..),
     newBlockMap,
     blockAdd,
     blockGet,
-    blockReplace)
+    blockReplace,
+    codeFromValidStateInt,
+    SyscallCode (..),
+    callExit,
+    callEasyPrint,
+    codeFromEAX,
+    execSyscall,
+    execSyscallWrapper,
+  )
 where
 
-import Data.Bits ( Bits(xor, complement, (.&.), (.|.)) )
+import Data.Bits (Bits (complement, xor, (.&.), (.|.)))
 import qualified Data.Map as Map
+import Data.Maybe (fromMaybe)
 import Lexer
 import ValidState
-import Data.Maybe (fromMaybe)
 
 ---------------------------------------------------------------------------
 -- SYSCALLS
 ---------------------------------------------------------------------------
 
-
 -- when adding a syscall value don't forget to add it to the codeFromValidStateInt function
 -- Valid below
-data SyscallCode = SCExit
-                    | SCEasyPrint
-                    deriving (Show, Eq, Ord)
-
+data SyscallCode
+  = SCExit
+  | SCEasyPrint
+  deriving (Show, Eq, Ord)
 
 codeFromValidStateInt :: ValidState Int -> SyscallCode
 codeFromValidStateInt (Invalid _) = SCExit
 codeFromValidStateInt (Valid i) = case i of
-    1 -> SCExit
-    123456789 -> SCEasyPrint -- this is not a real syscall
-    _ -> SCExit
+  1 -> SCExit
+  123456789 -> SCEasyPrint -- this is not a real syscall
+  _ -> SCExit
 
 callExit :: ValidState Context -> ValidState Context
 callExit (Invalid s) = Invalid s
-callExit (Valid ctx) = Valid ctx { exit = True }
+callExit (Valid ctx) = Valid ctx {exit = True}
 
-callEasyPrint :: ValidState Context -> IO()
+callEasyPrint :: ValidState Context -> IO ()
 callEasyPrint ctx = case getTrueValueFromParam ctx (Reg EAX) of
-    (Invalid s) -> putStrLn s
-    Valid val -> print val
+  (Invalid s) -> putStrLn s
+  Valid val -> print val
 
-
--- | Gets a syscall Code from EAX (int) returns the SyscallCode value associated
+-- | Gets a syscall Code from EAX (int) Prelude.returns the SyscallCode value associated
 codeFromEAX :: Context -> SyscallCode
 codeFromEAX ctx = codeFromValidStateInt (getTrueValueFromParam (Valid ctx) (Reg EAX))
 
 -- | executes a syscall from its code. (use SyscallCode datatype)
-execSyscall :: ValidState Context -> SyscallCode -> (ValidState Context, ValidState (IO()))
+execSyscall :: ValidState Context -> SyscallCode -> (ValidState Context, ValidState (IO ()))
 execSyscall (Invalid s) _ = (Invalid s, Invalid s)
 -- printf
 execSyscall (Valid ctx) SCEasyPrint = (Valid ctx, Valid (callEasyPrint (Valid ctx)))
@@ -119,7 +125,6 @@ execSyscallWrapper :: ValidState Context -> ValidState Context
 execSyscallWrapper (Invalid s) = Invalid s
 execSyscallWrapper (Valid ctx) = fst (execSyscall (Valid ctx) (codeFromEAX ctx))
 
-
 -------------------------------------------------------------------------------
 -- REGISTERS
 -------------------------------------------------------------------------------
@@ -128,7 +133,7 @@ execSyscallWrapper (Valid ctx) = fst (execSyscall (Valid ctx) (codeFromEAX ctx))
 data Register = EAX | EBX | ECX | EDX | ESI | EDI | EBP | ESP
   deriving (Eq, Ord, Show)
 
-newtype Registers = Registers { regs:: Map.Map Register Int } deriving (Show, Eq)
+newtype Registers = Registers {regs :: Map.Map Register Int} deriving (Show, Eq)
 
 -- | Creates a new empty set of registers.
 newRegisters :: Registers
@@ -223,6 +228,7 @@ stackPop (Invalid s) = Invalid s
 stackPop (Valid context) = case pile (stack context) of
   [] -> Invalid "Empty stack"
   arr -> Valid (last arr, Valid context {stack = Stack (init arr), registers = Registers (Map.adjust (subtract 1) ESP (regs (registers context)))})
+
 --   (x : xs) -> Valid (x, Valid context {stack = Stack xs, registers = Registers (Map.adjust (subtract 1) ESP (regs (registers context)))})
 
 -- | Peeks a value from the stack.
@@ -273,8 +279,8 @@ newHeap = Heap Map.empty
 
 addressDoesntExist :: Map.Map Int Int -> Int -> Bool
 addressDoesntExist m address = case Map.lookup address m of
-    Nothing -> True
-    Just _-> False
+  Nothing -> True
+  Just _ -> False
 
 -- | Sets the value of a symbol in the heap.
 -- @params:
@@ -291,20 +297,20 @@ heapSet (Valid context) address value
   | otherwise = Valid context {heap = Heap (Map.insert address value (mem (heap context)))}
 
 -- | Gets the value of a symbol in the heap. If the address isnt allocated, it
--- returns Invalid s.
+-- Prelude.returns Invalid s.
 heapGet :: ValidState Context -> Int -> ValidState Int
 heapGet (Invalid s) _ = Invalid s
 heapGet (Valid context) address = case Map.lookup address (mem (heap context)) of
-    Nothing -> Invalid "Address not allocated"
-    Just value -> Valid value
+  Nothing -> Invalid "Address not allocated"
+  Just value -> Valid value
 
--- | Returns the maximum address of the given map.
+-- | Prelude.returns the maximum address of the given map.
 maxKey :: Map.Map Int Int -> ValidState Int
 maxKey m = case Map.keys m of
   [] -> Invalid "Empty map"
   keys -> Valid (maximum keys)
 
--- | Allocates a new symbol in the heap, and returns its address. If the alloc fails, it returns 0. (null)
+-- | Allocates a new symbol in the heap, and Prelude.returns its address. If the alloc fails, it Prelude.returns 0. (null)
 heapAlloc :: ValidState Context -> ValidState (Int, ValidState Context)
 heapAlloc (Invalid s) = Invalid s
 heapAlloc (Valid context) = Valid (addr, Valid context {heap = Heap (Map.insert addr 0 (mem (heap context)))})
@@ -347,24 +353,25 @@ symSet (Valid c) name tp = Valid c {symbolTable = SymTable (symTable (symbolTabl
 symGet :: ValidState Context -> String -> ValidState Int
 symGet (Invalid s) _ = Invalid s
 symGet (Valid c) name = case getSymAddress (symTable (symbolTable c)) name of
-    -1 -> Invalid "Symbol not found"
-    address -> Valid address
+  -1 -> Invalid "Symbol not found"
+  address -> Valid address
 
 symGetFull :: ValidState Context -> String -> ValidState (String, VarType)
 symGetFull (Invalid s) _ = Invalid s
 symGetFull (Valid c) name = case getSymAddress (symTable (symbolTable c)) name of
-    -1 -> Invalid "Symbol not found"
-    address -> Valid (symTable (symbolTable c) !! address)
+  -1 -> Invalid "Symbol not found"
+  address -> Valid (symTable (symbolTable c) !! address)
 
--- returns the index of the element with the given name in the symbol table, or -1
+-- Prelude.returns the index of the element with the given name in the symbol table, or -1
 -- if it doesn't exist
 getSymAddress :: [(String, VarType)] -> String -> Int
 getSymAddress [] _ = -1
-getSymAddress ((name, _) : xs) target = if name == target
+getSymAddress ((name, _) : xs) target =
+  if name == target
     then 0
     else case getSymAddress xs target of
-        -1 -> -1
-        address -> address + 1
+      -1 -> -1
+      address -> address + 1
 
 symGetTotalSize :: ValidState Context -> ValidState Int
 symGetTotalSize (Invalid s) = Invalid s
@@ -388,12 +395,12 @@ labelSet (Invalid s) _ _ = Invalid s
 labelSet (Valid context) name address = Valid context {labels = Labels (Map.insert name address (labelMap (labels context)))}
 
 -- | Gets the address of a label in the label pile. If the label isnt
--- allocated, it returns Invalid s.
+-- allocated, it Prelude.returns Invalid s.
 labelGet :: ValidState Context -> String -> ValidState Int
 labelGet (Invalid s) _ = Invalid s
 labelGet (Valid context) name = case Map.lookup name (labelMap (labels context)) of
-    Nothing -> Invalid "Label not allocated"
-    Just value -> Valid value
+  Nothing -> Invalid "Label not allocated"
+  Just value -> Valid value
 
 -- | Frees a label in the label pile.
 labelFree :: ValidState Context -> String -> ValidState Context
@@ -482,10 +489,10 @@ data Instruction
   | Label String Int -- name of the label, instruction pointer at the time.
   deriving (Eq, Ord, Show)
 
--- | Returns the real value contained after resolving the param.
--- For exemple if the param is a register, this function will return the value
--- contained in the register. An immediate will return its value, Memory will
--- return the value contained at the address in the heap, and Symbol will return
+-- | Prelude.returns the real value contained after resolving the param.
+-- For exemple if the param is a register, this function will Prelude.return the value
+-- contained in the register. An immediate will Prelude.return its value, Memory will
+-- Prelude.return the value contained at the address in the heap, and Symbol will Prelude.return
 -- the value contained in the symbol table.
 getTrueValueFromParam :: ValidState Context -> Param -> ValidState Int
 getTrueValueFromParam (Invalid s) _ = Invalid s
@@ -511,11 +518,12 @@ setTrueValueFromParam (Valid context) param value = case param of
 -- BLOCKS
 -------------------------------------------------------------------------------
 
-data Block = Block {
-    blockName :: String,
+data Block = Block
+  { blockName :: String,
     blockContext :: ValidState Context,
-    blockParamTypes :: [VarType]}
-    deriving (Show, Eq)
+    blockParamTypes :: [VarType]
+  }
+  deriving (Show, Eq)
 
 newtype BlockMap = BlockMap {blockMap :: Map.Map String Block} deriving (Show, Eq)
 
@@ -525,22 +533,23 @@ newBlockMap = BlockMap Map.empty
 blockAdd :: ValidState Context -> String -> ValidState Context
 blockAdd (Invalid s) _ = Invalid s
 blockAdd (Valid c) name = case Map.lookup name (blockMap (blocks c)) of
-    Just _ -> Invalid ("Block already defined: " ++ name)
-    Nothing -> Valid c {blocks = BlockMap (Map.insert name (Block name (Valid c) []) (blockMap (blocks c)))}
+  Just _ -> Invalid ("Block already defined: " ++ name)
+  Nothing -> Valid c {blocks = BlockMap (Map.insert name (Block name (Valid c) []) (blockMap (blocks c)))}
 
 blockReplace :: ValidState Context -> ValidState Block -> ValidState Context
 blockReplace (Invalid s) _ = Invalid s
 blockReplace _ (Invalid s) = Invalid s
-blockReplace (Valid c) (Valid block) = let name = blockName block in
-    case Map.lookup name (blockMap (blocks c)) of
-    Just _ -> Valid c {blocks = BlockMap (Map.insert name block (blockMap (blocks c)))}
-    Nothing -> Invalid ("Block not found: " ++ name)
+blockReplace (Valid c) (Valid block) =
+  let name = blockName block
+   in case Map.lookup name (blockMap (blocks c)) of
+        Just _ -> Valid c {blocks = BlockMap (Map.insert name block (blockMap (blocks c)))}
+        Nothing -> Invalid ("Block not found: " ++ name)
 
 blockGet :: ValidState Context -> String -> ValidState Block
 blockGet (Invalid s) _ = Invalid s
 blockGet (Valid c) name = case Map.lookup name (blockMap (blocks c)) of
-    Just block -> Valid block
-    Nothing -> Invalid ("Block not found: " ++ name)
+  Just block -> Valid block
+  Nothing -> Invalid ("Block not found: " ++ name)
 
 --------------------------------------------------------------------------------
 -- CONTEXT
@@ -566,12 +575,11 @@ data Context = Context
 
 showInstructArray :: [Instruction] -> String
 showInstructArray [] = ""
-showInstructArray (x:xs) = show x ++ "\n" ++ showInstructArray xs
+showInstructArray (x : xs) = show x ++ "\n" ++ showInstructArray xs
 
 instance Show Context where
-    show (Context r s h i sym l f iP e u a bm) =
-        "Context {registers = " ++ show r ++ ", stack = " ++ show s ++ ", heap = " ++ show h ++ ", instructions = [\n" ++ showInstructArray i ++ "\n], symbolTable = " ++ show sym ++ ", labels = " ++ show l ++ ", flags = " ++ show f ++ ", instructionPointer = " ++ show iP ++ ", exit = " ++ show e ++ ", uuids = " ++ show u ++ show a ++ show bm ++ "}"
-
+  show (Context r s h i sym l f iP e u a bm) =
+    "Context {registers = " ++ show r ++ ", stack = " ++ show s ++ ", heap = " ++ show h ++ ", instructions = [\n" ++ showInstructArray i ++ "\n], symbolTable = " ++ show sym ++ ", labels = " ++ show l ++ ", flags = " ++ show f ++ ", instructionPointer = " ++ show iP ++ ", exit = " ++ show e ++ ", uuids = " ++ show u ++ show a ++ show bm ++ "}"
 
 -- | Creates a new empty context.
 newContext :: Context
@@ -612,7 +620,7 @@ ipInc (Valid context) =
 --     True -> Invalid s
 --     False -> Valid context { instructionPointer = instructionPointer context + 1 }
 
--- | Evaluates one instruction and returns the resulting context. Does not increase the instruction count.
+-- | Evaluates one instruction and Prelude.returns the resulting context. Does not increase the instruction count.
 -- evalOneInstruction :: Context -> Instruction -> ValidState Context
 -- evalOneInstruction c i = instructionTable
 
@@ -638,8 +646,6 @@ hasmNStackPush :: Int -> [Instruction]
 hasmNStackPush 0 = []
 hasmNStackPush n = Push (Immediate 0) : hasmNStackPush (n - 1)
 
-
-
 -- | @helps: allocates space in the stack for the block's variables using the information
 -- in the symbol table. Moves ESP accordingly. The generated instructions should be used
 -- before using the instructions in the block.
@@ -650,7 +656,6 @@ hasmNStackPush n = Push (Immediate 0) : hasmNStackPush (n - 1)
 blockInitAllocVarSpace :: ValidState Context -> [Instruction]
 blockInitAllocVarSpace (Invalid _) = []
 blockInitAllocVarSpace (Valid c) =
-    Enter : hasmNStackPush neededSpace
-    where
-        neededSpace = length (symTable (symbolTable c)) - length (pile (stack c))
-
+  Enter : hasmNStackPush neededSpace
+  where
+    neededSpace = length (symTable (symbolTable c)) - length (pile (stack c))

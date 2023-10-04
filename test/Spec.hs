@@ -1,13 +1,14 @@
 import Test.HUnit
-
-import TestTokenizer
-import TestLexer
+import Test.HUnit.Text (runTestTT)
 import TestEvaluateAST
 import TestInstructions
+import TestLexer
+import TestTokenizer
 import TestVM
+import TestVM (testBlockShow)
+import TestValidState
 
-
-main :: IO()
+main :: IO ()
 main = do
   _ <- runTestTT testTryTokenizeOne
   _ <- runTestTT testTokenInfoFields
@@ -82,4 +83,37 @@ main = do
   _ <- runTestTT testMovFromStackAddr
   _ <- runTestTT testInstructionFromAST
   _ <- runTestTT testIf
-  return ()
+  _ <- runTestTT testReturn
+  _ <- runTestTT testBind
+  _ <- runTestTT testFunctor
+  _ <- runTestTT testApplicative
+  _ <- runTestTT TestValidState.testEq
+  _ <- runTestTT testMonad
+  _ <- runTestTT testFromValidState
+  _ <- runTestTT testShowAndOrd
+  _ <- runTestTT testCodeFromValidStateInt
+  _ <- runTestTT testExecSyscallWrapper
+  _ <- runTestTT testCallEasyPrint
+  _ <- runTestTT testCodeFromEAX
+  _ <- runTestTT testBlock
+  _ <- runTestTT testBlockMap
+  _ <- runTestTT testBlockShow
+  _ <- runTestTT testBlockAddInvalid
+  _ <- runTestTT testSymTable
+  _ <- runTestTT testHeap
+  _ <- runTestTT testStackPush
+  _ <- runTestTT testStackPop
+  _ <- runTestTT testStackPeek
+  _ <- runTestTT testStackDup2
+  _ <- runTestTT testStackSwap2
+  _ <- runTestTT testStackRot2
+  _ <- runTestTT testStackGetPointer
+  _ <- runTestTT testParam
+  _ <- runTestTT testInstruction
+  _ <- runTestTT testGetTrueValueFromParam
+  _ <- runTestTT testSetTrueValueFromParam
+  _ <- runTestTT TestVM.testEq
+  _ <- runTestTT testShow
+  _ <- runTestTT testOrd
+
+  Prelude.return ()
