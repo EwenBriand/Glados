@@ -115,5 +115,7 @@ main = do
   _ <- runTestTT TestVM.testEq
   _ <- runTestTT testShow
   _ <- runTestTT testOrd
-
+  _ <- runTestTT testInstructionTable
+  -- _ <- runTestTT testAllTests
+  _ <- runTestTT testPutSymbolInstruction
   Prelude.return ()
