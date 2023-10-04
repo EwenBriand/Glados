@@ -9,13 +9,13 @@ module REPL (
     runREPL
 ) where
 
-import System.IO (hFlush, stdout)
-import Lexer
+-- import System.IO
 import EvaluateAST (strToHASM)
 import VM
 import Instructions
 import System.IO
 import ValidState
+import Lexer
 
 restartREPL :: ValidState Context -> IO()
 restartREPL (Invalid s) = runREPL (Invalid s)
@@ -24,7 +24,7 @@ restartREPL (Valid c) = runREPL (Valid c { instructions = drop 2 (instructions c
 
 -- | Reads the contents from the command line until there is no more text to read.
 -- @return: the contents of the command line as a single string
--- readContents :: IO String
+readContents :: IO String
 readContents = do
     isEof <- isEOF
     if isEof
@@ -48,6 +48,21 @@ detectLabels :: ValidState Context -> ValidState Context
 detectLabels (Invalid s) = Invalid s
 detectLabels (Valid c) = parseLabels (Valid c) (instructions c) 0
 
+showInstructionRange :: Context -> Int -> Int -> IO()
+showInstructionRange c start end = do
+    if start == end
+        then return ()
+        else do
+            print (instructions c !! start)
+            showInstructionRange c (start + 1) end
+
+-- shows error string, followed by the instructions until the instruction pointer
+showTrace :: ValidState Context -> String -> [ASTNode] -> IO()
+showTrace (Invalid s) _ a = putStrLn ("Context invalidated: " ++ s ++ "\nAST: \n" ++ show a)
+showTrace (Valid c) s a = do
+    putStrLn (s ++ "\nAST: \n" ++ show a)
+    showInstructionRange c 0 (instructionPointer c)
+
 -- Runs an interactive console that allows the user to enter commands,
 -- and redirects these commands to the lexer in order to build and evaluate the
 -- AST.
@@ -64,11 +79,11 @@ runREPL (Valid c) = do
             case strToHASM (Valid c) input of
                 Invalid s -> putStrLn s
                 Valid ctx -> do
+                    let ast = cAST ctx
                     let c' = execInstructions (detectLabels (Valid ctx))
                     case getTrueValueFromParam c' (Reg EAX) of
-                        Invalid s -> putStrLn s
+                        Invalid s -> showTrace c' s ast
                         Valid v -> print v
-                    print c'
                     -- restartREPL c'
                     -- runREPL c' {instructions = []}
 

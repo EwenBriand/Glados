@@ -15,6 +15,7 @@ module TestLexer (
 import Test.HUnit
 import Lexer
 import Tokenizer
+import ValidState
 
 
 testInstructionList :: Test
@@ -36,11 +37,11 @@ testASTNodeFields = TestList
       let expectedName = "symbol"
       assertEqual "astnsName should match" expectedName (astnsName node)
   , "Test astndName field" ~: do
-      let node = ASTNodeDefine (ASTNodeSymbol "symbol") (ASTNodeInteger 42)
+      let node = ASTNodeMutable (ASTNodeSymbol "symbol") (ASTNodeInteger 42)
       let expectedName = ASTNodeSymbol "symbol"
       assertEqual "astndName should match" expectedName (astndName node)
   , "Test astndChildren field" ~: do
-      let node = ASTNodeDefine (ASTNodeSymbol "symbol") (ASTNodeInteger 42)
+      let node = ASTNodeMutable (ASTNodeSymbol "symbol") (ASTNodeInteger 42)
       let expectedChildren = ASTNodeInteger 42
       assertEqual "astndChildren should match" expectedChildren (astndChildren node)
   , "Test astnsChildren field" ~: do
@@ -74,7 +75,7 @@ testShowASTNode = test
   [ "Test Show instance for ASTNode" ~:
     let
       exampleNode = ASTNodeInteger 42
-      expectedString = "ASTNodeInteger {astniValue = 42}"
+      expectedString = "(int: 42)"
     in do
       assertEqual "Show instance should match" expectedString (show exampleNode)
   ]
@@ -94,7 +95,7 @@ testShowTokorNode = test
   [ "Test Show instance for TokorNode" ~:
     let
       exampleTokorNode = T (TokenInfo TokInteger "42")
-      expectedString = "T (TokenInfo {token = TokInteger, value = \"42\"})"
+      expectedString = "42"
     in do
       assertEqual "Show instance should match" expectedString (show exampleTokorNode)
   ]
@@ -105,7 +106,7 @@ testTokOrExprToNode =
     [ "node error" ~: tokOrExprToASTNode [] ~?= ASTNodeError (TokenInfo TokError ""),
       "node integer" ~: tokOrExprToASTNode [T (TokenInfo TokInteger "123")] ~?= ASTNodeInteger 123,
       "node symbol" ~: tokOrExprToASTNode [T (TokenInfo TokSymbol "abc")] ~?= ASTNodeSymbol "abc",
-      "node define" ~: tokOrExprToASTNode [T (TokenInfo TokOpenParen "("), T (TokenInfo TokKeyworddefine "define"), A (ASTNodeSymbol "foo"), A (ASTNodeInteger 123), T (TokenInfo TokCloseParen ")")] ~?= ASTNodeDefine (ASTNodeSymbol "foo") (ASTNodeInteger 123),
+      "node define" ~: tokOrExprToASTNode [T (TokenInfo TokOpenParen "("), T (TokenInfo TokKeywordMutable "define"), A (ASTNodeSymbol "foo"), A (ASTNodeInteger 123), T (TokenInfo TokCloseParen ")")] ~?= ASTNodeMutable (ASTNodeSymbol "foo") (ASTNodeInteger 123),
       "node param 1" ~: tokOrExprToASTNode [A (ASTNodeParamList [ASTNodeInteger 1]), A (ASTNodeInteger 2)] ~?= ASTNodeParamList [ASTNodeInteger 1, ASTNodeInteger 2],
       "node sum" ~: tokOrExprToASTNode [T (TokenInfo TokOpenParen "("), T (TokenInfo TokOperatorPlus "+"), A (ASTNodeParamList [ASTNodeInteger 1, ASTNodeInteger 2]), T (TokenInfo TokCloseParen ")")] ~?= ASTNodeSum [ASTNodeInteger 1, ASTNodeInteger 2],
       "node sub" ~: tokOrExprToASTNode [T (TokenInfo TokOpenParen "("), T (TokenInfo TokOperatorMinus "-"), A (ASTNodeParamList [ASTNodeInteger 1, ASTNodeInteger 2]), T (TokenInfo TokCloseParen ")")] ~?= ASTNodeSub [ASTNodeInteger 1, ASTNodeInteger 2],
@@ -113,8 +114,7 @@ testTokOrExprToNode =
       "node div" ~: tokOrExprToASTNode [T (TokenInfo TokOpenParen "("), T (TokenInfo TokOperatorDiv "/"), A (ASTNodeParamList [ASTNodeInteger 1, ASTNodeInteger 2]), T (TokenInfo TokCloseParen ")")] ~?= ASTNodeDiv [ASTNodeInteger 1, ASTNodeInteger 2],
       "node mod" ~: tokOrExprToASTNode [T (TokenInfo TokOpenParen "("), T (TokenInfo TokOperatorMod "%"), A (ASTNodeParamList [ASTNodeInteger 1, ASTNodeInteger 2]), T (TokenInfo TokCloseParen ")")] ~?= ASTNodeMod [ASTNodeInteger 1, ASTNodeInteger 2],
       "node true" ~: tokOrExprToASTNode [T (TokenInfo TokenBool "true")] ~?= ASTNodeBoolean True,
-      "node error" ~: tokOrExprToASTNode [T (TokenInfo TokError "#?!&")] ~?= ASTNodeError (TokenInfo TokError "")
-    ]
+      "node error" ~: tokOrExprToASTNode [T (TokenInfo TokError "#?!&")] ~?= ASTNodeError (TokenInfo TokError "[#?!&]")]
 
 testTryToMatch :: Test
 testTryToMatch =
@@ -147,7 +147,7 @@ testBuildAST =
       -- (+ (+ 123 678) 000)
       "build ast nested sum 2" ~: buildAST [T (TokenInfo TokOpenParen "("), T (TokenInfo TokOperatorPlus "+"), T (TokenInfo TokOpenParen "("), T (TokenInfo TokOperatorPlus "+"), T (TokenInfo TokInteger "123"), T (TokenInfo TokInteger "678"), T (TokenInfo TokCloseParen ")"), T (TokenInfo TokInteger "000"), T (TokenInfo TokCloseParen ")")] ~?= ASTNodeSum [ASTNodeSum [ASTNodeInteger 123, ASTNodeInteger 678], ASTNodeInteger 0],
       -- (+ (+ 123) 2)
-      "build ast error invalid expr" ~: buildAST [T (TokenInfo TokOpenParen "("), T (TokenInfo TokOperatorPlus "+"), T (TokenInfo TokOpenParen "("), T (TokenInfo TokOperatorPlus "+"), T (TokenInfo TokInteger "123"), T (TokenInfo TokCloseParen ")"), T (TokenInfo TokInteger "2"), T (TokenInfo TokCloseParen ")")] ~?= ASTNodeError (TokenInfo TokError "cannot resolve input"),
+      "build ast error invalid expr" ~: buildAST [T (TokenInfo TokOpenParen "("), T (TokenInfo TokOperatorPlus "+"), T (TokenInfo TokOpenParen "("), T (TokenInfo TokOperatorPlus "+"), T (TokenInfo TokInteger "123"), T (TokenInfo TokCloseParen ")"), T (TokenInfo TokInteger "2"), T (TokenInfo TokCloseParen ")")] ~?= ASTNodeError (TokenInfo TokError "[(,+,(,+,(int: 123),),(int: 2),)]"),
       -- empty
       "build ast empty" ~: buildAST [] ~?= ASTNodeError (TokenInfo TokError "empty")
     ]
@@ -178,6 +178,8 @@ testStrToAST = TestList [
     -- (+ 123 678)
     "build str to ast sum" ~: strToAST "(+ 123 678)" ~?= ASTNodeSum [ASTNodeInteger 123, ASTNodeInteger 678],
     -- (+ (+ 123) 2)
-    "build str to ast invalid" ~: strToAST "(+ (+ 123) 2)" ~?= ASTNodeError (TokenInfo TokError "cannot resolve input"),
+    "build str to ast invalid" ~: strToAST "(+ (+ 123) 2)" ~?= ASTNodeError (TokenInfo TokError "[(,+,(,+,(int: 123),),(int: 2),)]"),
     -- (define foo 123)
-    "declare var foo with value 123" ~: strToAST "(define foo 123)" ~?= ASTNodeDefine (ASTNodeSymbol "foo") (ASTNodeInteger 123)]
+    "declare var foo with value 123" ~: strToAST "(mutable foo 123)" ~?= ASTNodeMutable (ASTNodeSymbol "foo") (ASTNodeInteger 123),
+    "declare function foo with value (+ 1 2)" ~: strToAST "(define foo (+ 1 2))" ~?= ASTNodeDefine (ASTNodeSymbol "foo") (Invalid ("foo" ++ " does not take any parameters")) (ASTNodeSum [ASTNodeInteger 1, ASTNodeInteger 2])]
+    -- "declare function foo with parameters (a b) and value (+ a b)" ~: strToAST "(define foo (a b) (+ a b))" ~?= ASTNodeDefine (ASTNodeSymbol "foo") (Valid (ASTNodeParamList [ASTNodeSymbol "a", ASTNodeSymbol "b"])) (ASTNodeSum [ASTNodeSymbol "a", ASTNodeSymbol "b"])]

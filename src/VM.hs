@@ -59,7 +59,13 @@ module VM
     regNot,
     insPush,
     execSyscallWrapper,
-    blockInitAllocVarSpace)
+    blockInitAllocVarSpace,
+    BlockMap(..),
+    Block(..),
+    newBlockMap,
+    blockAdd,
+    blockGet,
+    blockReplace)
 where
 
 import Data.Bits ( Bits(xor, complement, (.&.), (.|.)) )
@@ -93,7 +99,7 @@ callExit (Valid ctx) = Valid ctx { exit = True }
 
 callEasyPrint :: ValidState Context -> IO()
 callEasyPrint ctx = case getTrueValueFromParam ctx (Reg EAX) of
-    (Invalid s) -> putStrLn "Register error"
+    (Invalid s) -> putStrLn s
     Valid val -> print val
 
 
@@ -501,6 +507,41 @@ setTrueValueFromParam (Valid context) param value = case param of
     (Invalid s) -> Invalid s
     Valid address -> heapSet (Valid context) address value
 
+-------------------------------------------------------------------------------
+-- BLOCKS
+-------------------------------------------------------------------------------
+
+data Block = Block {
+    blockName :: String,
+    blockContext :: ValidState Context,
+    blockParamTypes :: [VarType]}
+    deriving (Show, Eq)
+
+newtype BlockMap = BlockMap {blockMap :: Map.Map String Block} deriving (Show, Eq)
+
+newBlockMap :: BlockMap
+newBlockMap = BlockMap Map.empty
+
+blockAdd :: ValidState Context -> String -> ValidState Context
+blockAdd (Invalid s) _ = Invalid s
+blockAdd (Valid c) name = case Map.lookup name (blockMap (blocks c)) of
+    Just _ -> Invalid ("Block already defined: " ++ name)
+    Nothing -> Valid c {blocks = BlockMap (Map.insert name (Block name (Valid c) []) (blockMap (blocks c)))}
+
+blockReplace :: ValidState Context -> ValidState Block -> ValidState Context
+blockReplace (Invalid s) _ = Invalid s
+blockReplace _ (Invalid s) = Invalid s
+blockReplace (Valid c) (Valid block) = let name = blockName block in
+    case Map.lookup name (blockMap (blocks c)) of
+    Just _ -> Valid c {blocks = BlockMap (Map.insert name block (blockMap (blocks c)))}
+    Nothing -> Invalid ("Block not found: " ++ name)
+
+blockGet :: ValidState Context -> String -> ValidState Block
+blockGet (Invalid s) _ = Invalid s
+blockGet (Valid c) name = case Map.lookup name (blockMap (blocks c)) of
+    Just block -> Valid block
+    Nothing -> Invalid ("Block not found: " ++ name)
+
 --------------------------------------------------------------------------------
 -- CONTEXT
 --------------------------------------------------------------------------------
@@ -517,7 +558,9 @@ data Context = Context
     flags :: Flags,
     instructionPointer :: Int,
     exit :: Bool,
-    uuids :: Int
+    uuids :: Int,
+    cAST :: [ASTNode],
+    blocks :: BlockMap
   }
   deriving (Eq)
 
@@ -526,13 +569,13 @@ showInstructArray [] = ""
 showInstructArray (x:xs) = show x ++ "\n" ++ showInstructArray xs
 
 instance Show Context where
-    show (Context registers stack heap instructions symbolTable labels flags instructionPointer exit uuids) =
-        "Context {registers = " ++ show registers ++ ", stack = " ++ show stack ++ ", heap = " ++ show heap ++ ", instructions = [\n" ++ showInstructArray instructions ++ "\n], symbolTable = " ++ show symbolTable ++ ", labels = " ++ show labels ++ ", flags = " ++ show flags ++ ", instructionPointer = " ++ show instructionPointer ++ ", exit = " ++ show exit ++ ", uuids = " ++ show uuids ++ "}"
+    show (Context r s h i sym l f iP e u a bm) =
+        "Context {registers = " ++ show r ++ ", stack = " ++ show s ++ ", heap = " ++ show h ++ ", instructions = [\n" ++ showInstructArray i ++ "\n], symbolTable = " ++ show sym ++ ", labels = " ++ show l ++ ", flags = " ++ show f ++ ", instructionPointer = " ++ show iP ++ ", exit = " ++ show e ++ ", uuids = " ++ show u ++ show a ++ show bm ++ "}"
 
 
 -- | Creates a new empty context.
 newContext :: Context
-newContext = Context newRegisters newStack newHeap [] newSymTable newLabels newFlags 0 False 0
+newContext = Context newRegisters newStack newHeap [] newSymTable newLabels newFlags 0 False 0 [] newBlockMap
 
 nextUUID :: Context -> (Int, Context)
 nextUUID context = (uuids context, context {uuids = uuids context + 1})

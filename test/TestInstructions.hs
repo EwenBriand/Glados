@@ -547,11 +547,11 @@ testPushInstr =
     ]
 
 testIfImpl :: [Instruction]
-testIfImpl = instructions (fromValidState newContext (strToHASM (Valid newContext) "(if (true) then 1)"))
+testIfImpl = instructions (fromValidState newContext (strToHASM (Valid newContext) "(if (true) then (1))"))
 
 testIf :: Test
 testIf = TestList [
-    "build if ast" ~: strToAST "(if (true) then 1)" ~?= ASTNodeIf (ASTNodeBoolean True) [ASTNodeInteger 1] (Invalid "TestError"),
+    "build if ast" ~: strToAST "(if (true) then (1))" ~?= ASTNodeIf (ASTNodeBoolean True) [ASTNodeInteger 1] (Invalid "TestError"),
     "instructions if statement" ~: testIfImpl ~?= [
         Enter,
         Xor (Reg EAX) (Reg EAX),

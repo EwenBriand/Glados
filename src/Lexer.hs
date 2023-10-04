@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -Wno-partial-fields #-}
 module Lexer (
     -- Expr(..),
     -- TokorExpr(..),
@@ -24,12 +25,16 @@ data VarType = GUndefinedType
 
 data TokorNode = T TokenInfo
                | A ASTNode
-                deriving (Eq, Show)
+                deriving (Eq)
+
+instance Show TokorNode where
+    show (T t) = show t
+    show (A a) = show a
 
 data ASTNode = ASTNodeError {astnerrToken :: TokenInfo}
              | ASTNodeInteger {astniValue :: Integer}
              | ASTNodeSymbol {astnsName :: String}
-             | ASTNodeDefine {astndName :: ASTNode, astndChildren :: ASTNode}
+             | ASTNodeMutable {astndName :: ASTNode, astndChildren :: ASTNode}
 --  The sum can have an arbitrary number of parameters
              | ASTNodeSum {astnsChildren :: [ASTNode]}
              | ASTNodeSub {astnsChildren :: [ASTNode]}
@@ -42,7 +47,28 @@ data ASTNode = ASTNodeError {astnerrToken :: TokenInfo}
              | ASTNodeInstructionSequence {astnisChildren :: [ASTNode]}
              | ASTNodeBoolean {astnbValue :: Bool}
              | ASTNodeIf {astniCondition :: ASTNode, astniThen :: [ASTNode], astniElse :: ValidState [ASTNode]}
-    deriving (Eq, Show)
+             | ASTNodeDefine {astndName :: ASTNode, astndParams :: ValidState ASTNode, astndBody :: ASTNode}
+    deriving (Eq)
+
+instance Show ASTNode where
+    show (ASTNodeError t) = "(Error: " ++ show t ++ ")"
+    show (ASTNodeInteger i) = "(int: " ++ show i ++ ")"
+    show (ASTNodeSymbol s) = "(sym: " ++ s ++ ")"
+    show (ASTNodeMutable n c) = "(define: " ++ show n ++ " \n\t" ++ show c ++ ")"
+    show (ASTNodeSum l) = "(sum: " ++ show l ++ ")"
+    show (ASTNodeSub l) = "(sub: " ++ show l ++ ")"
+    show (ASTNodeMul l) = "(mul: " ++ show l ++ ")"
+    show (ASTNodeDiv l) = "(div: " ++ show l ++ ")"
+    show (ASTNodeMod l) = "(mod: " ++ show l ++ ")"
+    show (ASTNodeDebug l) = "(debug: " ++ show l ++ ")"
+    show (ASTNodeParamList l) = "(paramlist: \n\t" ++ show l ++ ")"
+    show (ASTNodeArray l) = "(array: {\n\t" ++ show l ++ "\n})"
+    show (ASTNodeInstructionSequence l) = "(instructionsequence: \n\t" ++ show l ++ ")"
+    show (ASTNodeBoolean b) = "(bool: " ++ show b ++ ")"
+    show (ASTNodeIf c t e) = "(if: \n\t(condition) " ++ show c ++ "\n\t(then) " ++ show t ++ "\n\t(else) " ++ show e ++ ")"
+    show (ASTNodeDefine n p b) = "(define: \n\t(name) " ++ show n ++ "\n\t(params) " ++ show p ++ "\n\t(body) {" ++ show b ++ "})"
+
+
 
 -- | @params:
 --     l: the word which will be compared to the different constructors for nodes.
@@ -55,11 +81,14 @@ tokOrExprToASTNode [] = ASTNodeError (TokenInfo TokError "")
 tokOrExprToASTNode [A (ASTNodeParamList l), A n] = ASTNodeParamList (l ++ [n])
 tokOrExprToASTNode [A n1, A n2] = ASTNodeParamList [n1, n2]
 -- an if statement
-tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokenKeywordIf _), T (TokenInfo TokOpenParen _), A n, T (TokenInfo TokCloseParen _), T (TokenInfo TokenKeywordThen _), A (ASTNodeParamList l), T (TokenInfo TokCloseParen _)] = ASTNodeIf n l (Invalid "nop")
-tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokenKeywordIf _), T (TokenInfo TokOpenParen _), A n, T (TokenInfo TokCloseParen _), T (TokenInfo TokenKeywordThen _), A (ASTNodeParamList l), T (TokenInfo TokenKeywordElse _), A (ASTNodeParamList lelse), T (TokenInfo TokCloseParen _)] = ASTNodeIf n l (Valid lelse)
-tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokenKeywordIf _), T (TokenInfo TokOpenParen _), A n, T (TokenInfo TokCloseParen _), T (TokenInfo TokenKeywordThen _), A l, T (TokenInfo TokCloseParen _)] = ASTNodeIf n [l] (Invalid "nop")
-tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokenKeywordIf _), T (TokenInfo TokOpenParen _), A n, T (TokenInfo TokCloseParen _), T (TokenInfo TokenKeywordThen _), A l, T (TokenInfo TokenKeywordElse _), A lelse, T (TokenInfo TokCloseParen _)] = ASTNodeIf n [l] (Valid [lelse])
-tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokenKeywordIf _), T (TokenInfo TokOpenParen _), A n, T (TokenInfo TokCloseParen _), T (TokenInfo TokenKeywordThen _), T (TokenInfo TokOpenParen _), A l, T (TokenInfo TokCloseParen _), T (TokenInfo TokenKeywordElse _), T (TokenInfo TokOpenParen _), A lelse, T (TokenInfo TokCloseParen _), T (TokenInfo TokCloseParen _)] = ASTNodeIf n [l] (Valid [lelse])
+-- cond: arr then: arr(1) else: nop
+-- tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokenKeywordIf _), A (ASTNodeArray [cond]), T (TokenInfo TokenKeywordThen _), A (ASTNodeArray [thenOps]), T (TokenInfo TokCloseParen _)] = ASTNodeIf cond [thenOps] (Invalid "1")
+-- cond: arr then: arr else: nop
+
+-- tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokenKeywordIf _), A (ASTNodeArray [cond]), A (ASTNodeArray thenOps), T (TokenInfo TokCloseParen _)] = ASTNodeIf cond thenOps (Invalid "3")
+tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokenKeywordIf _), A (ASTNodeArray [cond]), A (ASTNodeArray thenOps), A (ASTNodeArray elseOps), T (TokenInfo TokCloseParen _)] = ASTNodeIf cond thenOps (Valid elseOps)
+tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokenKeywordIf _), A (ASTNodeArray [cond]), T (TokenInfo TokenKeywordThen _), A (ASTNodeArray thenOps), T (TokenInfo TokCloseParen _)] = ASTNodeIf cond thenOps (Invalid "3")
+tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokenKeywordIf _), A (ASTNodeArray [cond]), T (TokenInfo TokenKeywordThen _), A (ASTNodeArray thenOps), T (TokenInfo TokenKeywordElse _), A (ASTNodeArray elseOps), T (TokenInfo TokCloseParen _)] = ASTNodeIf cond thenOps (Valid elseOps)
 -- array
 tokOrExprToASTNode [T (TokenInfo TokOpenParen _), A (ASTNodeParamList l), T (TokenInfo TokCloseParen _)] = ASTNodeArray l
 tokOrExprToASTNode [T (TokenInfo TokOpenParen _), A n, T (TokenInfo TokCloseParen _)] = ASTNodeArray [n]
@@ -83,12 +112,16 @@ tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokOperatorDiv _)
 -- tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokOperatorMod _), A n1, A n2, T (TokenInfo TokCloseParen _)] = ASTNodeMod [n1, n2]
 tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokOperatorMod _), A (ASTNodeParamList [n1, n2]), T (TokenInfo TokCloseParen _)] = ASTNodeMod [n1, n2]
 -- declaration of a variable
-tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokKeyworddefine _), A (ASTNodeSymbol sym), A n, T (TokenInfo TokCloseParen _)] = ASTNodeDefine (ASTNodeSymbol sym) n
+tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokKeywordMutable _), A (ASTNodeSymbol sym), A n, T (TokenInfo TokCloseParen _)] = ASTNodeMutable (ASTNodeSymbol sym) n
 -- a boolean
 tokOrExprToASTNode [T (TokenInfo TokenBool val)] = ASTNodeBoolean (val == "true")
+-- declaration of a function
+    -- with parameters
+tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokKeywordDefine _), A (ASTNodeSymbol sym), A (ASTNodeParamList params), A body, T (TokenInfo TokCloseParen _)] = ASTNodeDefine (ASTNodeSymbol sym) (Valid (ASTNodeParamList params)) body
+    -- without parameters
+tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokKeywordDefine _), A (ASTNodeSymbol sym), A body, T (TokenInfo TokCloseParen _)] = ASTNodeDefine (ASTNodeSymbol sym) (Invalid (sym ++ " does not take any parameters")) body
 -- error
 tokOrExprToASTNode unresolved = ASTNodeError (TokenInfo TokError (show unresolved))
-
 
 
 
@@ -124,8 +157,8 @@ tryBuildInstructionList [A (ASTNodeParamList l)] = ASTNodeInstructionSequence l
 tryBuildInstructionList [A (ASTNodeInstructionSequence l)] = ASTNodeInstructionSequence l
 tryBuildInstructionList [A (ASTNodeInstructionSequence l), A n] = ASTNodeInstructionSequence (l ++ [n])
 tryBuildInstructionList [A n1, A n2] = ASTNodeInstructionSequence [n1, n2]
--- tryBuildInstructionList l = ASTNodeError (TokenInfo TokError (show l))
-tryBuildInstructionList _ = ASTNodeError (TokenInfo TokError "cannot resolve input")
+tryBuildInstructionList l = ASTNodeError (TokenInfo TokError (show l))
+-- tryBuildInstructionList _ = ASTNodeError (TokenInfo TokError "cannot resolve input")
 
 -- calls buildASTIterate in a loop to progressively reduce the array
 -- to a single node

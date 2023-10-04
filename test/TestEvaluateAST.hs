@@ -111,7 +111,7 @@ testAstToInstr =
 testArrToHASMImpl :: [Instruction]
 testArrToHASMImpl = case astNodeArrayToHASM (Valid newContext) (ASTNodeArray [ASTNodeInteger 1, ASTNodeInteger 2]) of
     Valid c -> instructions c
-    Invalid s -> []
+    Invalid _ -> []
 
 testArrToHASM :: Test
 testArrToHASM = TestList [
@@ -120,7 +120,7 @@ testArrToHASM = TestList [
 testStrToHASMImp :: String -> [Instruction]
 testStrToHASMImp str = case strToHASM (Valid newContext) str of
     Valid c -> instructions c
-    Invalid s -> []
+    Invalid _ -> []
 
 testStrToHASM :: Test
 testStrToHASM = TestList [
@@ -140,7 +140,7 @@ testMovStackAddr = TestList [
 
 testputDefineInstruction :: Test
 testputDefineInstruction = TestList [
-      "instruction from ast Node define" ~: instructionFromAST (ASTNodeDefine (ASTNodeSymbol "oui") (ASTNodeInteger 42)) (Valid newContext) ~?= Valid newContext {instructions = [Xor (Reg EAX) (Reg EAX),Mov (Reg EAX) (Immediate 42),MovStackAddr (Immediate 0) (Reg EAX)], symbolTable = SymTable {symTable = [("oui", GInt)]}}]
+      "instruction from ast Node define" ~: instructionFromAST (ASTNodeMutable (ASTNodeSymbol "oui") (ASTNodeInteger 42)) (Valid newContext) ~?= Valid newContext {instructions = [Xor (Reg EAX) (Reg EAX),Mov (Reg EAX) (Immediate 42),MovStackAddr (Immediate 0) (Reg EAX)], symbolTable = SymTable {symTable = [("oui", GInt)]}}]
 
 testMovFromStackAddr :: Test
 testMovFromStackAddr = TestList [
