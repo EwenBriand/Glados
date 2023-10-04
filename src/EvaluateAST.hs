@@ -6,7 +6,7 @@ where
 
 -- import qualified Data.ValidState
 -- import Lexer
---     ( ASTNode(ASTNodeDefine, ASTNodeError, ASTNodeInteger,
+--     ( ASTNode(ASTNodeMutable, ASTNodeError, ASTNodeInteger,
 --               ASTNodeSymbol, ASTNodeSum, ASTNodeSub, ASTNodeMul, ASTNodeDiv,
 --               ASTNodeMod, astnsName, ASTNodeParamList, ASTNodeArray, strToAST) )
 import Lexer
@@ -28,14 +28,41 @@ instructionFromAST (ASTNodeSub x) ctx = putSubInstruction x ctx
 instructionFromAST (ASTNodeMul x) ctx = putMulInstruction x ctx
 instructionFromAST (ASTNodeDiv x) ctx = putDivInstruction x ctx
 instructionFromAST (ASTNodeMod x) ctx = putModInstruction x ctx
-instructionFromAST (ASTNodeDefine name x) ctx = putDefineInstruction name x ctx
+instructionFromAST (ASTNodeMutable name x) ctx = putMutableInstruction name x ctx
 instructionFromAST (ASTNodeParamList _) ctx = ctx -- not an actual instruction, does (Invalid "Error")
 instructionFromAST (ASTNodeArray n) ctx = astNodeArrayToHASM ctx (ASTNodeArray n)
 instructionFromAST (ASTNodeInstructionSequence n) ctx = putInstructionSequence n ctx
 instructionFromAST (ASTNodeBoolean b) ctx = putIntegerInstruction (if b then 1 else 0) ctx
 instructionFromAST (ASTNodeIf cond thenBlock elseBlock) ctx = putIfInstruction ctx (ASTNodeIf cond thenBlock elseBlock)
+instructionsFromAST (ASTNodeDefine name params body) c = putDefineInstruction c name (params) body
+instructionsFromAST _ _ = Invalid "Error"
 
-instructionFromAST _ _ = Invalid "Error"
+pushParamTypeToBlock :: Block -> [ASTNode] -> Block
+pushParamTypeToBlock blk (x:xs) = (pushParamTypeToBlock
+    (blk {blockParamTypes = blockParamTypes blk ++ [inferTypeFromNode (blockContext blk) x]}) xs)
+pushParamTypeToBlock blk [] = blk
+
+setupBlockParams :: Block -> ValidState ASTNode -> Block
+setupBlockParams blk (Invalid _) = blk
+setupBlockParams blk (Valid (ASTNodeParamList n)) = pushParamTypeToBlock blk n
+setupBlockParams blk _ = blk
+
+evaluateBlock :: ValidState Context -> Block -> ValidState ASTNode -> ASTNode -> ValidState Context
+evaluateBlock (Invalid s) _ _ _ = Invalid s
+evaluateBlock (Valid c) blk params body = ctx
+    where
+        ctx = blockReplace (Valid c) (Valid (setupBlockParams blk' params))
+        blk' = blk {blockContext = instructionFromAST body (blockContext blk)}
+
+
+putDefineInstruction :: ValidState Context -> ASTNode -> ValidState ASTNode -> ASTNode -> ValidState Context
+putDefineInstruction (Invalid s) _ _ _ = Invalid s
+putDefineInstruction (Valid c) name params body = case blockAdd (Valid c) (astnsName name) of
+    Invalid s -> Invalid s
+    Valid ctx -> case blockGet (Valid ctx) (astnsName name) of
+        Invalid s -> Invalid s
+        Valid blk -> evaluateBlock (Valid ctx) blk params body
+
 
 putInstructionSequence :: [ASTNode] -> ValidState Context -> ValidState Context
 putInstructionSequence _ (Invalid s) = Invalid s
@@ -94,7 +121,7 @@ putSymbolInstruction s (Valid ctx) = do
   let sym = symGet (Valid ctx) s
   case sym of
     Valid sym' -> return (ctx {instructions = instructions ctx ++ [Xor (Reg EAX) (Reg EAX), MovFromStackAddr (Reg EAX) (Immediate sym')]})
-    Invalid s -> Invalid s
+    Invalid str -> Invalid str
 
 -- putDefineInstruction :: ASTNode -> ASTNode -> ValidState Context -> ValidState Context
 -- putDefineInstruction _ _ (Invalid "Error") = (Invalid "Error")
@@ -120,7 +147,7 @@ putSymbolInstruction s (Valid ctx) = do
 --               return ( ctx''' {instructions = instructions ctx''' ++ [MovStackAddr (Immediate val) (Reg EAX)]})
 
 inferTypeFromNode :: ValidState Context -> ASTNode -> VarType
-inferTypeFromNode (Invalid s) _ = GUndefinedType
+inferTypeFromNode (Invalid _) _ = GUndefinedType
 inferTypeFromNode _ (ASTNodeInteger _) = GInt
 inferTypeFromNode c (ASTNodeSymbol name) = case symGetFull c name of
     (Invalid _) -> GUndefinedType
@@ -133,21 +160,21 @@ inferTypeFromNode c (ASTNodeMod (x:_)) = inferTypeFromNode c x
 inferTypeFromNode _ _ = GUndefinedType
 
 
-putDefineNoErrCheck :: ASTNode -> ASTNode -> ValidState Context -> ValidState Context
-putDefineNoErrCheck _ _ (Invalid s) = Invalid s
-putDefineNoErrCheck name node c =
+putMutableNoErrCheck :: ASTNode -> ASTNode -> ValidState Context -> ValidState Context
+putMutableNoErrCheck _ _ (Invalid s) = Invalid s
+putMutableNoErrCheck name node c =
     let c' = symSet c (astnsName name) (inferTypeFromNode c node) in
         case instructionFromAST node c' of
         Invalid s -> Invalid s
         Valid c'' -> Valid c'' {instructions = instructions c'' ++ [MovStackAddr (Immediate (length (symTable (symbolTable c'')) - 1)) (Reg EAX)]}
 
-putDefineInstruction :: ASTNode -> ASTNode -> ValidState Context -> ValidState Context
-putDefineInstruction _ _ (Invalid s) = Invalid s
-putDefineInstruction name node ctx =
+putMutableInstruction :: ASTNode -> ASTNode -> ValidState Context -> ValidState Context
+putMutableInstruction _ _ (Invalid s) = Invalid s
+putMutableInstruction name node ctx =
     let newCtx = instructionFromAST name ctx in
         case newCtx of
         Valid _ -> Invalid "Error: Variable already exists" -- error, the variable already exists!
-        Invalid _ -> putDefineNoErrCheck name node ctx
+        Invalid _ -> putMutableNoErrCheck name node ctx
 
 -- | Implements the following behaviour:
 -- - tests the condition
@@ -181,7 +208,7 @@ putIfInstruction (Valid c) (ASTNodeIf cond thenBlock elseBlock) =
                     Jmp (show uuid ++ "end"),
                     Label (show uuid ++ "else") (length (instructions c5) + 1)]}
         let c6 = case elseBlock of
-                (Invalid s) -> c4
+                (Invalid _) -> c4
                 Valid elseBlock' -> putInstructionSequence elseBlock' c4
         case c6 of
                 (Invalid s) -> Invalid s
@@ -253,5 +280,5 @@ strToHASM (Valid ctx) str = c'
             Valid c2 -> Valid c2 {instructions = blockInitAllocVarSpace (Valid c2) ++ instructions c2}
         c = case strToAST str of
             ASTNodeError e -> Invalid ("Error: not a valid expression: " ++ show e)
-            ast -> instructionFromAST ast (Valid ctx)
+            ast -> instructionFromAST ast (Valid ctx {cAST = [ast]})
 

@@ -30,7 +30,7 @@ testWordToToken =
       "WordToToken #t" ~: wordToTok "#t" ~?= TokenInfo TokenBool "true",
       "WordToToken false" ~: wordToTok "false" ~?= TokenInfo TokenBool "false",
       "WordToToken #f" ~: wordToTok "#f" ~?= TokenInfo TokenBool "false",
-      "WordToToken define" ~: wordToTok "define" ~?= TokenInfo TokKeyworddefine "define",
+      "WordToToken define" ~: wordToTok "mutable" ~?= TokenInfo TokKeywordMutable "mutable",
       "WordToToken comment" ~: wordToTok "//" ~?= TokenInfo TokComment "//",
       "WordToToken open paren" ~: wordToTok "(" ~?= TokenInfo TokOpenParen "(",
       "WordToToken close paren" ~: wordToTok ")" ~?= TokenInfo TokCloseParen ")",
@@ -46,7 +46,7 @@ testTryTokenizeOne =
       "TryTokenizeOne Symbol" ~: tryTokenizeOne "" (TokenInfo TokError "") "abc" ~?= (TokenInfo TokSymbol "abc", ""),
       "TryTokenizeOne integer" ~: tryTokenizeOne "" (TokenInfo TokError "") "123" ~?= (TokenInfo TokInteger "123", ""),
       "TryTokenizeOne plus" ~: tryTokenizeOne "" (TokenInfo TokError "") "+" ~?= (TokenInfo TokOperatorPlus "+", ""),
-      "TryTokenizeOne define" ~: tryTokenizeOne "" (TokenInfo TokError "") "define" ~?= (TokenInfo TokKeyworddefine "define", ""),
+      "TryTokenizeOne mutable" ~: tryTokenizeOne "" (TokenInfo TokError "") "mutable" ~?= (TokenInfo TokKeywordMutable "mutable", ""),
       "TryTokenizeOne comment" ~: tryTokenizeOne "" (TokenInfo TokError "") "//" ~?= (TokenInfo TokComment "//", ""),
       "TrytokenizeOne div" ~: tryTokenizeOne "" (TokenInfo TokError "") "/" ~?= (TokenInfo TokOperatorDiv "/", ""),
       "TryTokenizeOne open paren" ~: tryTokenizeOne "" (TokenInfo TokError "") "(" ~?= (TokenInfo TokOpenParen "(", ""),
@@ -69,7 +69,7 @@ testTokenInfoShow = test
   [ "Test TokenInfo Show instance" ~:
     let ti = TokenInfo { token = TokInteger, value = "123" }
     in do
-      assertEqual "Show instance should match" "TokenInfo {token = TokInteger, value = \"123\"}" (show ti)
+      assertEqual "Show instance should match" "123" (show ti)
   ]
 
 testTokenize :: Test
@@ -77,6 +77,6 @@ testTokenize =
   TestList
     [ "Tokenize empty string" ~: tokenize "" ~?= [],
       "Tokenize Symbol" ~: tokenize "abc" ~?= [TokenInfo TokSymbol "abc"],
-      "Tokenize variable definition" ~: tokenize "define oui 123" ~?= [TokenInfo TokKeyworddefine "define", TokenInfo TokSymbol "oui", TokenInfo TokInteger "123"],
+      "Tokenize variable definition" ~: tokenize "mutable oui 123" ~?= [TokenInfo TokKeywordMutable "mutable", TokenInfo TokSymbol "oui", TokenInfo TokInteger "123"],
       "Tokenize Error" ~: tokenize "°" ~?= [TokenInfo TokError ""]
     ]

@@ -18,7 +18,8 @@ data Token = TokSymbol -- ^ A variable name, function name, etc.
            | TokOperatorMul -- The multiplication operator, "*"
            | TokOperatorDiv -- The division operator, "/"
            | TokOperatorMod -- The modulo operator, "%"
-           | TokKeyworddefine -- The "define" keyword, used to define a symbol
+           | TokKeywordMutable -- The "mutable" keyword, used to define a symbol
+           | TokKeywordDefine -- The "define" keyword, used to define a macro
            | TokComment -- Converts the rest of the line into a comment
            | TokOpenParen -- The open parenthesis character
            | TokCloseParen -- The close parenthesis character
@@ -32,14 +33,18 @@ data Token = TokSymbol -- ^ A variable name, function name, etc.
            | TokenKeywordElse -- ^ The "else" keyword
            deriving (Eq, Show)
 
-data TokenInfo = TokenInfo { token :: Token, value :: String} deriving (Eq, Show)
+data TokenInfo = TokenInfo { token :: Token, value :: String} deriving (Eq)
+
+instance Show TokenInfo where
+    show (TokenInfo _ v) = v
 
 -- | @params:
 --     str: the string to tokenize
 -- @return: a token that matches the string, or TokError
 wordToTok :: String -> TokenInfo
 wordToTok "" = TokenInfo {token = TokEmpty, value = ""}
-wordToTok "define" = TokenInfo {token = TokKeyworddefine, value = "define"}
+wordToTok "mutable" = TokenInfo {token = TokKeywordMutable, value = "mutable"} -- used to define mutable variables
+wordToTok "define" = TokenInfo {token = TokKeywordDefine, value = "define"} -- used to define macros
 wordToTok "+" = TokenInfo {token = TokOperatorPlus, value = "+"}
 wordToTok "add" = TokenInfo {token = TokOperatorPlus, value = "add"}
 wordToTok "-" = TokenInfo {token = TokOperatorMinus, value = "-"}
@@ -82,7 +87,7 @@ tryTokenizeOne currword lastmatch (x:xs) = case wordToTok (currword ++ [x]) of
 -- @params:
 --     str: the string to tokenize
 -- @return: a list of tokens that represent the information contained in the string.
--- For example, "define x 123" would return [TokKeyworddefine, TokSymbol, TokInteger]
+-- For example, "define x 123" would return [TokKeywordMutable, TokSymbol, TokInteger]
 -- Whitespaces are ignored.
 tokenize :: String -> [TokenInfo]
 tokenize [] = []

@@ -32,7 +32,6 @@ where
 
 import Data.Bits
 import VM
-import Data.Array
 import ValidState
 
 instructionTable :: ValidState Context -> Instruction -> ValidState Context
@@ -103,11 +102,11 @@ execInstructions context =
         else evalOneInstruction (fromValidState newContext context) (getInsIndex context (fromValidState (-1) (ipGet context)))
 
 getInsIndex :: ValidState Context -> Int -> Instruction
-getInsIndex (Invalid s) _ = Nop
-getInsIndex (Valid context) index = if index < length (instructions context) then instructions context !! index else Nop
+getInsIndex (Invalid _) _ = Nop
+getInsIndex (Valid context) i = if i < length (instructions context) then instructions context !! i else Nop
 
 nbInstructions :: ValidState Context -> Int
-nbInstructions (Invalid s) = -1
+nbInstructions (Invalid _) = -1
 nbInstructions (Valid context) = length (instructions context)
 
 --
@@ -135,7 +134,7 @@ popImpl ctx param = case stackPop ctx of
 --
 
 movPtrImpl :: ValidState Context -> Param -> Param -> ValidState Context
-movPtrImpl (Invalid s) _ _ = Invalid s
+movPtrImpl (Invalid s) p _ = Invalid ("While assigning to pointer " ++ show p ++ ": " ++ s)
 movPtrImpl _ (Immediate _) _ = Invalid "Cannot move into an immediate"
 movPtrImpl ctx (Reg r) p = case getTrueValueFromParam ctx p of
   Invalid s -> Invalid s
@@ -169,7 +168,7 @@ movStackAddrImpl ctx to from = case getTrueValueFromParam ctx from of
   Invalid s -> Invalid s
   Valid val -> case regGet ctx ESP of
     Invalid s -> Invalid s
-    Valid ptr -> case getTrueValueFromParam ctx to of
+    Valid _ -> case getTrueValueFromParam ctx to of
         Invalid s -> Invalid s
         Valid addr -> setStackIndex ctx addr val
 
@@ -192,7 +191,7 @@ movImpl ctx to from = case getTrueValueFromParam ctx from of
 --
 
 allCmp :: ValidState Context -> Param -> Param -> ValidState Context
-allCmp (Invalid s) _ _ = Invalid s
+allCmp (Invalid s) _ _ = Invalid ("During comparison: " ++ s)
 allCmp ctx (Reg r1) (Reg r2) = myCmp ctx (regGet ctx r1) (regGet ctx r2)
 allCmp ctx (Reg r1) (Immediate r2) = myCmp ctx (regGet ctx r1) (Valid r2)
 allCmp ctx (Reg r1) (Memory r2) = myCmp ctx (regGet ctx r1) (heapGet ctx r2)
@@ -313,7 +312,7 @@ allAdd (Invalid s) _ _ = Invalid s
 allAdd ctx r1 (Reg r2) = myAdd ctx r1 (regGet ctx r1) (regGet ctx r2)
 allAdd ctx r1 (Immediate r2) = myAdd ctx r1 (regGet ctx r1) (Valid r2)
 allAdd ctx r1 (Memory r2) = case heapGet ctx r2 of
-  Invalid s -> Invalid s
+  Invalid s -> Invalid ("During addition from pointer: " ++ s)
   Valid val -> myAdd ctx r1 (regGet ctx r1) (Valid val)
 allAdd ctx r1 (Symbol r2) = case symGet ctx r2 of
   Invalid s -> Invalid s
