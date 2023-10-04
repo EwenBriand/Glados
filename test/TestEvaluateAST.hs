@@ -14,7 +14,8 @@ module TestEvaluateAST (
     testMovStackAddrImpl,
     testMovStackAddr,
     testputDefineInstruction,
-    testMovFromStackAddr
+    testMovFromStackAddr,
+    testFuncCall
 ) where
 
 import Test.HUnit
@@ -142,3 +143,33 @@ testputDefineInstruction = TestList [
 testMovFromStackAddr :: Test
 testMovFromStackAddr = TestList [
       "getting index two of the stack" ~: movFromStackAddrImpl (Valid newContext {stack = Stack [0, 1, 2, 3]}) (Reg EAX) (Immediate 2) ~?= regSet (Valid newContext {stack = Stack [0, 1, 2, 3]}) EAX 2]
+
+testFunCallNoArgs :: [Instruction]
+testFunCallNoArgs = case strToHASM (Valid newContext) "(define foo 1) foo" of
+    Valid c -> instructions c
+    Invalid _ -> []
+
+testFunCallArgs :: [Instruction]
+testFunCallArgs = case strToHASM (Valid newContext) "(define foo (a) (1))(foo 1)" of
+    Valid c -> instructions c
+    Invalid _ -> []
+
+testASTFunCallArgsImpl :: [ASTNode]
+testASTFunCallArgsImpl = case strToHASM (Valid newContext) "(define foo (a) (1))(foo 1)" of
+    Valid c -> cAST c
+    Invalid _ -> [ASTNodeInteger 0]
+
+testFuncCall :: Test
+testFuncCall = TestList [
+    "ast fun call with arguments" ~: testASTFunCallArgsImpl ~?= [
+        -- ASTNodeInstructionSequence [ASTNodeDefine (ASTNodeSymbol "foo") (Valid (ASTNodeParamList [ASTNodeSymbol "a"])) [ASTNodeInteger 1], ASTNodeArray ([ASTNodeSymbol "foo", ASTNodeInteger 1])]],
+        ASTNodeInstructionSequence [ASTNodeDefine (ASTNodeSymbol "foo") (Valid (ASTNodeParamList [ASTNodeSymbol "a"])) [ASTNodeInteger 1], (ASTNodeFunctionCall "foo" [ASTNodeInteger 1])]],
+    "fun call no arguments: " ~: testFunCallNoArgs ~?= [
+        Enter,
+        Call "foo"],
+    "fun call with arguments: " ~: testFunCallArgs ~?= [
+        Enter,
+        Xor (Reg EAX) (Reg EAX),
+        Mov (Reg EAX) (Immediate 1),
+        Mov (Reg EDI) (Reg EAX),
+        Call "foo"]]

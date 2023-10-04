@@ -125,14 +125,14 @@ execSyscallWrapper (Valid ctx) = fst (execSyscall (Valid ctx) (codeFromEAX ctx))
 -------------------------------------------------------------------------------
 
 -- | The registers of the VM. Cf assembly registers.
-data Register = EAX | EBX | ECX | EDX | ESI | EDI | EBP | ESP
+data Register = EAX | EBX | ECX | EDX | ESI | EDI | EBP | ESP | E8D | E9D
   deriving (Eq, Ord, Show)
 
 newtype Registers = Registers { regs:: Map.Map Register Int } deriving (Show, Eq)
 
 -- | Creates a new empty set of registers.
 newRegisters :: Registers
-newRegisters = Registers (Map.fromList [(EAX, 0), (EBX, 0), (ECX, 0), (EDX, 0), (ESI, 0), (EDI, 0), (EBP, 0), (ESP, 0)])
+newRegisters = Registers (Map.fromList [(EAX, 0), (EBX, 0), (ECX, 0), (EDX, 0), (ESI, 0), (EDI, 0), (EBP, 0), (ESP, 0), (E8D, 0), (E9D, 0)])
 
 -- | Sets the value of a register.
 regSet :: ValidState Context -> Register -> Int -> ValidState Context
@@ -478,6 +478,7 @@ data Instruction
   | Sub Param Param
   | Mult Param Param
   | Div Param
+  | Call String -- calls evaluates a function (block)
   | Interrupt
   | Label String Int -- name of the label, instruction pointer at the time.
   deriving (Eq, Ord, Show)

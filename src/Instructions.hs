@@ -23,7 +23,8 @@ module Instructions
     nbInstructions,
     evalOneInstruction,
     movStackAddrImpl,
-    movFromStackAddrImpl)
+    movFromStackAddrImpl,
+    )
 where
 
 -- labelAlloc,
@@ -75,6 +76,20 @@ instructionTable ctx (Label _ _) = ctx -- labels are preprocessed before executi
 instructionTable ctx Interrupt = execSyscallWrapper ctx
 instructionTable ctx (MovStackAddr p1 p2) = movStackAddrImpl ctx p1 p2
 instructionTable ctx (MovFromStackAddr p1 p2) = movFromStackAddrImpl ctx p1 p2
+-- instructionTable ctx (Call str) = callImpl ctx str
+instructionTable ctx (Call str) = ctx -- TODO actually call the function
+
+-- executeBlock :: ValidState Context -> Block -> ValidState Context
+-- executeBlock (Invalid s) _ = Invalid s
+-- executeBlock (Valid c) block = c'
+--     where
+--         c' = blockReplace (Valid c) (block )
+
+-- callImpl :: ValidState Context -> String -> ValidState Context
+-- callImpl (Invalid s) _ = Invalid s
+-- callImpl (Valid c) symName = case blockGet c symName of
+--     Invalid s -> Invalid s
+--     Valid block -> executeBlock (Valid c) block
 
 
 -- execInstructions :: ValidState Context -> ValidState Context

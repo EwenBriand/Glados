@@ -13,6 +13,7 @@ import Lexer
 -- import VM (Context (..), Instruction (..), Param (..), Register (..), regGet, stackGetPointer, stackPush, symGet, symSet, labelSet, blockInitAllocVarSpace, symGetTotalSize)
 import VM
 import ValidState
+import Lexer
 
 
 -- -- | Evaluates the AST and push the instructions into the context.
@@ -35,27 +36,53 @@ instructionFromAST (ASTNodeParamList _) ctx = ctx -- not an actual instruction, 
 instructionFromAST (ASTNodeArray n) ctx = astNodeArrayToHASM ctx (ASTNodeArray n)
 instructionFromAST (ASTNodeInstructionSequence n) ctx = putInstructionSequence n ctx
 instructionFromAST (ASTNodeBoolean b) ctx = putIntegerInstruction (if b then 1 else 0) ctx
+instructionFromAST (ASTNodeFunctionCall name params) ctx = putFunctionCall ctx name params
 instructionFromAST _ _ = Invalid "Error"
 
+paramsRegisters = [EDI, ESI, EDX, ECX, E8D, E9D]
+
+evalParamsToReg :: ValidState Context -> [ASTNode] -> [Register] -> ValidState Context
+evalParamsToReg (Invalid s) _ _ = Invalid s
+evalParamsToReg (Valid c) [] _ = Valid c
+evalParamsToReg _ _ [] = Invalid "Error: too many parameters (max: 6)"
+evalParamsToReg (Valid c) (p:ps) (r:rs) = case instructionFromAST p (Valid c) of
+    Invalid s -> Invalid s
+    Valid c' -> evalParamsToReg (Valid c' {instructions = instructions c' ++ [Mov (Reg r) (Reg EAX)]}) ps rs
+
+
+putFunctionCall :: ValidState Context -> String -> [ASTNode] -> ValidState Context
+putFunctionCall (Invalid s) _ _ = Invalid s
+putFunctionCall (Valid c) name params = case evalParamsToReg (Valid c) params paramsRegisters of
+    Invalid s -> Invalid s
+    Valid c' -> tryPutFunctionCall (Valid c') name
+
+
 pushParamTypeToBlock :: Block -> [ASTNode] -> Block
-pushParamTypeToBlock blk (x:xs) = (pushParamTypeToBlock
-    (blk {blockParamTypes = blockParamTypes blk ++ [inferTypeFromNode (blockContext blk) x]}) xs)
 pushParamTypeToBlock blk [] = blk
+pushParamTypeToBlock blk (x:xs) = pushParamTypeToBlock
+    (blk {blockParamTypes = blockParamTypes blk ++ [inferTypeFromNode (blockContext blk) x]}) xs
 
 setupBlockParams :: Block -> ValidState ASTNode -> Block
 setupBlockParams blk (Invalid _) = blk
 setupBlockParams blk (Valid (ASTNodeParamList n)) = pushParamTypeToBlock blk n
 setupBlockParams blk _ = blk
 
-evaluateBlock :: ValidState Context -> Block -> ValidState ASTNode -> ASTNode -> ValidState Context
+evaluateBlock :: ValidState Context -> Block -> ValidState ASTNode -> [ASTNode] -> ValidState Context
 evaluateBlock (Invalid s) _ _ _ = Invalid s
-evaluateBlock (Valid c) blk params body = ctx
+evaluateBlock (Valid c) _ _ [] = Valid c
+evaluateBlock (Valid c) blk params (x:xs) = case evaluateBlockOneInstr (Valid c) blk params x of
+    Invalid s -> Invalid s
+    Valid c' -> evaluateBlock (Valid c') blk params xs
+
+evaluateBlockOneInstr :: ValidState Context -> Block -> ValidState ASTNode -> ASTNode -> ValidState Context
+evaluateBlockOneInstr (Invalid s) _ _ _ = Invalid s
+evaluateBlockOneInstr (Valid c) blk params body = ctx
     where
         ctx = blockReplace (Valid c) (Valid (setupBlockParams blk' params))
         blk' = blk {blockContext = instructionFromAST body (blockContext blk)}
 
 
-putDefineInstruction :: ValidState Context -> ASTNode -> ValidState ASTNode -> ASTNode -> ValidState Context
+putDefineInstruction :: ValidState Context -> ASTNode -> ValidState ASTNode -> [ASTNode] -> ValidState Context
 putDefineInstruction (Invalid s) _ _ _ = Invalid s
 putDefineInstruction (Valid c) name params body = case blockAdd (Valid c) (astnsName name) of
     Invalid s -> Invalid s
@@ -115,13 +142,19 @@ putModInstruction [x, y] ctx = do
   return (ctx'' {instructions = instructions ctx'' ++ [Pop (Reg EDI), Mov (Reg EBX) (Reg EAX), Mov (Reg EAX) (Reg EDI), Mov (Reg EDI) (Reg EBX), Div (Reg EDI), Mov (Reg EAX) (Reg EDX)]})
 putModInstruction _ _ = Invalid "Error"
 
+tryPutFunctionCall :: ValidState Context -> String -> ValidState Context
+tryPutFunctionCall (Invalid s) _ = Invalid s
+tryPutFunctionCall (Valid ctx) s = case blockGet (Valid ctx) s of
+    (Invalid _) -> Invalid ("Symbol or Function not found: " ++ s)
+    Valid _ -> return ctx {instructions = instructions ctx ++ [Call s]}
+
 putSymbolInstruction :: String -> ValidState Context -> ValidState Context
 putSymbolInstruction _ (Invalid s) = Invalid s
 putSymbolInstruction s (Valid ctx) = do
   let sym = symGet (Valid ctx) s
   case sym of
     Valid sym' -> return (ctx {instructions = instructions ctx ++ [Xor (Reg EAX) (Reg EAX), MovFromStackAddr (Reg EAX) (Immediate sym')]})
-    Invalid str -> Invalid str
+    Invalid _ -> tryPutFunctionCall (Valid ctx) s
 
 -- putDefineInstruction :: ASTNode -> ASTNode -> ValidState Context -> ValidState Context
 -- putDefineInstruction _ _ (Invalid "Error") = (Invalid "Error")
