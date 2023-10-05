@@ -1,0 +1,2 @@
+(mutable foo 2)
+(print foo)

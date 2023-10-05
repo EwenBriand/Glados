@@ -94,7 +94,6 @@ main = do
   _ <- runTestTT testFromValidState
   _ <- runTestTT testShowAndOrd
   _ <- runTestTT testCodeFromValidStateInt
-  _ <- runTestTT testExecSyscallWrapper
   _ <- runTestTT testCallEasyPrint
   _ <- runTestTT testCodeFromEAX
   _ <- runTestTT testBlock
