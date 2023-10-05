@@ -598,7 +598,7 @@ testSymTable =
       "returns an error for an Invalid context"
         ~: let c = Invalid "Error"
                c' = symSet c "foo" GInt
-            in c' ~?= Invalid "Error",
+            in c' ~?= Invalid "Failed to set symbol because the previous error was thrown: Error",
       "returns an error for a missing symbol"
         ~: let c = Valid newContext
                r = symGet c "foo"
