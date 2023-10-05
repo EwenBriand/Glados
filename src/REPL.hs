@@ -54,21 +54,37 @@ showTrace (Valid c) s a = do
 runREPL :: ValidState Context -> IO ()
 runREPL (Invalid _) = runREPL (Valid newContext)
 runREPL (Valid c) = do
-  putStr "_> "
-  hFlush stdout
-  input <- readContents
---   print input
-  if input == "exit"
-    then Prelude.return ()
-    else do
-      case strToHASM (Valid c) input of
-        Invalid s -> putStrLn s
-        Valid ctx -> do
-          let ast = cAST ctx
-          let c' = execInstructions (detectLabels (Valid ctx))
-          case getTrueValueFromParam c' (Reg EAX) of
-            Invalid s -> showTrace c' s ast
-            Valid v -> print v
+    putStr "_> "
+    hFlush stdout
+    input <- readContents
+    print input
+    if input == "exit"
+        then Prelude.return ()
+        else do
+            case strToHASM (Valid c) input of
+                Invalid s -> putStrLn s
+                Valid ctx -> logicLoop (execInstructionsIO (detectLabels (Valid ctx)))
+                    -- let (c', io) = execInstructionsIO (detectLabels (Valid ctx))
+                    -- case getTrueValueFromParam c' (Reg EAX) of
+                    --     Invalid s -> putStrLn s
+                    --     Valid v -> do
+                    --         io
+                    --         execInstructionsIO (detectLabels (Valid v))
+                    -- print c'
+                    -- io >> putStrLn "Is reaching here"
+                -- Valid ctx -> do
+                    -- let c' = execInstructions (detectLabels (Valid ctx))
+                    -- case getTrueValueFromParam c' (Reg EAX) of
+                    --     Invalid s -> putStrLn s
+                    --     Valid v -> print v
+                    -- evalOneInstructionIO c' Interrupt
+                    -- print (evalOneInstruction (fromValidState c c') Interrupt )
 
--- restartREPL c'
--- runREPL c' {instructions = []}
+                    -- callEasyPrint c'
+                    -- restartREPL c'
+                    -- runREPL c' {instructions = []}
+-- runREPL (Valid ctx) = execSyscallWrapper
+
+logicLoop :: (ValidState Context, IO()) -> IO()
+logicLoop (Invalid s, io) = io >> putStrLn s
+logicLoop (Valid c, io) = io >> logicLoop (execInstructionsIO (detectLabels (Valid c)))
