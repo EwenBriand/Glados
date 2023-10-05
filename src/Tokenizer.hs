@@ -36,6 +36,7 @@ data Token = TokSymbol -- ^ A variable name, function name, etc.
            | TokenKeywordPartialExpression -- ^ The "partial expression" keyword
            | TokenEqual -- ^ The "eq?" keyword
            | TokenInferior -- ^ The "<" keyword
+           | TokenSymPrint -- The "print" keyword
            deriving (Eq, Show)
 
 data TokenInfo = TokenInfo {token :: Token, value :: String} deriving (Eq)
@@ -75,6 +76,7 @@ wordToTok "else" = TokenInfo {token = TokenKeywordElse, value = "else"}
 wordToTok "eq?" = TokenInfo {token = TokenEqual, value = "eq?"}
 wordToTok "<" = TokenInfo {token = TokenInferior, value = "<"}
 wordToTok "#" = TokenInfo {token = TokenKeywordPartialExpression, value = "#"}
+wordToTok "print" = TokenInfo {token = TokenSymPrint, value = "print"}
 wordToTok str | all isAlpha str = TokenInfo {token = TokSymbol, value = str}
                 | all isDigit str = TokenInfo {token = TokInteger, value = str}
                 | otherwise = TokenInfo { token = TokError, value = str}

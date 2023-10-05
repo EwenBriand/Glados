@@ -73,12 +73,14 @@ module VM
     callEasyPrint,
     codeFromEAX,
     execSyscall,
-    execSyscallWrapper,
     detectLabels,
-    parseLabels)
+    parseLabels,
+    callEasyPrint,
+    blockInitAllocVarSpace)
 where
 
-import Data.Bits (Bits (complement, xor, (.&.), (.|.)))
+import Data.Bits ( Bits(xor, complement, (.&.), (.|.)) )
+import Data.List (elemIndex)
 import qualified Data.Map as Map
 import Data.Maybe (fromMaybe)
 import Lexer
@@ -98,34 +100,38 @@ data SyscallCode
 codeFromValidStateInt :: ValidState Int -> SyscallCode
 codeFromValidStateInt (Invalid _) = SCExit
 codeFromValidStateInt (Valid i) = case i of
-  1 -> SCExit
-  123456789 -> SCEasyPrint -- this is not a real syscall
-  _ -> SCExit
+    1 -> SCExit
+    4 -> SCEasyPrint -- this IS a real syscall
+    _ -> SCExit
 
 callExit :: ValidState Context -> ValidState Context
 callExit (Invalid s) = Invalid s
 callExit (Valid ctx) = Valid ctx {exit = True}
 
-callEasyPrint :: ValidState Context -> IO ()
-callEasyPrint ctx = case getTrueValueFromParam ctx (Reg EAX) of
-  (Invalid s) -> putStrLn s
-  Valid val -> print val
+callEasyPrint :: ValidState Context -> IO()
+callEasyPrint ctx = case getTrueValueFromParam ctx (Reg ECX) of
+    (Invalid s) -> putStrLn "Register error"
+    Valid val -> truePrintValue ctx (Reg EBX) (Reg ECX)
+    -- Valid val -> print "val221431231dffgdgf"
+--     -- Valid val -> sys
+-- callEasyPrint ctx = sysPrintValue ctx (inferTy)
 
--- | Gets a syscall Code from EAX (int) Prelude.returns the SyscallCode value associated
+-- | Gets a syscall Code from EAX (int) returns the SyscallCode value associated
 codeFromEAX :: Context -> SyscallCode
 codeFromEAX ctx = codeFromValidStateInt (getTrueValueFromParam (Valid ctx) (Reg EAX))
 
 -- | executes a syscall from its code. (use SyscallCode datatype)
-execSyscall :: ValidState Context -> SyscallCode -> (ValidState Context, ValidState (IO ()))
-execSyscall (Invalid s) _ = (Invalid s, Invalid s)
--- printf
-execSyscall (Valid ctx) SCEasyPrint = (Valid ctx, Valid (callEasyPrint (Valid ctx)))
+execSyscall :: ValidState Context -> SyscallCode -> (ValidState Context, IO())
+execSyscall (Invalid s) _ = (Invalid s, putStr s)
+-- print
+execSyscall (Valid ctx) SCEasyPrint = (Valid ctx, callEasyPrint (Valid ctx))
 -- exit
-execSyscall (Valid ctx) SCExit = (callExit (Valid ctx), Invalid "exit")
+execSyscall (Valid ctx) SCExit = (callExit (Valid ctx), putStr "exit")
 
-execSyscallWrapper :: ValidState Context -> ValidState Context
-execSyscallWrapper (Invalid s) = Invalid s
-execSyscallWrapper (Valid ctx) = fst (execSyscall (Valid ctx) (codeFromEAX ctx))
+execSyscallWrapper :: ValidState Context -> (ValidState Context, IO())
+execSyscallWrapper (Invalid s) = (Invalid s, putStr "")
+execSyscallWrapper (Valid ctx) = execSyscall (Valid ctx) (codeFromEAX ctx)
+-- execSyscallWrapper ctx = fst (ctx, Valid (putStrLn "Io00000000000000000"))
 
 -------------------------------------------------------------------------------
 -- REGISTERS
@@ -271,6 +277,14 @@ stackClear :: ValidState Context -> ValidState Context
 stackClear (Invalid s) = Invalid s
 stackClear (Valid context) = Valid context {stack = Stack []}
 
+stackGetValueFromIndex :: ValidState Context -> Int -> ValidState Int
+stackGetValueFromIndex (Invalid _) _ = Invalid "Invalid context"
+stackGetValueFromIndex (Valid context)  index = case pile (stack context) of
+  [] -> Invalid "Empty stack"
+  list -> case (elemIndex index list) of
+    Just n -> Valid n
+    Nothing -> Invalid "Value not retrieve"
+
 --------------------------------------------------------------------------------
 -- HEAP
 --------------------------------------------------------------------------------
@@ -382,6 +396,39 @@ getSymAddress ((name, _) : xs) target =
 symGetTotalSize :: ValidState Context -> ValidState Int
 symGetTotalSize (Invalid s) = Invalid s
 symGetTotalSize (Valid c) = Valid (length (symTable (symbolTable c)))
+
+adaptValueToVarType :: VarType -> ValidState Int -> String
+adaptValueToVarType _ (Invalid s) = s
+adaptValueToVarType tp (Valid val) = case tp of
+    GInt -> show val
+    GBool  -> if val == 0 then "false" else "true"
+    GVoid  -> show ""
+    GUndefinedType -> show "Undefined"
+
+-- Recieves the Context, list of symbols and the symbol you are looking for and prints it
+sysPrintValue :: ValidState Context -> ValidState VarType -> String -> IO()
+sysPrintValue (Invalid s) _ _ = putStrLn s
+sysPrintValue (Valid c) tp name = case tp of
+  Invalid _ -> putStrLn "Invalid Type"
+  Valid tp -> putStrLn (
+      adaptValueToVarType tp (stackGetValueFromIndex (Valid c) (fromValidState 0 (symGet (Valid c) name)))
+    )
+
+truePrintValue :: ValidState Context -> Param -> Param -> IO()
+truePrintValue (Invalid s) _ _ = putStrLn s
+-- truePrintValue (Valid c) varType param = putStrLn ("param is " ++ show param ++ " type being " ++ show (trueType)) >> putStrLn (show (getTrueValueFromParam (Valid c) param))
+truePrintValue c varType param = putStrLn (adaptValueToVarType (fromValidState GUndefinedType trueType) (getTrueValueFromParam c param))
+  where
+    trueType = intToType (getTrueValueFromParam c varType)
+-- truePrintValue (Valid c) varType param = case param of
+--     Reg register -> case regGet (Valid c) register of
+--         (Invalid s) -> putStrLn s
+--         Valid val -> putStrLn ("Value in reg is: " ++ show val)
+--     Immediate value -> putStrLn ("Value integer is: " ++ show value)
+--     Memory address -> putStrLn ("Value in memory is: " ++ show address)
+--     Symbol name -> case symGetFull (Valid c) name of
+--         (Invalid s) -> putStrLn (s)
+--         Valid (name, tp) -> sysPrintValue (Valid c) (intToType (getTrueValueFromParam (Valid c) varType)) name
 
 --------------------------------------------------------------------------------
 -- LABELS
