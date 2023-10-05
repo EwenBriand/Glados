@@ -53,7 +53,9 @@ data ASTNode = ASTNodeError {astnerrToken :: TokenInfo}
              | ASTNodeInferior {astniChildren :: [ASTNode]}
              | ASTNodeIf {astniCondition :: ASTNode, astniThen :: [ASTNode], astniElse :: ValidState [ASTNode]}
              | ASTNodeDefine {astndName :: ASTNode, astndParams :: ValidState ASTNode, astndBody :: [ASTNode]}
+             | ASTNodeLambda {astndName :: ASTNode, astndParams :: ValidState ASTNode, astndBody :: [ASTNode]}
              | ASTNodeFunctionCall {astnfName :: String, astfnParams :: [ASTNode]}
+             | ASTNodeBreak {astneChildren :: [ASTNode]}
     deriving (Eq)
 
 instance Show ASTNode where
@@ -74,16 +76,22 @@ instance Show ASTNode where
     show (ASTNodeIf c t e) = "(if: \n\t(condition) " ++ show c ++ "\n\t(then) " ++ show t ++ "\n\t(else) " ++ show e ++ ")"
     show (ASTNodeDefine n p b) = "(define: \n\t(name) " ++ show n ++ "\n\t(params) " ++ show p ++ "\n\t(body) {" ++ show b ++ "})"
     show (ASTNodeFunctionCall n p) = "(functioncall: \n\t(name) " ++ n ++ "\n\t(params) " ++ show p ++ ")\n"
+    show (ASTNodeLambda n p b) = "(lambda: \n\t(name) " ++ show n ++ "\n\t(params) " ++ show p ++ "\n\t(body) {" ++ show b ++ "})\n"
+    show (ASTNodeBreak l) = "(break: " ++ show l ++ ")"
 
 isSymbolAndParamArray :: [ASTNode] -> Bool
 isSymbolAndParamArray [(ASTNodeSymbol _), _] = True
 isSymbolAndParamArray ((ASTNodeSymbol _):_:_) = True
+isSymbolAndParamArray ((ASTNodeLambda _ _ _):_) = True
 isSymbolAndParamArray _ = False
 
 
 isThisReallyAnArrayOrIsItATrap :: ASTNode -> ASTNode
 isThisReallyAnArrayOrIsItATrap (ASTNodeArray arr) = if isSymbolAndParamArray arr
-    then ASTNodeFunctionCall (astnsName (arr !! 0)) (tail arr)
+    then case arr !! 0 of
+        ASTNodeSymbol _ -> ASTNodeFunctionCall (astnsName (arr !! 0)) (tail arr)
+        ASTNodeLambda name params body -> ASTNodeBreak ([(ASTNodeLambda name params body), ASTNodeFunctionCall (astnsName (astndName (arr !! 0))) (tail arr)])
+    -- then ASTNodeFunctionCall (astnsName (arr !! 0)) (tail arr)
     else ASTNodeArray arr
 isThisReallyAnArrayOrIsItATrap a = a
 
@@ -102,6 +110,8 @@ tokOrExprToASTNode [A (ASTNodeArray [ASTNodeSymbol sym, ASTNodeInteger i])] = AS
 -- tokOrExprToASTNode [A (ASTNodeArray [(ASTNodeSymbol s), p])] = ASTNodeFunctionCall s [p]
 -- tokOrExprToASTNode [A (ASTNodeArray ((ASTNodeSymbol s):p:ps))] = ASTNodeFunctionCall s (p:ps)
 
+
+tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokLambda _), A (ASTNodeParamList [(ASTNodeFunctionCall param1 params), body]), T (TokenInfo TokCloseParen _)] = ASTNodeLambda (ASTNodeSymbol "son nom") (Valid (ASTNodeParamList ([ASTNodeSymbol param1] ++ params))) [body]
 
 -- declaration of a function
     -- with parameters

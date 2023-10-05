@@ -40,6 +40,9 @@ instructionFromAST (ASTNodeArray n) ctx = astNodeArrayToHASM ctx (ASTNodeArray n
 instructionFromAST (ASTNodeInstructionSequence n) ctx = putInstructionSequence n ctx
 instructionFromAST (ASTNodeBoolean b) ctx = putIntegerInstruction (if b then 1 else 0) ctx
 instructionFromAST (ASTNodeFunctionCall name params) ctx = putFunctionCall ctx name params
+instructionFromAST (ASTNodeLambda name params body) ctx = putDefineInstruction ctx name params body
+instructionFromAST (ASTNodeBreak (a:b)) ctx = instructionFromAST (ASTNodeBreak b) (instructionFromAST a ctx)
+instructionFromAST (ASTNodeBreak []) ctx = ctx
 instructionFromAST _ _ = Invalid "Error"
 
 paramsRegisters = [EDI, ESI, EDX, ECX]

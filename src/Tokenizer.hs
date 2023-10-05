@@ -22,6 +22,7 @@ data Token = TokSymbol -- ^ A variable name, function name, etc.
            | TokOperatorMod -- The modulo operator, "%"
            | TokKeywordMutable -- The "mutable" keyword, used to define a symbol
            | TokKeywordDefine -- The "define" keyword, used to define a macro
+           | TokLambda -- The "lambda" keyword, used to define a function
            | TokComment -- Converts the rest of the line into a comment
            | TokOpenParen -- The open parenthesis character
            | TokCloseParen -- The close parenthesis character
@@ -75,6 +76,7 @@ wordToTok "else" = TokenInfo {token = TokenKeywordElse, value = "else"}
 wordToTok "eq?" = TokenInfo {token = TokenEqual, value = "eq?"}
 wordToTok "<" = TokenInfo {token = TokenInferior, value = "<"}
 wordToTok "#" = TokenInfo {token = TokenKeywordPartialExpression, value = "#"}
+wordToTok "lambda" = TokenInfo {token = TokLambda, value = "lambda"}
 wordToTok str | all isAlpha str = TokenInfo {token = TokSymbol, value = str}
                 | all isDigit str = TokenInfo {token = TokInteger, value = str}
                 | otherwise = TokenInfo { token = TokError, value = str}
