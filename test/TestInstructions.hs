@@ -55,9 +55,8 @@ module TestInstructions (
     testPushExec,
     testPushInstr,
     testIf,
-    testInstructionTable,
-    -- testAllTests,
-) where
+    testPutDefineInstruction,
+    testInstructionTable) where
 
 import Test.HUnit
 import Instructions
@@ -565,6 +564,21 @@ testIf = TestList [
         VM.Label "0else" 8,
         VM.Label "0end" 10
         ],
+        "build if else ast" ~: strToAST "(if (true) then (1) else (2))" ~?= ASTNodeIf (ASTNodeBoolean True) [ASTNodeInteger 1] (Valid [ASTNodeInteger 2])]
+
+testCreateFunNoParamsImpl :: [Instruction]
+testCreateFunNoParamsImpl = let c = strToHASM (Valid newContext) "(define foo 1)" in
+    case blockGet c "foo" of
+        Valid block -> case blockContext block of
+            Valid c' -> instructions c'
+            Invalid _ -> []
+        Invalid _ -> []
+
+testPutDefineInstruction :: Test
+testPutDefineInstruction = TestList [
+    "instructions create function no args" ~: testCreateFunNoParamsImpl ~?= [
+        Xor (Reg EAX) (Reg EAX),
+        Mov (Reg EAX) (Immediate 1)],
         "build if else ast" ~: strToAST "(if (true) then 1 else 2)" ~?= ASTNodeIf (ASTNodeBoolean True) [ASTNodeInteger 1] (Valid [ASTNodeInteger 2])]
 
 testInstructionTableInvalid :: Bool

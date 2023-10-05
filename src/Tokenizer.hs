@@ -1,12 +1,14 @@
-module Tokenizer (
-    Token(..),
+module Tokenizer
+  ( Token (..),
     tokenize,
     wordToTok,
     tryTokenizeOne,
-    TokenInfo(..)
-) where
+    TokenInfo (..),
+  )
+where
 
 import Data.Char (isAlpha, isDigit)
+
 -- | A token is a representation of a word in the language.
 -- For example, "define" is a token, "123" is a token, etc.
 -- When creating or deleting a token, do not forget to update the wordToTok function
@@ -36,10 +38,10 @@ data Token = TokSymbol -- ^ A variable name, function name, etc.
            | TokenInferior -- ^ The "<" keyword
            deriving (Eq, Show)
 
-data TokenInfo = TokenInfo { token :: Token, value :: String} deriving (Eq)
+data TokenInfo = TokenInfo {token :: Token, value :: String} deriving (Eq)
 
 instance Show TokenInfo where
-    show (TokenInfo _ v) = v
+  show (TokenInfo _ v) = v
 
 -- | @params:
 --     str: the string to tokenize
@@ -92,13 +94,14 @@ tryTokenizeOne currword lastmatch (x:xs) = case wordToTok (currword ++ [x]) of
 -- @params:
 --     str: the string to tokenize
 -- @return: a list of tokens that represent the information contained in the string.
--- For example, "define x 123" would return [TokKeywordMutable, TokSymbol, TokInteger]
+-- For example, "define x 123" would Prelude.return [TokKeywordMutable, TokSymbol, TokInteger]
 -- Whitespaces are ignored.
 tokenize :: String -> [TokenInfo]
 tokenize [] = []
-tokenize str | str == rest = [firstTok]
-             | firstTok == TokenInfo TokWhitespace " " = tokenize rest
-             | firstTok == TokenInfo TokNewLine "\n" = tokenize rest
-             | otherwise = firstTok : tokenize rest
-            where
-                (firstTok, rest) = tryTokenizeOne "" (TokenInfo TokError "") str
+tokenize str
+  | str == rest = [firstTok]
+  | firstTok == TokenInfo TokWhitespace " " = tokenize rest
+  | firstTok == TokenInfo TokNewLine "\n" = tokenize rest
+  | otherwise = firstTok : tokenize rest
+  where
+    (firstTok, rest) = tryTokenizeOne "" (TokenInfo TokError "") str

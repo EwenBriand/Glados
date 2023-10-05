@@ -58,7 +58,7 @@ instructionTable ctx (Neg r1) = myNeg ctx r1 (regGet ctx r1)
 instructionTable ctx (Add r1 r2) = allAdd ctx r1 r2
 instructionTable ctx (Sub r1 r2) = subImpl ctx r1 r2
 instructionTable ctx (Mult r1 r2) = multImpl ctx r1 r2
-instructionTable ctx (Div r1 ) = divImpl ctx r1
+instructionTable ctx (Div r1) = divImpl ctx r1
 instructionTable ctx (Push r1) = pushImpl ctx r1
 instructionTable ctx (Pop r1) = popImpl ctx r1
 instructionTable ctx (Xor r1 r2) = xorImpl ctx r1 r2
@@ -75,7 +75,20 @@ instructionTable ctx (Label _ _) = ctx -- labels are preprocessed before executi
 instructionTable ctx Interrupt = execSyscallWrapper ctx
 instructionTable ctx (MovStackAddr p1 p2) = movStackAddrImpl ctx p1 p2
 instructionTable ctx (MovFromStackAddr p1 p2) = movFromStackAddrImpl ctx p1 p2
+-- instructionTable ctx (Call str) = callImpl ctx str
+instructionTable ctx (Call str) = ctx -- TODO actually call the function
 
+-- executeBlock :: ValidState Context -> Block -> ValidState Context
+-- executeBlock (Invalid s) _ = Invalid s
+-- executeBlock (Valid c) block = c'
+--     where
+--         c' = blockReplace (Valid c) (block )
+
+-- callImpl :: ValidState Context -> String -> ValidState Context
+-- callImpl (Invalid s) _ = Invalid s
+-- callImpl (Valid c) symName = case blockGet c symName of
+--     Invalid s -> Invalid s
+--     Valid block -> executeBlock (Valid c) block
 
 -- execInstructions :: ValidState Context -> ValidState Context
 -- execInstructions (Invalid s) = Invalid s
@@ -83,7 +96,7 @@ instructionTable ctx (MovFromStackAddr p1 p2) = movFromStackAddrImpl ctx p1 p2
 --                             | instructionPointer ctx + 1 >= length (instructions ctx) = Invalid s
 --                             | otherwise = execInstructions (evalOneInstruction ctx (instructions ctx !! instructionPointer ctx))
 
--- | Evaluates one instruction and returns the resulting context. Does not increase the instruction count.
+-- | Evaluates one instruction and Prelude.returns the resulting context. Does not increase the instruction count.
 evalOneInstruction :: Context -> Instruction -> ValidState Context
 evalOneInstruction ctx = instructionTable (Valid ctx)
 
@@ -129,6 +142,7 @@ popImpl _ (Immediate _) = Invalid "Cannot pop into an immediate"
 popImpl ctx param = case stackPop ctx of
   Valid (val, c) -> setTrueValueFromParam c param val
   _ -> Invalid "Stack pop failed"
+
 --
 -- MOVE SECTION
 --
@@ -142,24 +156,24 @@ movPtrImpl ctx (Reg r) p = case getTrueValueFromParam ctx p of
     Invalid s -> Invalid s
     Valid ptr -> heapSet ctx ptr val
 movPtrImpl ctx (Memory r) p = case getTrueValueFromParam ctx p of
+  Invalid s -> Invalid s
+  Valid val -> case getTrueValueFromParam ctx (Memory r) of
     Invalid s -> Invalid s
-    Valid val -> case getTrueValueFromParam ctx (Memory r) of
-        Invalid s -> Invalid s
-        Valid ptr -> heapSet ctx ptr val
+    Valid ptr -> heapSet ctx ptr val
 movPtrImpl _ _ _ = Invalid "Invalid move"
-
 
 setArrayIndex :: Int -> Int -> [Int] -> [Int]
 setArrayIndex _ _ [] = []
-setArrayIndex 0 val (_:xs) = val : xs
-setArrayIndex idx val (x:xs) = x : setArrayIndex (idx - 1) val xs
+setArrayIndex 0 val (_ : xs) = val : xs
+setArrayIndex idx val (x : xs) = x : setArrayIndex (idx - 1) val xs
 
 setStackIndex :: ValidState Context -> Int -> Int -> ValidState Context
 setStackIndex (Invalid s) _ _ = Invalid s
 setStackIndex (Valid ctx) idx value =
-    Valid ctx {
-        stack = Stack (setArrayIndex idx value (pile (stack ctx)))
-    }
+  Valid
+    ctx
+      { stack = Stack (setArrayIndex idx value (pile (stack ctx)))
+      }
 
 -- sets the value at ebp + address
 movStackAddrImpl :: ValidState Context -> Param -> Param -> ValidState Context
@@ -169,15 +183,14 @@ movStackAddrImpl ctx to from = case getTrueValueFromParam ctx from of
   Valid val -> case regGet ctx ESP of
     Invalid s -> Invalid s
     Valid _ -> case getTrueValueFromParam ctx to of
-        Invalid s -> Invalid s
-        Valid addr -> setStackIndex ctx addr val
+      Invalid s -> Invalid s
+      Valid addr -> setStackIndex ctx addr val
 
 movFromStackAddrImpl :: ValidState Context -> Param -> Param -> ValidState Context
 movFromStackAddrImpl (Invalid s) _ _ = Invalid s
 movFromStackAddrImpl (Valid ctx) dest addr = case getTrueValueFromParam (Valid ctx) addr of
-    Invalid s -> Invalid s
-    Valid addr' -> setTrueValueFromParam (Valid ctx) dest (pile (stack ctx) !! addr')
-
+  Invalid s -> Invalid s
+  Valid addr' -> setTrueValueFromParam (Valid ctx) dest (pile (stack ctx) !! addr')
 
 movImpl :: ValidState Context -> Param -> Param -> ValidState Context
 movImpl (Invalid s) _ _ = Invalid s

@@ -1,5 +1,5 @@
-module TestLexer (
-    testInstructionList,
+module TestLexer
+  ( testInstructionList,
     testASTNodeFields,
     testShowASTNode,
     testTokOrExprToNode,
@@ -9,96 +9,99 @@ module TestLexer (
     testTryBuildInstructionList,
     testStrToAST,
     testShowVarType,
-    testShowTokorNode
-) where
+    testShowTokorNode,
+  )
+where
 
-import Test.HUnit
 import Lexer
+import Test.HUnit
 import Tokenizer
 import ValidState
 
-
 testInstructionList :: Test
-testInstructionList = TestList [
-    "valid: " ~: strToAST "(+ 1 1)\n(+ 2 2)\n" ~?= ASTNodeInstructionSequence [ASTNodeSum [ASTNodeInteger 1, ASTNodeInteger 1], ASTNodeSum [ASTNodeInteger 2, ASTNodeInteger 2]]]
+testInstructionList =
+  TestList
+    [ "valid: " ~: strToAST "(+ 1 1)\n(+ 2 2)\n" ~?= ASTNodeInstructionSequence [ASTNodeSum [ASTNodeInteger 1, ASTNodeInteger 1], ASTNodeSum [ASTNodeInteger 2, ASTNodeInteger 2]]
+    ]
 
 testASTNodeFields :: Test
-testASTNodeFields = TestList
-  [ "Test astnerrToken field" ~: do
-      let node = ASTNodeError (TokenInfo TokError "error message")
-      let expectedToken = TokenInfo TokError "error message"
-      assertEqual "astnerrToken should match" expectedToken (astnerrToken node)
-  , "Test astniValue field" ~: do
-      let node = ASTNodeInteger 42
-      let expectedValue = 42
-      assertEqual "astniValue should match" expectedValue (astniValue node)
-  , "Test astnsName field" ~: do
-      let node = ASTNodeSymbol "symbol"
-      let expectedName = "symbol"
-      assertEqual "astnsName should match" expectedName (astnsName node)
-  , "Test astndName field" ~: do
-      let node = ASTNodeMutable (ASTNodeSymbol "symbol") (ASTNodeInteger 42)
-      let expectedName = ASTNodeSymbol "symbol"
-      assertEqual "astndName should match" expectedName (astndName node)
-  , "Test astndChildren field" ~: do
-      let node = ASTNodeMutable (ASTNodeSymbol "symbol") (ASTNodeInteger 42)
-      let expectedChildren = ASTNodeInteger 42
-      assertEqual "astndChildren should match" expectedChildren (astndChildren node)
-  , "Test astnsChildren field" ~: do
-      let node = ASTNodeSum [ASTNodeInteger 1, ASTNodeInteger 2]
-      let expectedChildren = [ASTNodeInteger 1, ASTNodeInteger 2]
-      assertEqual "astnsChildren should match" expectedChildren (astnsChildren node)
-  , "Test astndChildrenDebug field" ~: do
-      let node = ASTNodeDebug [T (TokenInfo TokInteger "1"), T (TokenInfo TokInteger "2")]
-      let expectedChildren = [T (TokenInfo TokInteger "1"), T (TokenInfo TokInteger "2")]
-      assertEqual "astndChildrenDebug should match" expectedChildren (astndChildrenDebug node)
-  , "Test astnplChildren field" ~: do
-      let node = ASTNodeParamList [ASTNodeInteger 1, ASTNodeInteger 2]
-      let expectedChildren = [ASTNodeInteger 1, ASTNodeInteger 2]
-      assertEqual "astnplChildren should match" expectedChildren (astnplChildren node)
-  , "Test astnaChildren field" ~: do
-      let node = ASTNodeArray [ASTNodeInteger 1, ASTNodeInteger 2]
-      let expectedChildren = [ASTNodeInteger 1, ASTNodeInteger 2]
-      assertEqual "astnaChildren should match" expectedChildren (astnaChildren node)
-  , "Test astnisChildren field" ~: do
-      let node = ASTNodeInstructionSequence [ASTNodeInteger 1, ASTNodeInteger 2]
-      let expectedChildren = [ASTNodeInteger 1, ASTNodeInteger 2]
-      assertEqual "astnisChildren should match" expectedChildren (astnisChildren node)
-  , "Test astnbValue field" ~: do
-      let node = ASTNodeBoolean True
-      let expectedValue = True
-      assertEqual "astnbValue should match" expectedValue (astnbValue node)
-  ]
+testASTNodeFields =
+  TestList
+    [ "Test astnerrToken field" ~: do
+        let node = ASTNodeError (TokenInfo TokError "error message")
+        let expectedToken = TokenInfo TokError "error message"
+        assertEqual "astnerrToken should match" expectedToken (astnerrToken node),
+      "Test astniValue field" ~: do
+        let node = ASTNodeInteger 42
+        let expectedValue = 42
+        assertEqual "astniValue should match" expectedValue (astniValue node),
+      "Test astnsName field" ~: do
+        let node = ASTNodeSymbol "symbol"
+        let expectedName = "symbol"
+        assertEqual "astnsName should match" expectedName (astnsName node),
+      "Test astndName field" ~: do
+        let node = ASTNodeMutable (ASTNodeSymbol "symbol") (ASTNodeInteger 42)
+        let expectedName = ASTNodeSymbol "symbol"
+        assertEqual "astndName should match" expectedName (astndName node),
+      "Test astndChildren field" ~: do
+        let node = ASTNodeMutable (ASTNodeSymbol "symbol") (ASTNodeInteger 42)
+        let expectedChildren = ASTNodeInteger 42
+        assertEqual "astndChildren should match" expectedChildren (astndChildren node),
+      "Test astnsChildren field" ~: do
+        let node = ASTNodeSum [ASTNodeInteger 1, ASTNodeInteger 2]
+        let expectedChildren = [ASTNodeInteger 1, ASTNodeInteger 2]
+        assertEqual "astnsChildren should match" expectedChildren (astnsChildren node),
+      "Test astndChildrenDebug field" ~: do
+        let node = ASTNodeDebug [T (TokenInfo TokInteger "1"), T (TokenInfo TokInteger "2")]
+        let expectedChildren = [T (TokenInfo TokInteger "1"), T (TokenInfo TokInteger "2")]
+        assertEqual "astndChildrenDebug should match" expectedChildren (astndChildrenDebug node),
+      "Test astnplChildren field" ~: do
+        let node = ASTNodeParamList [ASTNodeInteger 1, ASTNodeInteger 2]
+        let expectedChildren = [ASTNodeInteger 1, ASTNodeInteger 2]
+        assertEqual "astnplChildren should match" expectedChildren (astnplChildren node),
+      "Test astnaChildren field" ~: do
+        let node = ASTNodeArray [ASTNodeInteger 1, ASTNodeInteger 2]
+        let expectedChildren = [ASTNodeInteger 1, ASTNodeInteger 2]
+        assertEqual "astnaChildren should match" expectedChildren (astnaChildren node),
+      "Test astnisChildren field" ~: do
+        let node = ASTNodeInstructionSequence [ASTNodeInteger 1, ASTNodeInteger 2]
+        let expectedChildren = [ASTNodeInteger 1, ASTNodeInteger 2]
+        assertEqual "astnisChildren should match" expectedChildren (astnisChildren node),
+      "Test astnbValue field" ~: do
+        let node = ASTNodeBoolean True
+        let expectedValue = True
+        assertEqual "astnbValue should match" expectedValue (astnbValue node)
+    ]
 
 testShowASTNode :: Test
-testShowASTNode = test
-  [ "Test Show instance for ASTNode" ~:
-    let
-      exampleNode = ASTNodeInteger 42
-      expectedString = "(int: 42)"
-    in do
-      assertEqual "Show instance should match" expectedString (show exampleNode)
-  ]
+testShowASTNode =
+  test
+    [ "Test Show instance for ASTNode"
+        ~: let exampleNode = ASTNodeInteger 42
+               expectedString = "(int: 42)"
+            in do
+                 assertEqual "Show instance should match" expectedString (show exampleNode)
+    ]
 
 testShowVarType :: Test
-testShowVarType = test
-  [ "Test Show instance for VarType" ~:
-    let
-      exampleVarType = GInt
-      expectedString = "GInt"
-    in do
-      assertEqual "Show instance should match" expectedString (show exampleVarType)
-  ]
+testShowVarType =
+  test
+    [ "Test Show instance for VarType"
+        ~: let exampleVarType = GInt
+               expectedString = "GInt"
+            in do
+                 assertEqual "Show instance should match" expectedString (show exampleVarType)
+    ]
 
 testShowTokorNode :: Test
-testShowTokorNode = test
-  [ "Test Show instance for TokorNode" ~:
-    let
-      exampleTokorNode = T (TokenInfo TokInteger "42")
-      expectedString = "42"
-    in do
-      assertEqual "Show instance should match" expectedString (show exampleTokorNode)
-  ]
+testShowTokorNode =
+  test
+    [ "Test Show instance for TokorNode"
+        ~: let exampleTokorNode = T (TokenInfo TokInteger "42")
+               expectedString = "42"
+            in do
+                 assertEqual "Show instance should match" expectedString (show exampleTokorNode)
+    ]
 
 testTokOrExprToNode :: Test
 testTokOrExprToNode =
@@ -114,7 +117,8 @@ testTokOrExprToNode =
       "node div" ~: tokOrExprToASTNode [T (TokenInfo TokOpenParen "("), T (TokenInfo TokOperatorDiv "/"), A (ASTNodeParamList [ASTNodeInteger 1, ASTNodeInteger 2]), T (TokenInfo TokCloseParen ")")] ~?= ASTNodeDiv [ASTNodeInteger 1, ASTNodeInteger 2],
       "node mod" ~: tokOrExprToASTNode [T (TokenInfo TokOpenParen "("), T (TokenInfo TokOperatorMod "%"), A (ASTNodeParamList [ASTNodeInteger 1, ASTNodeInteger 2]), T (TokenInfo TokCloseParen ")")] ~?= ASTNodeMod [ASTNodeInteger 1, ASTNodeInteger 2],
       "node true" ~: tokOrExprToASTNode [T (TokenInfo TokenBool "true")] ~?= ASTNodeBoolean True,
-      "node error" ~: tokOrExprToASTNode [T (TokenInfo TokError "#?!&")] ~?= ASTNodeError (TokenInfo TokError "[#?!&]")]
+      "node error" ~: tokOrExprToASTNode [T (TokenInfo TokError "#?!&")] ~?= ASTNodeError (TokenInfo TokError "[#?!&]")
+    ]
 
 testTryToMatch :: Test
 testTryToMatch =
@@ -127,7 +131,7 @@ testTryToMatch =
     ]
 
 -- try to parse the tokens that make the following expression: (+ 1 (+ 2 3))
--- the test should return a sum node that contains an integer node and another sum node
+-- the test should Prelude.return a sum node that contains an integer node and another sum node
 testBuildASTIterate :: Test
 testBuildASTIterate =
   TestList
@@ -155,23 +159,22 @@ testBuildAST =
 testTryBuildInstructionList :: Test
 testTryBuildInstructionList =
   TestList
-    [ "Test tryBuildInstructionList with empty input" ~:
-        tryBuildInstructionList []
+    [ "Test tryBuildInstructionList with empty input"
+        ~: tryBuildInstructionList []
         ~?= ASTNodeError (TokenInfo TokError "empty"),
-      "Test tryBuildInstructionList with single ParamList" ~:
-        tryBuildInstructionList [A (ASTNodeParamList [ASTNodeError (TokenInfo TokError "param")])]
+      "Test tryBuildInstructionList with single ParamList"
+        ~: tryBuildInstructionList [A (ASTNodeParamList [ASTNodeError (TokenInfo TokError "param")])]
         ~?= ASTNodeInstructionSequence [ASTNodeError (TokenInfo TokError "param")],
-      "Test tryBuildInstructionList with single InstructionSequence" ~:
-        tryBuildInstructionList [A (ASTNodeInstructionSequence [ASTNodeError (TokenInfo TokError "inst")])]
+      "Test tryBuildInstructionList with single InstructionSequence"
+        ~: tryBuildInstructionList [A (ASTNodeInstructionSequence [ASTNodeError (TokenInfo TokError "inst")])]
         ~?= ASTNodeInstructionSequence [ASTNodeError (TokenInfo TokError "inst")],
-      "Test tryBuildInstructionList with append InstructionSequence" ~:
-        tryBuildInstructionList [A (ASTNodeInstructionSequence [ASTNodeError (TokenInfo TokError "inst")]), A (ASTNodeError (TokenInfo TokError "newinst"))]
+      "Test tryBuildInstructionList with append InstructionSequence"
+        ~: tryBuildInstructionList [A (ASTNodeInstructionSequence [ASTNodeError (TokenInfo TokError "inst")]), A (ASTNodeError (TokenInfo TokError "newinst"))]
         ~?= ASTNodeInstructionSequence [ASTNodeError (TokenInfo TokError "inst"), ASTNodeError (TokenInfo TokError "newinst")],
-      "Test tryBuildInstructionList with two Instructions" ~:
-        tryBuildInstructionList [A (ASTNodeError (TokenInfo TokError "inst1")), A (ASTNodeError (TokenInfo TokError "inst2"))]
+      "Test tryBuildInstructionList with two Instructions"
+        ~: tryBuildInstructionList [A (ASTNodeError (TokenInfo TokError "inst1")), A (ASTNodeError (TokenInfo TokError "inst2"))]
         ~?= ASTNodeInstructionSequence [ASTNodeError (TokenInfo TokError "inst1"), ASTNodeError (TokenInfo TokError "inst2")]
     ]
-
 
 testStrToAST :: Test
 testStrToAST = TestList [
