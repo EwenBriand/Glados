@@ -31,6 +31,9 @@ data Token = TokSymbol -- ^ A variable name, function name, etc.
            | TokenKeywordIf -- ^ The "if" keyword
            | TokenKeywordThen -- ^ The "then" keyword
            | TokenKeywordElse -- ^ The "else" keyword
+           | TokenKeywordPartialExpression -- ^ The "partial expression" keyword
+           | TokenEqual -- ^ The "eq?" keyword
+           | TokenInferior -- ^ The "<" keyword
            deriving (Eq, Show)
 
 data TokenInfo = TokenInfo { token :: Token, value :: String} deriving (Eq)
@@ -67,6 +70,9 @@ wordToTok "false" = TokenInfo {token = TokenBool, value = "false"}
 wordToTok "if" = TokenInfo {token = TokenKeywordIf, value = "if"}
 wordToTok "then" = TokenInfo {token = TokenKeywordThen, value = "then"}
 wordToTok "else" = TokenInfo {token = TokenKeywordElse, value = "else"}
+wordToTok "eq?" = TokenInfo {token = TokenEqual, value = "eq?"}
+wordToTok "<" = TokenInfo {token = TokenInferior, value = "<"}
+wordToTok "#" = TokenInfo {token = TokenKeywordPartialExpression, value = "#"}
 wordToTok str | all isAlpha str = TokenInfo {token = TokSymbol, value = str}
                 | all isDigit str = TokenInfo {token = TokInteger, value = str}
                 | otherwise = TokenInfo { token = TokError, value = str}
@@ -79,7 +85,6 @@ wordToTok str | all isAlpha str = TokenInfo {token = TokSymbol, value = str}
 tryTokenizeOne :: String -> TokenInfo -> String -> (TokenInfo, String)
 tryTokenizeOne [] _ [] = (TokenInfo TokEmpty "", [])
 tryTokenizeOne _ lastmatch [] = (lastmatch, [])
--- tryTokenizeOne " " lastmatch (x:xs) = tryTokenizeOne [x] lastmatch xs
 tryTokenizeOne currword lastmatch (x:xs) = case wordToTok (currword ++ [x]) of
     TokenInfo TokError _ -> (lastmatch, x:xs)
     anytok -> tryTokenizeOne (currword ++ [x]) anytok xs

@@ -46,6 +46,8 @@ data ASTNode = ASTNodeError {astnerrToken :: TokenInfo}
              | ASTNodeArray {astnaChildren :: [ASTNode]}
              | ASTNodeInstructionSequence {astnisChildren :: [ASTNode]}
              | ASTNodeBoolean {astnbValue :: Bool}
+             | ASTNodeEq {astneChildren :: [ASTNode]}
+             | ASTNodeInferior {astniChildren :: [ASTNode]}
              | ASTNodeIf {astniCondition :: ASTNode, astniThen :: [ASTNode], astniElse :: ValidState [ASTNode]}
              | ASTNodeDefine {astndName :: ASTNode, astndParams :: ValidState ASTNode, astndBody :: ASTNode}
     deriving (Eq)
@@ -86,6 +88,7 @@ tokOrExprToASTNode [A n1, A n2] = ASTNodeParamList [n1, n2]
 -- cond: arr then: arr else: nop
 
 -- tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokenKeywordIf _), A (ASTNodeArray [cond]), A (ASTNodeArray thenOps), T (TokenInfo TokCloseParen _)] = ASTNodeIf cond thenOps (Invalid "3")
+tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokenKeywordIf _), A (ASTNodeParamList [ASTNodeBoolean cond, n1, n2]), T (TokenInfo TokCloseParen _)] = ASTNodeIf (ASTNodeBoolean cond) [n1] (Valid [n2])
 tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokenKeywordIf _), A (ASTNodeArray [cond]), A (ASTNodeArray thenOps), A (ASTNodeArray elseOps), T (TokenInfo TokCloseParen _)] = ASTNodeIf cond thenOps (Valid elseOps)
 tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokenKeywordIf _), A (ASTNodeArray [cond]), T (TokenInfo TokenKeywordThen _), A (ASTNodeArray thenOps), T (TokenInfo TokCloseParen _)] = ASTNodeIf cond thenOps (Invalid "3")
 tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokenKeywordIf _), A (ASTNodeArray [cond]), T (TokenInfo TokenKeywordThen _), A (ASTNodeArray thenOps), T (TokenInfo TokenKeywordElse _), A (ASTNodeArray elseOps), T (TokenInfo TokCloseParen _)] = ASTNodeIf cond thenOps (Valid elseOps)
@@ -108,6 +111,12 @@ tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokOperatorMul _)
 -- a div of expressions
 -- tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokOperatorDiv _), A n1, A n2, T (TokenInfo TokCloseParen _)] = ASTNodeDiv [n1, n2]
 tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokOperatorDiv _), A (ASTNodeParamList [n1, n2]), T (TokenInfo TokCloseParen _)] = ASTNodeDiv [n1, n2]
+-- a eq? of expressions
+-- tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokenEqual _), A n1, A n2, T (TokenInfo TokCloseParen _)] = ASTNodeEq [n1, n2]
+tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokenEqual _), A (ASTNodeParamList [n1, n2]), T (TokenInfo TokCloseParen _)] = ASTNodeEq [n1, n2]
+-- a < of expressions
+-- tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokenInferior _), A n1, A n2, T (TokenInfo TokCloseParen _)] = ASTNodeInferior [n1, n2]
+tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokenInferior _), A (ASTNodeParamList [n1, n2]), T (TokenInfo TokCloseParen _)] = ASTNodeInferior [n1, n2]
 -- a mod of expressions
 -- tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokOperatorMod _), A n1, A n2, T (TokenInfo TokCloseParen _)] = ASTNodeMod [n1, n2]
 tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokOperatorMod _), A (ASTNodeParamList [n1, n2]), T (TokenInfo TokCloseParen _)] = ASTNodeMod [n1, n2]

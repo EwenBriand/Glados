@@ -9,11 +9,11 @@ import TestVM
 
 main :: IO()
 main = do
+  _ <- runTestTT testTokenize
   _ <- runTestTT testTryTokenizeOne
   _ <- runTestTT testTokenInfoFields
   _ <- runTestTT testTokenInfoShow
   _ <- runTestTT testWordToToken
-  _ <- runTestTT testTokenize
   _ <- runTestTT testASTNodeFields
   _ <- runTestTT testShowASTNode
   _ <- runTestTT testShowVarType
