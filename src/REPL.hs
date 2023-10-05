@@ -66,6 +66,7 @@ runREPL (Valid c) = do
         Valid ctx -> do
           let ast = cAST ctx
           let c' = execInstructions (detectLabels (Valid ctx))
+          print c'
           case getTrueValueFromParam c' (Reg EAX) of
             Invalid s -> showTrace c' s ast
             Valid v -> print v

@@ -207,6 +207,15 @@ tryBuildInstructionList l = ASTNodeError (TokenInfo TokError (show l))
 -- calls buildASTIterate in a loop to progressively reduce the array
 -- to a single node
 
+expandParamLists :: [ASTNode] -> [ASTNode]
+expandParamLists ((ASTNodeParamList l):xs) = l ++ expandParamLists xs
+expandParamLists (x:xs) = x : expandParamLists xs
+expandParamLists [] = []
+
+instructionSequenceExpandParamList :: ASTNode -> ASTNode
+instructionSequenceExpandParamList (ASTNodeInstructionSequence l) = ASTNodeInstructionSequence (expandParamLists l)
+instructionSequenceExpandParamList n = n
+
 -- | @params:
 --     l: the array to reduce
 -- @return: the root node of the AST
@@ -215,7 +224,6 @@ buildAST [] = ASTNodeError (TokenInfo TokError "empty")
 buildAST l = case buildASTIterate l of
   [A (ASTNodeParamList instr)] -> ASTNodeInstructionSequence instr
   [A n] -> n
-  -- [] -> ASTNodeError (TokenInfo TokError "empty")
   ns ->
     if l == ns
       then -- then ASTNodeError (TokenInfo TokError "cannot resolve input")
@@ -227,4 +235,4 @@ buildAST l = case buildASTIterate l of
 --     str: the string to convert to an AST
 -- @return: the root node of the AST
 strToAST :: String -> ASTNode
-strToAST str = buildAST (map T (tokenize str))
+strToAST str = instructionSequenceExpandParamList (buildAST (map T (tokenize str)))
