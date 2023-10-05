@@ -12,8 +12,6 @@ module Lexer
     buildAST,
     strToAST,
     tryBuildInstructionList,
-    typeToInt,
-    intToType
   )
 where
 
@@ -54,7 +52,6 @@ data ASTNode = ASTNodeError {astnerrToken :: TokenInfo}
              | ASTNodeEq {astneChildren :: [ASTNode]}
              | ASTNodeInferior {astniChildren :: [ASTNode]}
              | ASTNodeIf {astniCondition :: ASTNode, astniThen :: [ASTNode], astniElse :: ValidState [ASTNode]}
-             | ASTNodePrint {astnPrint :: ASTNode}
              | ASTNodeDefine {astndName :: ASTNode, astndParams :: ValidState ASTNode, astndBody :: [ASTNode]}
              | ASTNodeFunctionCall {astnfName :: String, astfnParams :: [ASTNode]}
     deriving (Eq)
@@ -76,7 +73,6 @@ instance Show ASTNode where
     show (ASTNodeBoolean b) = "(bool: " ++ show b ++ ")"
     show (ASTNodeIf c t e) = "(if: \n\t(condition) " ++ show c ++ "\n\t(then) " ++ show t ++ "\n\t(else) " ++ show e ++ ")"
     show (ASTNodeDefine n p b) = "(define: \n\t(name) " ++ show n ++ "\n\t(params) " ++ show p ++ "\n\t(body) {" ++ show b ++ "})"
-    show (ASTNodePrint p) = "(print " ++ show p ++ ")"
     show (ASTNodeFunctionCall n p) = "(functioncall: \n\t(name) " ++ n ++ "\n\t(params) " ++ show p ++ ")\n"
 
 isSymbolAndParamArray :: [ASTNode] -> Bool
@@ -132,8 +128,6 @@ tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokenKeywordIf _)
 tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokenKeywordIf _), A (ASTNodeArray [cond]), A thenOps,  A elseOps, T (TokenInfo TokCloseParen _)] = ASTNodeIf cond [thenOps] (Valid [elseOps])
 tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokenKeywordIf _), A (ASTNodeArray [cond]), T (TokenInfo TokenKeywordThen _), A thenOps, T (TokenInfo TokCloseParen _)] = ASTNodeIf cond [thenOps] (Invalid "3")
 tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokenKeywordIf _), A (ASTNodeArray [cond]), T (TokenInfo TokenKeywordThen _), A thenOps, T (TokenInfo TokenKeywordElse _), A elseOps, T (TokenInfo TokCloseParen _)] = ASTNodeIf cond [thenOps] (Valid [elseOps])
--- print
-tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokenSymPrint _), A n, T (TokenInfo TokCloseParen _)] = ASTNodePrint n
 -- array
 tokOrExprToASTNode [T (TokenInfo TokOpenParen _), A (ASTNodeParamList l), T (TokenInfo TokCloseParen _)] = isThisReallyAnArrayOrIsItATrap (ASTNodeArray l)
 tokOrExprToASTNode [T (TokenInfo TokOpenParen _), A n, T (TokenInfo TokCloseParen _)] = isThisReallyAnArrayOrIsItATrap (ASTNodeArray [n])
@@ -172,24 +166,6 @@ tokOrExprToASTNode [A (ASTNodeParamList l), A n] = ASTNodeParamList (l ++ [n])
 tokOrExprToASTNode [A n1, A n2] = ASTNodeParamList [n1, n2]
 -- error
 tokOrExprToASTNode unresolved = ASTNodeError (TokenInfo TokError (show unresolved))
-
-
-typeToInt :: VarType -> Int
-typeToInt GUndefinedType = 1
-typeToInt GInt = 2
-typeToInt GBool = 3
-typeToInt GVoid = 4
-typeToInt _ = 0
-
-intToType :: ValidState Int -> ValidState VarType
-intToType (Invalid s) = Invalid s
-intToType (Valid i) = case i of
-  0 -> Valid GUndefinedType
-  1 -> Valid GUndefinedType
-  2 -> Valid GInt
-  3 -> Valid GBool
-  4 -> Valid GVoid
-  _ -> Invalid "invalid type"
 
 -- | @params:
 --     currWord: the current Array which we are trying to reduce to a single node
