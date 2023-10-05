@@ -54,7 +54,9 @@ testTryTokenizeOne =
       "TryTokenizeOne open paren" ~: tryTokenizeOne "" (TokenInfo TokError "") "(" ~?= (TokenInfo TokOpenParen "(", ""),
       "TryTokenizeOne close paren" ~: tryTokenizeOne "" (TokenInfo TokError "") ")" ~?= (TokenInfo TokCloseParen ")", ""),
       "TryTokenizeOne minus" ~: tryTokenizeOne "" (TokenInfo TokError "") "-" ~?= (TokenInfo TokOperatorMinus "-", ""),
-      "TryTokenizeOne error" ~: tryTokenizeOne "" (TokenInfo TokError "") "°" ~?= (TokenInfo TokError "", "°")
+      "TryTokenizeOne error" ~: tryTokenizeOne "" (TokenInfo TokError "") "°" ~?= (TokenInfo TokError "", "°"),
+      "TryTokenizeOne true" ~: tryTokenizeOne "" (TokenInfo TokError "") "true" ~?= (TokenInfo TokenBool "true", ""),
+      "TryTokenizeOne #t" ~: tryTokenizeOne "" (TokenInfo TokError "") "#t" ~?= (TokenInfo TokenBool "true", "")
     ]
 
 testTokenInfoFields :: Test
