@@ -23,6 +23,7 @@ module VM
     stackSwap,
     stackRot,
     stackGetPointer,
+    stackClear,
     Heap (..),
     newHeap,
     heapSet,
@@ -73,7 +74,8 @@ module VM
     codeFromEAX,
     execSyscall,
     execSyscallWrapper,
-  )
+    detectLabels,
+    parseLabels)
 where
 
 import Data.Bits (Bits (complement, xor, (.&.), (.|.)))
@@ -265,6 +267,10 @@ stackGetPointer :: ValidState Context -> (Int, ValidState Context)
 stackGetPointer (Invalid s) = (0, Invalid s)
 stackGetPointer (Valid context) = (length (pile (stack context)), Valid context)
 
+stackClear :: ValidState Context -> ValidState Context
+stackClear (Invalid s) = Invalid s
+stackClear (Valid context) = Valid context {stack = Stack []}
+
 --------------------------------------------------------------------------------
 -- HEAP
 --------------------------------------------------------------------------------
@@ -347,7 +353,7 @@ newSymTable :: SymTable
 newSymTable = SymTable []
 
 symSet :: ValidState Context -> String -> VarType -> ValidState Context
-symSet (Invalid s) _ _ = Invalid s
+symSet (Invalid s) _ _ = Invalid ("Failed to set symbol because the previous error was thrown: " ++ s)
 symSet (Valid c) name tp = Valid c {symbolTable = SymTable (symTable (symbolTable c) ++ [(name, tp)])}
 
 symGet :: ValidState Context -> String -> ValidState Int
@@ -660,3 +666,16 @@ blockInitAllocVarSpace (Valid c) =
   Enter : hasmNStackPush neededSpace
   where
     neededSpace = length (symTable (symbolTable c)) - length (pile (stack c))
+
+
+parseLabels :: ValidState Context -> [Instruction] -> Int -> ValidState Context
+parseLabels (Invalid s) _ _ = Invalid s
+parseLabels (Valid c) [] _ = Valid c
+parseLabels (Valid c) (i : is) idx = case i of
+  Label name _ -> parseLabels (labelSet (Valid c) name idx) is (idx + 1)
+  _ -> parseLabels (Valid c) is (idx + 1)
+
+-- detects the labels in the instructions and adds them to the context
+detectLabels :: ValidState Context -> ValidState Context
+detectLabels (Invalid s) = Invalid s
+detectLabels (Valid c) = parseLabels (Valid c) (instructions c) 0

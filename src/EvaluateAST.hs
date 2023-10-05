@@ -15,6 +15,7 @@ import Lexer
 import VM
 import ValidState
 import Lexer
+import VM (Context(Context))
 
 -- -- | Evaluates the AST and push the instructions into the context.
 -- evaluateAST :: ASTNode -> Context -> ValidState Context
@@ -51,7 +52,6 @@ evalParamsToReg (Valid c) (p:ps) (r:rs) = case instructionFromAST p (Valid c) of
     Invalid s -> Invalid s
     Valid c' -> evalParamsToReg (Valid c' {instructions = instructions c' ++ [Mov (Reg r) (Reg EAX)]}) ps rs
 
-
 putFunctionCall :: ValidState Context -> String -> [ASTNode] -> ValidState Context
 putFunctionCall (Invalid s) _ _ = Invalid s
 putFunctionCall (Valid c) name params = case evalParamsToReg (Valid c) params paramsRegisters of
@@ -59,15 +59,23 @@ putFunctionCall (Valid c) name params = case evalParamsToReg (Valid c) params pa
     Valid c' -> tryPutFunctionCall (Valid c') name
 
 
-pushParamTypeToBlock :: Block -> [ASTNode] -> Block
+pushParamTypeToBlock :: ValidState Block -> [ASTNode] -> ValidState Block
+pushParamTypeToBlock (Invalid s) _ = Invalid s
 pushParamTypeToBlock blk [] = blk
-pushParamTypeToBlock blk (x:xs) = pushParamTypeToBlock
-    (blk {blockParamTypes = blockParamTypes blk ++ [inferTypeFromNode (blockContext blk) x]}) xs
+pushParamTypeToBlock (Valid blk) (x:xs) = pushParamTypeToBlock
+    (Valid (blk {blockParamTypes = blockParamTypes blk ++ [inferTypeFromNode (blockContext blk) x]})) xs
 
-setupBlockParams :: Block -> ValidState ASTNode -> Block
-setupBlockParams blk (Invalid _) = blk
-setupBlockParams blk (Valid (ASTNodeParamList n)) = pushParamTypeToBlock blk n
-setupBlockParams blk _ = blk
+declSymbolBlock :: Block -> [ASTNode] -> ValidState Block
+declSymbolBlock blk [] = Valid blk
+declSymbolBlock blk (ASTNodeSymbol paramName : ps) = case symSet (blockContext blk) paramName (GUndefinedType) of -- Todo set types here
+    Invalid s -> Invalid ("While declaring parameter: \n\t" ++ s)
+    Valid ctx -> declSymbolBlock (blk {blockContext = Valid ctx}) ps
+declSymbolBlock _ _ = Invalid "Error: invalid parameter: expected symbol"
+
+setupBlockParams :: Block -> ValidState ASTNode -> ValidState Block
+setupBlockParams blk (Invalid _) = Valid blk
+setupBlockParams blk (Valid (ASTNodeParamList n)) = pushParamTypeToBlock (declSymbolBlock blk n) n
+setupBlockParams blk _ = Valid blk
 
 evaluateBlock :: ValidState Context -> Block -> ValidState ASTNode -> [ASTNode] -> ValidState Context
 evaluateBlock (Invalid s) _ _ _ = Invalid s
@@ -78,19 +86,19 @@ evaluateBlock (Valid c) blk params (x:xs) = case evaluateBlockOneInstr (Valid c)
 
 evaluateBlockOneInstr :: ValidState Context -> Block -> ValidState ASTNode -> ASTNode -> ValidState Context
 evaluateBlockOneInstr (Invalid s) _ _ _ = Invalid s
-evaluateBlockOneInstr (Valid c) blk params body = ctx
-    where
-        ctx = blockReplace (Valid c) (Valid (setupBlockParams blk' params))
-        blk' = blk {blockContext = instructionFromAST body (blockContext blk)}
-
+evaluateBlockOneInstr (Valid c) blk _ body = case instructionFromAST body (blockContext blk) of
+    Invalid s -> Invalid s
+    Valid c' -> blockReplace (Valid c) (Valid blk { blockContext = Valid c'})
 
 putDefineInstruction :: ValidState Context -> ASTNode -> ValidState ASTNode -> [ASTNode] -> ValidState Context
-putDefineInstruction (Invalid s) _ _ _ = Invalid s
+putDefineInstruction (Invalid s) _ _ _ = Invalid ("While defining function: \n\t" ++ s)
 putDefineInstruction (Valid c) name params body = case blockAdd (Valid c) (astnsName name) of
   Invalid s -> Invalid s
   Valid ctx -> case blockGet (Valid ctx) (astnsName name) of
     Invalid s -> Invalid s
-    Valid blk -> evaluateBlock (Valid ctx) blk params body
+    Valid blk ->  case setupBlockParams blk params of
+        Invalid s -> Invalid ("While parsing the parameters of the function: \n" ++ s)
+        Valid blk' -> evaluateBlock (Valid ctx) blk' params body
 
 putInstructionSequence :: [ASTNode] -> ValidState Context -> ValidState Context
 putInstructionSequence _ (Invalid s) = Invalid s
