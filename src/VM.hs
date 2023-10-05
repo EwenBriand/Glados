@@ -51,6 +51,7 @@ module VM
     Context (..),
     newContext,
     nextUUID,
+    nextUUIDValid,
     ipSet,
     ipGet,
     ipInc,
@@ -641,6 +642,10 @@ newContext = Context newRegisters newStack newHeap [] newSymTable newLabels newF
 
 nextUUID :: Context -> (Int, Context)
 nextUUID context = (uuids context, context {uuids = uuids context + 1})
+
+nextUUIDValid :: ValidState Context -> (Int, Context)
+nextUUIDValid (Invalid s) = (0, newContext)
+nextUUIDValid (Valid context) = (uuids context, context {uuids = uuids context + 1})
 
 -- | Sets the value of the instruction pointer.
 ipSet :: ValidState Context -> Int -> ValidState Context

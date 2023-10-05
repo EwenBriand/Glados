@@ -42,6 +42,10 @@ instructionFromAST (ASTNodePrint n) ctx = putPrintInstruction ctx n
 instructionFromAST (ASTNodeBoolean b) ctx = putIntegerInstruction (if b then 1 else 0) ctx
 instructionFromAST (ASTNodeFunctionCall name params) ctx = putFunctionCall ctx name params
 instructionFromAST (ASTNodeLambda name params body) ctx = putDefineInstruction ctx name params body
+instructionFromAST (ASTNodeBreak [ASTNodeLambda _ param body, ASTNodeFunctionCall _ params]) ctx = instructionFromAST (ASTNodeBreak [(ASTNodeFunctionCall u_name params)]) (instructionFromAST (ASTNodeLambda (ASTNodeSymbol u_name) param body) (Valid ctx'))
+  where
+    u_name = "lambda@" ++ show uuid
+    (uuid, ctx') =  nextUUIDValid ctx
 instructionFromAST (ASTNodeBreak (a:b)) ctx = instructionFromAST (ASTNodeBreak b) (instructionFromAST a ctx)
 instructionFromAST (ASTNodeBreak []) ctx = ctx
 instructionFromAST _ _ = Invalid "Error"

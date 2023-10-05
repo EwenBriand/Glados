@@ -89,12 +89,17 @@ isSymbolAndParamArray ((ASTNodeSymbol _):_:_) = True
 isSymbolAndParamArray ((ASTNodeLambda _ _ _):_) = True
 isSymbolAndParamArray _ = False
 
+expendParamList :: [ASTNode] -> [ASTNode]
+expendParamList ((ASTNodeParamList l):xs) = l ++ expendParamList xs
+expendParamList (x:xs) = x : expendParamList xs
+expendParamList [] = []
+
 
 isThisReallyAnArrayOrIsItATrap :: ASTNode -> ASTNode
 isThisReallyAnArrayOrIsItATrap (ASTNodeArray arr) = if isSymbolAndParamArray arr
     then case arr !! 0 of
         ASTNodeSymbol _ -> ASTNodeFunctionCall (astnsName (arr !! 0)) (tail arr)
-        ASTNodeLambda name params body -> ASTNodeBreak ([(ASTNodeLambda name params body), ASTNodeFunctionCall (astnsName (astndName (arr !! 0))) (tail arr)])
+        ASTNodeLambda name params body -> ASTNodeBreak ([(ASTNodeLambda name params body), ASTNodeFunctionCall (astnsName name) (expendParamList(tail arr))])
     -- then ASTNodeFunctionCall (astnsName (arr !! 0)) (tail arr)
     else ASTNodeArray arr
 isThisReallyAnArrayOrIsItATrap a = a
@@ -115,7 +120,7 @@ tokOrExprToASTNode [A (ASTNodeArray [ASTNodeSymbol sym, ASTNodeInteger i])] = AS
 -- tokOrExprToASTNode [A (ASTNodeArray ((ASTNodeSymbol s):p:ps))] = ASTNodeFunctionCall s (p:ps)
 
 
-tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokLambda _), A (ASTNodeParamList [(ASTNodeFunctionCall param1 params), body]), T (TokenInfo TokCloseParen _)] = ASTNodeLambda (ASTNodeSymbol "son nom") (Valid (ASTNodeParamList ([ASTNodeSymbol param1] ++ params))) [body]
+tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokLambda _), A (ASTNodeParamList [(ASTNodeFunctionCall param1 params), body]), T (TokenInfo TokCloseParen _)] = ASTNodeLambda (ASTNodeSymbol "") (Valid (ASTNodeParamList ([ASTNodeSymbol param1] ++ params))) [body]
 
 -- declaration of a function
     -- with parameters

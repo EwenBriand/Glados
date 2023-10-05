@@ -57,7 +57,7 @@ runREPL (Valid c) = do
     putStr "_> "
     hFlush stdout
     input <- readContents
-    print input
+    -- print input
     if input == "exit"
         then Prelude.return ()
         else do
