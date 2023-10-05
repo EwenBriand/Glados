@@ -33,6 +33,7 @@ where
 import Data.Bits
 import VM
 import ValidState
+import Lexer (VarType)
 
 instructionTable :: ValidState Context -> Instruction -> ValidState Context
 instructionTable (Invalid s) _ = Invalid s
@@ -75,26 +76,38 @@ instructionTable ctx (Label _ _) = ctx -- labels are preprocessed before executi
 instructionTable ctx Interrupt = execSyscallWrapper ctx
 instructionTable ctx (MovStackAddr p1 p2) = movStackAddrImpl ctx p1 p2
 instructionTable ctx (MovFromStackAddr p1 p2) = movFromStackAddrImpl ctx p1 p2
--- instructionTable ctx (Call str) = callImpl ctx str
-instructionTable ctx (Call str) = ctx -- TODO actually call the function
+instructionTable ctx (Call str) = callImpl ctx str
 
--- executeBlock :: ValidState Context -> Block -> ValidState Context
--- executeBlock (Invalid s) _ = Invalid s
--- executeBlock (Valid c) block = c'
---     where
---         c' = blockReplace (Valid c) (block )
+setupfunctionStack :: ValidState Context -> ValidState Context -> [VarType] -> [Register] -> ValidState Context
+setupfunctionStack (Invalid s) _ _ _ = Invalid s
+setupfunctionStack (Valid _) (Invalid s) _ _ = Invalid s
+setupfunctionStack (Valid _) (Valid ctx') [] _ = Valid ctx'
+setupfunctionStack (Valid ctx) (Valid ctx') (_ : ts) (r : rs) = setupfunctionStack (Valid ctx) ctx'' ts rs
+  where
+    ctx'' = stackPush (Valid ctx') (fromValidState 0 (getTrueValueFromParam (Valid ctx) (Reg r)))
+setupfunctionStack _ _ _ _ = Invalid "Invalid function call"
 
--- callImpl :: ValidState Context -> String -> ValidState Context
--- callImpl (Invalid s) _ = Invalid s
--- callImpl (Valid c) symName = case blockGet c symName of
---     Invalid s -> Invalid s
---     Valid block -> executeBlock (Valid c) block
+blkSetupCtx :: Context -> Block -> Block
+blkSetupCtx ctx (Block name bc paramsTypes) = Block name c' paramsTypes
+    where
+        c' = setupfunctionStack (Valid ctx) (stackClear bc) paramsTypes [EDI, ESI, EDX, ECX]
+        -- c' = Block name (execInstructions (detectLabels (setupFunctionStack bc ctx))) paramsTypes
 
--- execInstructions :: ValidState Context -> ValidState Context
--- execInstructions (Invalid s) = Invalid s
--- execInstructions (Valid ctx) | exit ctx = Valid ctx
---                             | instructionPointer ctx + 1 >= length (instructions ctx) = Invalid s
---                             | otherwise = execInstructions (evalOneInstruction ctx (instructions ctx !! instructionPointer ctx))
+executeBlock :: ValidState Context -> Block -> ValidState Context
+executeBlock (Invalid s) _ = Invalid s
+executeBlock (Valid c) block = do
+    let b = blkSetupCtx c block
+    case execInstructions (detectLabels (blockContext b)) of
+        Invalid s -> Invalid ("While executing block " ++ blockName b ++ ": " ++ s)
+        Valid executed -> case getTrueValueFromParam (Valid executed) (Reg EAX) of
+            Invalid s -> Invalid ("While executing block " ++ blockName b ++ ": " ++ s)
+            Valid v -> regSet (Valid c) EAX v
+
+callImpl :: ValidState Context -> String -> ValidState Context
+callImpl (Invalid s) _ = Invalid s
+callImpl (Valid c) symName = case blockGet (Valid c) symName of
+    Invalid s -> Invalid s
+    Valid block -> executeBlock (Valid c) block
 
 -- | Evaluates one instruction and Prelude.returns the resulting context. Does not increase the instruction count.
 evalOneInstruction :: Context -> Instruction -> ValidState Context
@@ -422,31 +435,3 @@ leaveImpl ctx = ctx1
   where
     ctx1 = popImpl c (Reg EBP)
     c = movImpl ctx (Reg ESP) (Reg EBP)
-
---
--- Add SECTION
---
-
--- | When the Add instrcution is called, it updates the flags as follows:
--- updates the sign flag (SF) to the most significant bit of the result
--- updates the zero flag (ZF) if the result is zero
--- updates the overflow flag (OF) if the result is too large a positive number or too small a negative number (excluding the sign-bit) to fit in the destination operand
-
--- updateFlagsAdd :: ValidState Context -> Param -> Param -> ValidState Int -> ValidState Context
--- updateFlagAdd _ _ _ (Invalid s) = Invalid s
--- updateFlagsAdd ctx p1 p2 addedVal = ctx4
---     where
---         ctx4 = flagSet ctx3 CF (addedVal < (getTrueValueFromParam ctx1 p1))
---         ctx3 = flagSet ctx2 OF (addedVal < (getTrueValueFromParam ctx1 p1))
---         ctx2 = flagSet ctx1 SF (addedVal < 0)
---         ctx1 = flagSet ctx ZF (addedVal == 0)
-
--- addImpl :: ValidState Context -> Param -> Param -> ValidState Context
--- addImpl _ (Immediate _) _ = Invalid s
--- addImpl ctx1 p1 p2 = c
---     where
---         c = updateFlagsAdd ctx1 p1 p2 (Valid addedVal)
---         tmpCtx = case addedVal of
---           Invalid s -> Invalid s
---           Valid v -> setTrueValueFromParam ctx1 p1 v
---         addedVal = fromValidState (getTrueValueFromParam ctx1 p1) + fromValidState (getTrueValueFromParam ctx1 p2)

@@ -33,18 +33,6 @@ readContents = do
       rest <- readContents
       Prelude.return (c : rest)
 
-parseLabels :: ValidState Context -> [Instruction] -> Int -> ValidState Context
-parseLabels (Invalid s) _ _ = Invalid s
-parseLabels (Valid c) [] _ = Valid c
-parseLabels (Valid c) (i : is) idx = case i of
-  Label name _ -> parseLabels (labelSet (Valid c) name idx) is (idx + 1)
-  _ -> parseLabels (Valid c) is (idx + 1)
-
--- detects the labels in the instructions and adds them to the context
-detectLabels :: ValidState Context -> ValidState Context
-detectLabels (Invalid s) = Invalid s
-detectLabels (Valid c) = parseLabels (Valid c) (instructions c) 0
-
 showInstructionRange :: Context -> Int -> Int -> IO ()
 showInstructionRange c start end = do
   if start == end
@@ -69,7 +57,7 @@ runREPL (Valid c) = do
   putStr "_> "
   hFlush stdout
   input <- readContents
-  print input
+--   print input
   if input == "exit"
     then Prelude.return ()
     else do
