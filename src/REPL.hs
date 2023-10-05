@@ -54,22 +54,17 @@ showTrace (Valid c) s a = do
 runREPL :: ValidState Context -> IO ()
 runREPL (Invalid _) = runREPL (Valid newContext)
 runREPL (Valid c) = do
-  putStr "_> "
-  hFlush stdout
-  input <- readContents
---   print input
-  if input == "exit"
-    then Prelude.return ()
-    else do
-      case strToHASM (Valid c) input of
-        Invalid s -> putStrLn s
-        Valid ctx -> do
-          let ast = cAST ctx
-          let c' = execInstructions (detectLabels (Valid ctx))
-          print c'
-          case getTrueValueFromParam c' (Reg EAX) of
-            Invalid s -> showTrace c' s ast
-            Valid v -> print v
+    putStr "_> "
+    hFlush stdout
+    input <- readContents
+    print input
+    if input == "exit"
+        then Prelude.return ()
+        else do
+            case strToHASM (Valid c) input of
+                Invalid s -> putStrLn s
+                Valid ctx -> logicLoop (execInstructionsIO (detectLabels (Valid ctx)))
 
--- restartREPL c'
--- runREPL c' {instructions = []}
+logicLoop :: (ValidState Context, IO()) -> IO()
+logicLoop (Invalid s, io) = io >> putStrLn s
+logicLoop (Valid c, io) = io >> logicLoop (execInstructionsIO (detectLabels (Valid c)))

@@ -38,6 +38,7 @@ instructionFromAST (ASTNodeMutable name x) ctx = putMutableInstruction name x ct
 instructionFromAST (ASTNodeParamList _) ctx = ctx -- not an actual instruction, does (Invalid "Error")
 instructionFromAST (ASTNodeArray n) ctx = astNodeArrayToHASM ctx (ASTNodeArray n)
 instructionFromAST (ASTNodeInstructionSequence n) ctx = putInstructionSequence n ctx
+instructionFromAST (ASTNodePrint n) ctx = putPrintInstruction ctx n
 instructionFromAST (ASTNodeBoolean b) ctx = putIntegerInstruction (if b then 1 else 0) ctx
 instructionFromAST (ASTNodeFunctionCall name params) ctx = putFunctionCall ctx name params
 instructionFromAST _ _ = Invalid "Error"
@@ -99,6 +100,15 @@ putDefineInstruction (Valid c) name params body = case blockAdd (Valid c) (astns
     Valid blk ->  case setupBlockParams blk params of
         Invalid s -> Invalid ("While parsing the parameters of the function: \n" ++ s)
         Valid blk' -> evaluateBlock (Valid ctx) blk' params body
+
+-- 4 is the syscall for out in asm
+putPrintInstruction :: ValidState Context -> ASTNode -> ValidState Context
+putPrintInstruction (Invalid s) _ = Invalid s
+putPrintInstruction ctx node = do
+  ctx' <- instructionFromAST node ctx
+  Valid ctx' {instructions = instructions ctx' ++ [Xor (Reg EBX) (Reg EBX), Mov (Reg EBX) (Immediate (typeToInt (inferTypeFromNode (Valid ctx') node))), Xor (Reg ECX) (Reg ECX), Mov (Reg ECX) (Reg EAX), Xor (Reg EAX) (Reg EAX), Mov (Reg EAX) (Immediate 4), Interrupt]}
+-- 5 is for 4 (numeric) + 1
+-- putPrintInstruction (Valid ctx) = Valid ctx {instructions = instructions ctx ++ [Mov (Reg EAX) 4, Mov (Reg EBX) 1, Mov (Reg ECX) (Reg ), Mov (Reg EDX) 5, Interrupt]}
 
 putInstructionSequence :: [ASTNode] -> ValidState Context -> ValidState Context
 putInstructionSequence _ (Invalid s) = Invalid s
@@ -206,6 +216,7 @@ putSymbolInstruction s (Valid ctx) = do
 inferTypeFromNode :: ValidState Context -> ASTNode -> VarType
 inferTypeFromNode (Invalid _) _ = GUndefinedType
 inferTypeFromNode _ (ASTNodeInteger _) = GInt
+inferTypeFromNode _ (ASTNodeBoolean _) = GBool
 inferTypeFromNode c (ASTNodeSymbol name) = case symGetFull c name of
   (Invalid _) -> GUndefinedType
   Valid (_, t) -> t

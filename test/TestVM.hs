@@ -34,7 +34,6 @@ module TestVM
     testLabelSetGet,
     testFlagGetSet,
     testCodeFromValidStateInt,
-    testExecSyscallWrapper,
     testCodeFromEAX,
     testCallEasyPrint,
     testBlock,
@@ -429,9 +428,6 @@ testCodeFromValidStateInt =
         ~: let x = Valid 1
             in codeFromValidStateInt x ~?= SCExit,
       "returns SCExit for an Invalid ValidState Int"
-        ~: let x = Valid 123456789
-            in codeFromValidStateInt x ~?= SCEasyPrint,
-      "returns SCExit for an Invalid ValidState Int"
         ~: let x = Valid 42
             in codeFromValidStateInt x ~?= SCExit,
       "returns SCExit for an Invalid ValidState Int"
@@ -474,23 +470,9 @@ testCodeFromEAX =
     [ "returns the correct SyscallCode for a Valid newContext with SCExit"
         ~: let x = newContext {registers = Registers (Map.fromList [(EAX, 1), (EBX, 0), (ECX, 0), (EDX, 0), (ESI, 0), (EDI, 0), (EBP, 0), (ESP, 0)])}
             in codeFromEAX x ~?= SCExit,
-      "returns the correct SyscallCode for a Valid Context with SCEasyPrint"
-        ~: let x = newContext {registers = Registers (Map.fromList [(EAX, 123456789), (EBX, 0), (ECX, 0), (EDX, 0), (ESI, 0), (EDI, 0), (EBP, 0), (ESP, 0)])}
-            in codeFromEAX x ~?= SCEasyPrint,
-      "returns the correct SyscallCode for a Valid Context with SCExit and negative value"
+      "returns  the correct SyscallCode for a Valid Context with SCExit and negative value"
         ~: let x = newContext {registers = Registers (Map.fromList [(EAX, -1), (EBX, 0), (ECX, 0), (EDX, 0), (ESI, 0), (EDI, 0), (EBP, 0), (ESP, 0)])}
             in codeFromEAX x ~?= SCExit
-    ]
-
-testExecSyscallWrapper :: Test
-testExecSyscallWrapper =
-  TestList
-    [ "returns an Invalid ValidState Context for an Invalid input"
-        ~: let x = Invalid "Error"
-            in execSyscallWrapper x ~?= Invalid "Error",
-      "returns the original ValidState Context for a Valid input with SCEasyPrint"
-        ~: let x = Valid newContext {exit = False, registers = Registers (Map.fromList [(EAX, 123456789), (EBX, 0), (ECX, 0), (EDX, 0), (ESI, 0), (EDI, 0), (EBP, 0), (ESP, 0)])}
-            in execSyscallWrapper x ~?= Valid newContext {exit = False, registers = Registers (Map.fromList [(EAX, 123456789), (EBX, 0), (ECX, 0), (EDX, 0), (ESI, 0), (EDI, 0), (EBP, 0), (ESP, 0)])}
     ]
 
 testBlock :: Test
