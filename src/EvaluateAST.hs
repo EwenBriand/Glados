@@ -113,18 +113,18 @@ putSumInstruction _ _ = Invalid "Error"
 
 putEqInstruction :: [ASTNode] -> ValidState Context -> ValidState Context
 putEqInstruction _ (Invalid s) = Invalid s
-putEqInstruction [x, y] (Valid ctx) =
-  let (uuid, c) = nextUUID ctx in do
-  ctx' <- instructionFromAST x c
-  ctx'' <- instructionFromAST y (Valid ctx' {instructions = instructions ctx' ++ [Push (Reg EAX)]})
-  return (ctx'' {instructions = instructions ctx'' ++ [Pop (Reg EDI), Cmp (Reg EAX) (Reg EDI), Je (show uuid ++ "eq"), Xor (Reg EAX) (Reg EAX), Jmp (show uuid ++ "end"), Label (show uuid ++ "eq") (length (instructions ctx'') + 1), Mov (Reg EAX) (Immediate 1), Label (show uuid ++ "end") (length (instructions ctx'') + 1)]})
+-- putEqInstruction [x, y] (Valid ctx) =
+  -- let (uuid, c) = nextUUID ctx in do
+  -- ctx' <- instructionFromAST x (addDataObject (addDataObject (Valid c) "trueMsg" (DataString "true")) "falseMsg" (DataString "false"))
+  -- ctx'' <- instructionFromAST y (Valid ctx' {instructions = instructions ctx' ++ [Push (Reg EAX)]})
+  -- Prelude.return (ctx'' {instructions = instructions ctx'' ++ [Pop (Reg EDI), Cmp (Reg EAX) (Reg EDI), Je (show uuid ++ "eq"), Mov (Reg EAX) (Immediate 4), Mov (Reg EBX) (Immediate 1), MovSection (Reg ECX) "falseMsg", Mov (Reg EDX) (Immediate 3), Interrupt, Jmp (show uuid ++ "end"), Label (show uuid ++ "eq") (length (instructions ctx'') + 1), Mov (Reg EAX) (Immediate 4), Mov (Reg EBX) (Immediate 1), MovSection (Reg ECX) "trueMsg", Mov (Reg EDX) (Immediate 3), Interrupt, Label (show uuid ++ "end") (length (instructions ctx'') + 1)]})
 
 putInferiorInstruction :: [ASTNode] -> ValidState Context -> ValidState Context
 putInferiorInstruction _ (Invalid s) = Invalid s
-putInferiorInstruction [x, y] ctx = do
-  ctx' <- instructionFromAST x ctx
-  ctx'' <- instructionFromAST y (Valid ctx' {instructions = instructions ctx' ++ [Push (Reg EAX)]})
-  return (ctx'' {instructions = instructions ctx'' ++ [Pop (Reg EDI), Cmp (Reg EAX) (Reg EDI), Mov (Reg EAX) (Immediate 0), Mov (Reg EBX) (Immediate 1), Mov (Reg EDX) (Immediate 0), Mov (Reg ECX) (Immediate 1), Cmovg (Reg EAX) (Reg EBX), Cmovg (Reg EDX) (Reg ECX)]})
+-- putInferiorInstruction [x, y] ctx = do
+--   ctx' <- instructionFromAST x ctx
+--   ctx'' <- instructionFromAST y (Valid ctx' {instructions = instructions ctx' ++ [Push (Reg EAX)]})
+--   Prelude.return (ctx'' {instructions = instructions ctx'' ++ [Pop (Reg EDI), Cmp (Reg EAX) (Reg EDI), Mov (Reg EAX) (Immediate 0), Mov (Reg EBX) (Immediate 1), Mov (Reg EDX) (Immediate 0), Mov (Reg ECX) (Immediate 1), Cmovg (Reg EAX) (Reg EBX), Cmovg (Reg EDX) (Reg ECX)]})
 
 putSubInstruction :: [ASTNode] -> ValidState Context -> ValidState Context
 putSubInstruction _ (Invalid s) = Invalid s
