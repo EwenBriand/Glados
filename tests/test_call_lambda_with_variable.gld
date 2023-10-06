@@ -1,0 +1,2 @@
+(define ok (lambda (a b) (+ a b)))
+(ok 12 12)

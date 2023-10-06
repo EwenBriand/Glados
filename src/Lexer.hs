@@ -13,7 +13,7 @@ module Lexer
     strToAST,
     tryBuildInstructionList,
     typeToInt,
-    intToType
+    intToType,
   )
 where
 
@@ -36,72 +36,74 @@ instance Show TokorNode where
   show (T t) = show t
   show (A a) = show a
 
-data ASTNode = ASTNodeError {astnerrToken :: TokenInfo}
-             | ASTNodeInteger {astniValue :: Integer}
-             | ASTNodeSymbol {astnsName :: String}
-             | ASTNodeMutable {astndName :: ASTNode, astndChildren :: ASTNode}
---  The sum can have an arbitrary number of parameters
-             | ASTNodeSum {astnsChildren :: [ASTNode]}
-             | ASTNodeSub {astnsChildren :: [ASTNode]}
-             | ASTNodeMul {astnsChildren :: [ASTNode]}
-             | ASTNodeDiv {astnsChildren :: [ASTNode]}
-             | ASTNodeMod {astnsChildren :: [ASTNode]}
-             | ASTNodeDebug {astndChildrenDebug :: [TokorNode]}
-             | ASTNodeParamList {astnplChildren :: [ASTNode]}
-             | ASTNodeArray {astnaChildren :: [ASTNode]}
-             | ASTNodeInstructionSequence {astnisChildren :: [ASTNode]}
-             | ASTNodeBoolean {astnbValue :: Bool}
-             | ASTNodeEq {astneChildren :: [ASTNode]}
-             | ASTNodeInferior {astniChildren :: [ASTNode]}
-             | ASTNodeIf {astniCondition :: ASTNode, astniThen :: [ASTNode], astniElse :: ValidState [ASTNode]}
-             | ASTNodePrint {astnPrint :: ASTNode}
-             | ASTNodeDefine {astndName :: ASTNode, astndParams :: ValidState ASTNode, astndBody :: [ASTNode]}
-             | ASTNodeLambda {astndName :: ASTNode, astndParams :: ValidState ASTNode, astndBody :: [ASTNode]}
-             | ASTNodeFunctionCall {astnfName :: String, astfnParams :: [ASTNode]}
-             | ASTNodeBreak {astneChildren :: [ASTNode]}
-    deriving (Eq)
+data ASTNode
+  = ASTNodeError {astnerrToken :: TokenInfo}
+  | ASTNodeInteger {astniValue :: Integer}
+  | ASTNodeSymbol {astnsName :: String}
+  | ASTNodeMutable {astndName :: ASTNode, astndChildren :: ASTNode}
+  | --  The sum can have an arbitrary number of parameters
+    ASTNodeSum {astnsChildren :: [ASTNode]}
+  | ASTNodeSub {astnsChildren :: [ASTNode]}
+  | ASTNodeMul {astnsChildren :: [ASTNode]}
+  | ASTNodeDiv {astnsChildren :: [ASTNode]}
+  | ASTNodeMod {astnsChildren :: [ASTNode]}
+  | ASTNodeDebug {astndChildrenDebug :: [TokorNode]}
+  | ASTNodeParamList {astnplChildren :: [ASTNode]}
+  | ASTNodeArray {astnaChildren :: [ASTNode]}
+  | ASTNodeInstructionSequence {astnisChildren :: [ASTNode]}
+  | ASTNodeBoolean {astnbValue :: Bool}
+  | ASTNodeEq {astneChildren :: [ASTNode]}
+  | ASTNodeInferior {astniChildren :: [ASTNode]}
+  | ASTNodeIf {astniCondition :: ASTNode, astniThen :: [ASTNode], astniElse :: ValidState [ASTNode]}
+  | ASTNodePrint {astnPrint :: ASTNode}
+  | ASTNodeDefine {astndName :: ASTNode, astndParams :: ValidState ASTNode, astndBody :: [ASTNode]}
+  | ASTNodeLambda {astndName :: ASTNode, astndParams :: ValidState ASTNode, astndBody :: [ASTNode]}
+  | ASTNodeFunctionCall {astnfName :: String, astfnParams :: [ASTNode]}
+  | ASTNodeBreak {astneChildren :: [ASTNode]}
+  deriving (Eq)
 
 instance Show ASTNode where
-    show (ASTNodeError t) = "(Error: " ++ show t ++ ")"
-    show (ASTNodeInteger i) = "(int: " ++ show i ++ ")"
-    show (ASTNodeSymbol s) = "(sym: " ++ s ++ ")"
-    show (ASTNodeMutable n c) = "(define: " ++ show n ++ " \n\t" ++ show c ++ ")"
-    show (ASTNodeSum l) = "(sum: " ++ show l ++ ")"
-    show (ASTNodeSub l) = "(sub: " ++ show l ++ ")"
-    show (ASTNodeMul l) = "(mul: " ++ show l ++ ")"
-    show (ASTNodeDiv l) = "(div: " ++ show l ++ ")"
-    show (ASTNodeMod l) = "(mod: " ++ show l ++ ")"
-    show (ASTNodeDebug l) = "(debug: " ++ show l ++ ")"
-    show (ASTNodeParamList l) = "(paramlist: \n\t" ++ show l ++ ")"
-    show (ASTNodeArray l) = "(array: {\n\t" ++ show l ++ "\n})"
-    show (ASTNodeInstructionSequence l) = "(instructionsequence: \n\t" ++ show l ++ ")"
-    show (ASTNodeBoolean b) = "(bool: " ++ show b ++ ")"
-    show (ASTNodeIf c t e) = "(if: \n\t(condition) " ++ show c ++ "\n\t(then) " ++ show t ++ "\n\t(else) " ++ show e ++ ")"
-    show (ASTNodeDefine n p b) = "(define: \n\t(name) " ++ show n ++ "\n\t(params) " ++ show p ++ "\n\t(body) {" ++ show b ++ "})"
-    show (ASTNodePrint p) = "(print " ++ show p ++ ")"
-    show (ASTNodeFunctionCall n p) = "(functioncall: \n\t(name) " ++ n ++ "\n\t(params) " ++ show p ++ ")\n"
-    show (ASTNodeLambda n p b) = "(lambda: \n\t(name) " ++ show n ++ "\n\t(params) " ++ show p ++ "\n\t(body) {" ++ show b ++ "})\n"
-    show (ASTNodeBreak l) = "(break: " ++ show l ++ ")"
+  show (ASTNodeError t) = "(Error: " ++ show t ++ ")"
+  show (ASTNodeInteger i) = "(int: " ++ show i ++ ")"
+  show (ASTNodeSymbol s) = "(sym: " ++ s ++ ")"
+  show (ASTNodeMutable n c) = "(define: " ++ show n ++ " \n\t" ++ show c ++ ")"
+  show (ASTNodeSum l) = "(sum: " ++ show l ++ ")"
+  show (ASTNodeSub l) = "(sub: " ++ show l ++ ")"
+  show (ASTNodeMul l) = "(mul: " ++ show l ++ ")"
+  show (ASTNodeDiv l) = "(div: " ++ show l ++ ")"
+  show (ASTNodeMod l) = "(mod: " ++ show l ++ ")"
+  show (ASTNodeDebug l) = "(debug: " ++ show l ++ ")"
+  show (ASTNodeParamList l) = "(paramlist: \n\t" ++ show l ++ ")"
+  show (ASTNodeArray l) = "(array: {\n\t" ++ show l ++ "\n})"
+  show (ASTNodeInstructionSequence l) = "(instructionsequence: \n\t" ++ show l ++ ")"
+  show (ASTNodeBoolean b) = "(bool: " ++ show b ++ ")"
+  show (ASTNodeIf c t e) = "(if: \n\t(condition) " ++ show c ++ "\n\t(then) " ++ show t ++ "\n\t(else) " ++ show e ++ ")"
+  show (ASTNodeDefine n p b) = "(define: \n\t(name) " ++ show n ++ "\n\t(params) " ++ show p ++ "\n\t(body) {" ++ show b ++ "})"
+  show (ASTNodePrint p) = "(print " ++ show p ++ ")"
+  show (ASTNodeFunctionCall n p) = "(functioncall: \n\t(name) " ++ n ++ "\n\t(params) " ++ show p ++ ")\n"
+  show (ASTNodeLambda n p b) = "(lambda: \n\t(name) " ++ show n ++ "\n\t(params) " ++ show p ++ "\n\t(body) {" ++ show b ++ "})\n"
+  show (ASTNodeBreak l) = "(break: " ++ show l ++ ")"
+  show _ = "(unknown node)"
 
 isSymbolAndParamArray :: [ASTNode] -> Bool
 isSymbolAndParamArray [(ASTNodeSymbol _), _] = True
-isSymbolAndParamArray ((ASTNodeSymbol _):_:_) = True
-isSymbolAndParamArray ((ASTNodeLambda _ _ _):_) = True
+isSymbolAndParamArray ((ASTNodeSymbol _) : _ : _) = True
+isSymbolAndParamArray ((ASTNodeLambda _ _ _) : _) = True
 isSymbolAndParamArray _ = False
 
 expendParamList :: [ASTNode] -> [ASTNode]
-expendParamList ((ASTNodeParamList l):xs) = l ++ expendParamList xs
-expendParamList (x:xs) = x : expendParamList xs
+expendParamList ((ASTNodeParamList l) : xs) = l ++ expendParamList xs
+expendParamList (x : xs) = x : expendParamList xs
 expendParamList [] = []
 
-
 isThisReallyAnArrayOrIsItATrap :: ASTNode -> ASTNode
-isThisReallyAnArrayOrIsItATrap (ASTNodeArray arr) = if isSymbolAndParamArray arr
+isThisReallyAnArrayOrIsItATrap (ASTNodeArray arr) =
+  if isSymbolAndParamArray arr
     then case arr !! 0 of
-        ASTNodeSymbol _ -> ASTNodeFunctionCall (astnsName (arr !! 0)) (tail arr)
-        ASTNodeLambda name params body -> ASTNodeBreak ([(ASTNodeLambda name params body), ASTNodeFunctionCall (astnsName name) (expendParamList(tail arr))])
-    -- then ASTNodeFunctionCall (astnsName (arr !! 0)) (tail arr)
-    else ASTNodeArray arr
+      ASTNodeSymbol _ -> ASTNodeFunctionCall (astnsName (arr !! 0)) (tail arr)
+      ASTNodeLambda name params body -> ASTNodeBreak ([(ASTNodeLambda name params body), ASTNodeFunctionCall (astnsName name) (expendParamList (tail arr))])
+    else -- then ASTNodeFunctionCall (astnsName (arr !! 0)) (tail arr)
+      ASTNodeArray arr
 isThisReallyAnArrayOrIsItATrap a = a
 
 -- | @params:
@@ -109,30 +111,29 @@ isThisReallyAnArrayOrIsItATrap a = a
 -- @return: a node corresponding to the pattern given in argument, or an error
 -- if the pattern does not match.
 tokOrExprToASTNode :: [TokorNode] -> ASTNode
-
 -- error: empty
 tokOrExprToASTNode [] = ASTNodeError (TokenInfo TokError "")
 -- call function with parameters. (no params is just handled by node symbol)
 -- tokOrExprToASTNode [A (ASTNodeArray ((ASodeTNodeSymbol sym):params))] = ASTNodeFunctionCall sym params
 tokOrExprToASTNode [A (ASTNodeArray [ASTNodeSymbol sym, ASTNodeInteger i])] = ASTNodeFunctionCall sym [ASTNodeInteger i]
-
 -- tokOrExprToASTNode [A (ASTNodeArray [(ASTNodeSymbol s), p])] = ASTNodeFunctionCall s [p]
 -- tokOrExprToASTNode [A (ASTNodeArray ((ASTNodeSymbol s):p:ps))] = ASTNodeFunctionCall s (p:ps)
 
+-- declaration of a Lambda
+-- lambda with parameters
+tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokLambda _), A (ASTNodeParamList [ASTNodeFunctionCall param1 params, body]), T (TokenInfo TokCloseParen _)] = ASTNodeLambda (ASTNodeSymbol "") (Valid (ASTNodeParamList (ASTNodeSymbol param1 : params))) [body]
+-- lambda with variable
+tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokKeywordDefine _), A (ASTNodeSymbol sym), A (ASTNodeLambda _ param body), T (TokenInfo TokCloseParen _)] = ASTNodeDefine (ASTNodeSymbol sym) param (expendParamList body)
+--end lambda
 
-tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokLambda _), A (ASTNodeParamList [(ASTNodeFunctionCall param1 params), body]), T (TokenInfo TokCloseParen _)] = ASTNodeLambda (ASTNodeSymbol "") (Valid (ASTNodeParamList ([ASTNodeSymbol param1] ++ params))) [body]
-
--- declaration of a function
-    -- with parameters
+-- declaration of a Function
+-- with parameters
 tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokKeywordDefine _), A (ASTNodeSymbol sym), A (ASTNodeArray params), A (ASTNodeArray body), T (TokenInfo TokCloseParen _)] = ASTNodeDefine (ASTNodeSymbol sym) (Valid (ASTNodeParamList params)) body
 tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokKeywordDefine _), A (ASTNodeParamList [ASTNodeSymbol name, ASTNodeArray params, body]), T (TokenInfo TokCloseParen _)] = ASTNodeDefine (ASTNodeSymbol name) (Valid (ASTNodeParamList params)) [body]
-tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokKeywordDefine _), A (ASTNodeSymbol sym), A (ASTNodeFunctionCall a as), A (ASTNodeArray body), T (TokenInfo TokCloseParen _)] = ASTNodeDefine (ASTNodeSymbol sym) (Valid (ASTNodeParamList ((ASTNodeSymbol a):as))) body
-tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokKeywordDefine _), A (ASTNodeParamList [ASTNodeSymbol name, ASTNodeFunctionCall n ns, body]), T (TokenInfo TokCloseParen _)] = ASTNodeDefine (ASTNodeSymbol name) (Valid (ASTNodeParamList (ASTNodeSymbol n:ns))) [body]
-
-    -- without parameters
-tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokKeywordDefine _), A (ASTNodeSymbol sym), A body, T (TokenInfo TokCloseParen _)] = ASTNodeDefine (ASTNodeSymbol sym) (Invalid (sym ++ " does not take any parameters")) [body]
-
-
+tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokKeywordDefine _), A (ASTNodeSymbol sym), A (ASTNodeFunctionCall a as), A (ASTNodeArray body), T (TokenInfo TokCloseParen _)] = ASTNodeDefine (ASTNodeSymbol sym) (Valid (ASTNodeParamList ((ASTNodeSymbol a) : as))) body
+tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokKeywordDefine _), A (ASTNodeParamList [ASTNodeSymbol name, ASTNodeFunctionCall n ns, body]), T (TokenInfo TokCloseParen _)] = ASTNodeDefine (ASTNodeSymbol name) (Valid (ASTNodeParamList (ASTNodeSymbol n : ns))) [body]
+-- without parameters
+tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokOpenParen _), T (TokenInfo TokKeywordDefine _), A (ASTNodeSymbol sym), A body, T (TokenInfo TokCloseParen _)] = ASTNodeDefine (ASTNodeSymbol sym) (Invalid (sym ++ " does not take any parameters")) [body]
 -- an if statement
 -- cond: arr then: arr(1) else: nop
 -- tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokenKeywordIf _), A (ASTNodeArray [cond]), T (TokenInfo TokenKeywordThen _), A (ASTNodeArray [thenOps]), T (TokenInfo TokCloseParen _)] = ASTNodeIf cond [thenOps] (Invalid "1")
@@ -143,8 +144,7 @@ tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokenKeywordIf _)
 tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokenKeywordIf _), A (ASTNodeArray [cond]), A (ASTNodeArray thenOps), A (ASTNodeArray elseOps), T (TokenInfo TokCloseParen _)] = ASTNodeIf cond thenOps (Valid elseOps)
 tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokenKeywordIf _), A (ASTNodeArray [cond]), T (TokenInfo TokenKeywordThen _), A (ASTNodeArray thenOps), T (TokenInfo TokCloseParen _)] = ASTNodeIf cond thenOps (Invalid "3")
 tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokenKeywordIf _), A (ASTNodeArray [cond]), T (TokenInfo TokenKeywordThen _), A (ASTNodeArray thenOps), T (TokenInfo TokenKeywordElse _), A (ASTNodeArray elseOps), T (TokenInfo TokCloseParen _)] = ASTNodeIf cond thenOps (Valid elseOps)
-
-tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokenKeywordIf _), A (ASTNodeArray [cond]), A thenOps,  A elseOps, T (TokenInfo TokCloseParen _)] = ASTNodeIf cond [thenOps] (Valid [elseOps])
+tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokenKeywordIf _), A (ASTNodeArray [cond]), A thenOps, A elseOps, T (TokenInfo TokCloseParen _)] = ASTNodeIf cond [thenOps] (Valid [elseOps])
 tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokenKeywordIf _), A (ASTNodeArray [cond]), T (TokenInfo TokenKeywordThen _), A thenOps, T (TokenInfo TokCloseParen _)] = ASTNodeIf cond [thenOps] (Invalid "3")
 tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokenKeywordIf _), A (ASTNodeArray [cond]), T (TokenInfo TokenKeywordThen _), A thenOps, T (TokenInfo TokenKeywordElse _), A elseOps, T (TokenInfo TokCloseParen _)] = ASTNodeIf cond [thenOps] (Valid [elseOps])
 -- print
@@ -181,13 +181,11 @@ tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokOperatorMod _)
 tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokKeywordMutable _), A (ASTNodeSymbol sym), A n, T (TokenInfo TokCloseParen _)] = ASTNodeMutable (ASTNodeSymbol sym) n
 -- a boolean
 tokOrExprToASTNode [T (TokenInfo TokenBool val)] = ASTNodeBoolean (val == "true")
-
 -- param list
 tokOrExprToASTNode [A (ASTNodeParamList l), A n] = ASTNodeParamList (l ++ [n])
 tokOrExprToASTNode [A n1, A n2] = ASTNodeParamList [n1, n2]
 -- error
 tokOrExprToASTNode unresolved = ASTNodeError (TokenInfo TokError (show unresolved))
-
 
 typeToInt :: VarType -> Int
 typeToInt GUndefinedType = 1
@@ -247,8 +245,8 @@ tryBuildInstructionList l = ASTNodeError (TokenInfo TokError (show l))
 -- to a single node
 
 expandParamLists :: [ASTNode] -> [ASTNode]
-expandParamLists ((ASTNodeParamList l):xs) = l ++ expandParamLists xs
-expandParamLists (x:xs) = x : expandParamLists xs
+expandParamLists ((ASTNodeParamList l) : xs) = l ++ expandParamLists xs
+expandParamLists (x : xs) = x : expandParamLists xs
 expandParamLists [] = []
 
 instructionSequenceExpandParamList :: ASTNode -> ASTNode
