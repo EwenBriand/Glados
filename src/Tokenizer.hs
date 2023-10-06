@@ -13,32 +13,48 @@ import Data.Char (isAlpha, isDigit)
 -- For example, "define" is a token, "123" is a token, etc.
 -- When creating or deleting a token, do not forget to update the wordToTok function
 -- to reflect those changes !!!
-data Token = TokSymbol -- ^ A variable name, function name, etc.
-           | TokInteger-- ^ Representation of an integer, e.g. "123"
-           | TokOperatorPlus -- The sum operator, "+"
-           | TokOperatorMinus -- The subtraction operator, "-"
-           | TokOperatorMul -- The multiplication operator, "*"
-           | TokOperatorDiv -- The division operator, "/"
-           | TokOperatorMod -- The modulo operator, "%"
-           | TokKeywordMutable -- The "mutable" keyword, used to define a symbol
-           | TokKeywordDefine -- The "define" keyword, used to define a macro
-           | TokLambda -- The "lambda" keyword, used to define a function
-           | TokComment -- Converts the rest of the line into a comment
-           | TokOpenParen -- The open parenthesis character
-           | TokCloseParen -- The close parenthesis character
-           | TokError  -- ^ Any other character not mentioned above
-           | TokEmpty -- ^ The empty token
-           | TokWhitespace -- ^ A whitespace character
-           | TokNewLine -- ^ A newline character
-           | TokenBool -- ^ A boolean value
-           | TokenKeywordIf -- ^ The "if" keyword
-           | TokenKeywordThen -- ^ The "then" keyword
-           | TokenKeywordElse -- ^ The "else" keyword
-           | TokenKeywordPartialExpression -- ^ The "partial expression" keyword
-           | TokenEqual -- ^ The "eq?" keyword
-           | TokenInferior -- ^ The "<" keyword
-           | TokenSymPrint -- The "print" keyword
-           deriving (Eq, Show)
+data Token
+  = -- | A variable name, function name, etc.
+    TokSymbol
+  | -- | Representation of an integer, e.g. "123"
+    TokInteger
+  | TokOperatorPlus -- The sum operator, "+"
+  | TokOperatorMinus -- The subtraction operator, "-"
+  | TokOperatorMul -- The multiplication operator, "*"
+  | TokOperatorDiv -- The division operator, "/"
+  | TokOperatorMod -- The modulo operator, "%"
+  | TokKeywordMutable -- The "mutable" keyword, used to define a symbol
+  | TokKeywordDefine -- The "define" keyword, used to define a macro
+  | TokLambda -- The "lambda" keyword, used to define a function
+  | TokComment -- Converts the rest of the line into a comment
+  | TokOpenParen -- The open parenthesis character
+  | TokCloseParen -- The close parenthesis character
+  | -- | Any other character not mentioned above
+    TokError
+  | -- | The empty token
+    TokEmpty
+  | -- | A whitespace character
+    TokWhitespace
+  | -- | A newline character
+    TokNewLine
+  | -- | A boolean value
+    TokenBool
+  | -- | The "if" keyword
+    TokenKeywordIf
+  | -- | The "then" keyword
+    TokenKeywordThen
+  | -- | The "else" keyword
+    TokenKeywordElse
+  | -- | The "partial expression" keyword
+    TokenKeywordPartialExpression
+  | -- | The "eq?" keyword
+    TokenEqual
+  | -- | The "<" keyword
+    TokenInferior
+  | TokenSymPrint -- The "print" keyword
+  | TokOpenBrac -- The open bracket character
+  | TokCloseBrac -- The close bracket character
+  deriving (Eq, Show)
 
 data TokenInfo = TokenInfo {token :: Token, value :: String} deriving (Eq)
 
@@ -65,6 +81,8 @@ wordToTok "mod" = TokenInfo {token = TokOperatorMod, value = "mod"}
 wordToTok "//" = TokenInfo {token = TokComment, value = "//"}
 wordToTok "(" = TokenInfo {token = TokOpenParen, value = "("}
 wordToTok ")" = TokenInfo {token = TokCloseParen, value = ")"}
+wordToTok "[" = TokenInfo {token = TokOpenBrac, value = "["}
+wordToTok "]" = TokenInfo {token = TokCloseBrac, value = "]"}
 wordToTok " " = TokenInfo {token = TokWhitespace, value = " "}
 wordToTok "\n" = TokenInfo {token = TokNewLine, value = "\n"}
 wordToTok "#t" = TokenInfo {token = TokenBool, value = "true"}
@@ -79,9 +97,10 @@ wordToTok "<" = TokenInfo {token = TokenInferior, value = "<"}
 wordToTok "#" = TokenInfo {token = TokenKeywordPartialExpression, value = "#"}
 wordToTok "lambda" = TokenInfo {token = TokLambda, value = "lambda"}
 wordToTok "print" = TokenInfo {token = TokenSymPrint, value = "print"}
-wordToTok str | all isAlpha str = TokenInfo {token = TokSymbol, value = str}
-                | all isDigit str = TokenInfo {token = TokInteger, value = str}
-                | otherwise = TokenInfo { token = TokError, value = str}
+wordToTok str
+  | all isAlpha str = TokenInfo {token = TokSymbol, value = str}
+  | all isDigit str = TokenInfo {token = TokInteger, value = str}
+  | otherwise = TokenInfo {token = TokError, value = str}
 
 -- | @params:
 --     currword: the current word for which we are trying to find a match.
@@ -91,9 +110,9 @@ wordToTok str | all isAlpha str = TokenInfo {token = TokSymbol, value = str}
 tryTokenizeOne :: String -> TokenInfo -> String -> (TokenInfo, String)
 tryTokenizeOne [] _ [] = (TokenInfo TokEmpty "", [])
 tryTokenizeOne _ lastmatch [] = (lastmatch, [])
-tryTokenizeOne currword lastmatch (x:xs) = case wordToTok (currword ++ [x]) of
-    TokenInfo TokError _ -> (lastmatch, x:xs)
-    anytok -> tryTokenizeOne (currword ++ [x]) anytok xs
+tryTokenizeOne currword lastmatch (x : xs) = case wordToTok (currword ++ [x]) of
+  TokenInfo TokError _ -> (lastmatch, x : xs)
+  anytok -> tryTokenizeOne (currword ++ [x]) anytok xs
 
 -- @params:
 --     str: the string to tokenize

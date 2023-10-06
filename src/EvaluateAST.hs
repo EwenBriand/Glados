@@ -10,12 +10,13 @@ where
 --     ( ASTNode(ASTNodeMutable, ASTNodeError, ASTNodeInteger,
 --               ASTNodeSymbol, ASTNodeSum, ASTNodeSub, ASTNodeMul, ASTNodeDiv,
 --               ASTNodeMod, astnsName, ASTNodeParamList, ASTNodeArray, strToAST) )
-import Lexer
+
 -- import VM (Context (..), Instruction (..), Param (..), Register (..), regGet, stackGetPointer, stackPush, symGet, symSet, labelSet, blockInitAllocVarSpace, symGetTotalSize)
-import VM
-import ValidState
+
 import Lexer
-import VM (Context(Context))
+import VM
+import VM (Context (Context))
+import ValidState
 
 -- -- | Evaluates the AST and push the instructions into the context.
 -- evaluateAST :: ASTNode -> Context -> ValidState Context
@@ -45,8 +46,8 @@ instructionFromAST (ASTNodeLambda name params body) ctx = putDefineInstruction c
 instructionFromAST (ASTNodeBreak [ASTNodeLambda _ param body, ASTNodeFunctionCall _ params]) ctx = instructionFromAST (ASTNodeBreak [(ASTNodeFunctionCall u_name params)]) (instructionFromAST (ASTNodeLambda (ASTNodeSymbol u_name) param body) (Valid ctx'))
   where
     u_name = "lambda@" ++ show uuid
-    (uuid, ctx') =  nextUUIDValid ctx
-instructionFromAST (ASTNodeBreak (a:b)) ctx = instructionFromAST (ASTNodeBreak b) (instructionFromAST a ctx)
+    (uuid, ctx') = nextUUIDValid ctx
+instructionFromAST (ASTNodeBreak (a : b)) ctx = instructionFromAST (ASTNodeBreak b) (instructionFromAST a ctx)
 instructionFromAST (ASTNodeBreak []) ctx = ctx
 instructionFromAST _ _ = Invalid "Error"
 
@@ -56,28 +57,29 @@ evalParamsToReg :: ValidState Context -> [ASTNode] -> [Register] -> ValidState C
 evalParamsToReg (Invalid s) _ _ = Invalid s
 evalParamsToReg (Valid c) [] _ = Valid c
 evalParamsToReg _ _ [] = Invalid "Error: too many parameters (max: 4)"
-evalParamsToReg (Valid c) (p:ps) (r:rs) = case instructionFromAST p (Valid c) of
-    Invalid s -> Invalid s
-    Valid c' -> evalParamsToReg (Valid c' {instructions = instructions c' ++ [Mov (Reg r) (Reg EAX)]}) ps rs
+evalParamsToReg (Valid c) (p : ps) (r : rs) = case instructionFromAST p (Valid c) of
+  Invalid s -> Invalid s
+  Valid c' -> evalParamsToReg (Valid c' {instructions = instructions c' ++ [Mov (Reg r) (Reg EAX)]}) ps rs
 
 putFunctionCall :: ValidState Context -> String -> [ASTNode] -> ValidState Context
 putFunctionCall (Invalid s) _ _ = Invalid s
 putFunctionCall (Valid c) name params = case evalParamsToReg (Valid c) params paramsRegisters of
-    Invalid s -> Invalid s
-    Valid c' -> tryPutFunctionCall (Valid c') name
-
+  Invalid s -> Invalid s
+  Valid c' -> tryPutFunctionCall (Valid c') name
 
 pushParamTypeToBlock :: ValidState Block -> [ASTNode] -> ValidState Block
 pushParamTypeToBlock (Invalid s) _ = Invalid s
 pushParamTypeToBlock blk [] = blk
-pushParamTypeToBlock (Valid blk) (x:xs) = pushParamTypeToBlock
-    (Valid (blk {blockParamTypes = blockParamTypes blk ++ [inferTypeFromNode (blockContext blk) x]})) xs
+pushParamTypeToBlock (Valid blk) (x : xs) =
+  pushParamTypeToBlock
+    (Valid (blk {blockParamTypes = blockParamTypes blk ++ [inferTypeFromNode (blockContext blk) x]}))
+    xs
 
 declSymbolBlock :: Block -> [ASTNode] -> ValidState Block
 declSymbolBlock blk [] = Valid blk
 declSymbolBlock blk (ASTNodeSymbol paramName : ps) = case symSet (blockContext blk) paramName (GUndefinedType) of -- Todo set types here
-    Invalid s -> Invalid ("While declaring parameter: \n\t" ++ s)
-    Valid ctx -> declSymbolBlock (blk {blockContext = Valid ctx}) ps
+  Invalid s -> Invalid ("While declaring parameter: \n\t" ++ s)
+  Valid ctx -> declSymbolBlock (blk {blockContext = Valid ctx}) ps
 declSymbolBlock _ _ = Invalid "Error: invalid parameter: expected symbol"
 
 setupBlockParams :: Block -> ValidState ASTNode -> ValidState Block
@@ -88,15 +90,15 @@ setupBlockParams blk _ = Valid blk
 evaluateBlock :: ValidState Context -> Block -> ValidState ASTNode -> [ASTNode] -> ValidState Context
 evaluateBlock (Invalid s) _ _ _ = Invalid s
 evaluateBlock (Valid c) _ _ [] = Valid c
-evaluateBlock (Valid c) blk params (x:xs) = case evaluateBlockOneInstr (Valid c) blk params x of
-    Invalid s -> Invalid s
-    Valid c' -> evaluateBlock (Valid c') blk params xs
+evaluateBlock (Valid c) blk params (x : xs) = case evaluateBlockOneInstr (Valid c) blk params x of
+  Invalid s -> Invalid s
+  Valid c' -> evaluateBlock (Valid c') blk params xs
 
 evaluateBlockOneInstr :: ValidState Context -> Block -> ValidState ASTNode -> ASTNode -> ValidState Context
 evaluateBlockOneInstr (Invalid s) _ _ _ = Invalid s
 evaluateBlockOneInstr (Valid c) blk _ body = case instructionFromAST body (blockContext blk) of
-    Invalid s -> Invalid s
-    Valid c' -> blockReplace (Valid c) (Valid blk { blockContext = Valid c'})
+  Invalid s -> Invalid s
+  Valid c' -> blockReplace (Valid c) (Valid blk {blockContext = Valid c'})
 
 putDefineInstruction :: ValidState Context -> ASTNode -> ValidState ASTNode -> [ASTNode] -> ValidState Context
 putDefineInstruction (Invalid s) _ _ _ = Invalid ("While defining function: \n\t" ++ s)
@@ -104,9 +106,9 @@ putDefineInstruction (Valid c) name params body = case blockAdd (Valid c) (astns
   Invalid s -> Invalid s
   Valid ctx -> case blockGet (Valid ctx) (astnsName name) of
     Invalid s -> Invalid s
-    Valid blk ->  case setupBlockParams blk params of
-        Invalid s -> Invalid ("While parsing the parameters of the function: \n" ++ s)
-        Valid blk' -> evaluateBlock (Valid ctx) blk' params body
+    Valid blk -> case setupBlockParams blk params of
+      Invalid s -> Invalid ("While parsing the parameters of the function: \n" ++ s)
+      Valid blk' -> evaluateBlock (Valid ctx) blk' params body
 
 -- 4 is the syscall for out in asm
 putPrintInstruction :: ValidState Context -> ASTNode -> ValidState Context
@@ -114,6 +116,7 @@ putPrintInstruction (Invalid s) _ = Invalid s
 putPrintInstruction ctx node = do
   ctx' <- instructionFromAST node ctx
   Valid ctx' {instructions = instructions ctx' ++ [Xor (Reg EBX) (Reg EBX), Mov (Reg EBX) (Immediate (typeToInt (inferTypeFromNode (Valid ctx') node))), Xor (Reg ECX) (Reg ECX), Mov (Reg ECX) (Reg EAX), Xor (Reg EAX) (Reg EAX), Mov (Reg EAX) (Immediate 4), Interrupt]}
+
 -- 5 is for 4 (numeric) + 1
 -- putPrintInstruction (Valid ctx) = Valid ctx {instructions = instructions ctx ++ [Mov (Reg EAX) 4, Mov (Reg EBX) 1, Mov (Reg ECX) (Reg ), Mov (Reg EDX) 5, Interrupt]}
 
@@ -138,14 +141,16 @@ putSumInstruction _ _ = Invalid "Error"
 
 putEqInstruction :: [ASTNode] -> ValidState Context -> ValidState Context
 putEqInstruction _ (Invalid s) = Invalid s
+
 -- putEqInstruction [x, y] (Valid ctx) =
-  -- let (uuid, c) = nextUUID ctx in do
-  -- ctx' <- instructionFromAST x (addDataObject (addDataObject (Valid c) "trueMsg" (DataString "true")) "falseMsg" (DataString "false"))
-  -- ctx'' <- instructionFromAST y (Valid ctx' {instructions = instructions ctx' ++ [Push (Reg EAX)]})
-  -- Prelude.return (ctx'' {instructions = instructions ctx'' ++ [Pop (Reg EDI), Cmp (Reg EAX) (Reg EDI), Je (show uuid ++ "eq"), Mov (Reg EAX) (Immediate 4), Mov (Reg EBX) (Immediate 1), MovSection (Reg ECX) "falseMsg", Mov (Reg EDX) (Immediate 3), Interrupt, Jmp (show uuid ++ "end"), Label (show uuid ++ "eq") (length (instructions ctx'') + 1), Mov (Reg EAX) (Immediate 4), Mov (Reg EBX) (Immediate 1), MovSection (Reg ECX) "trueMsg", Mov (Reg EDX) (Immediate 3), Interrupt, Label (show uuid ++ "end") (length (instructions ctx'') + 1)]})
+-- let (uuid, c) = nextUUID ctx in do
+-- ctx' <- instructionFromAST x (addDataObject (addDataObject (Valid c) "trueMsg" (DataString "true")) "falseMsg" (DataString "false"))
+-- ctx'' <- instructionFromAST y (Valid ctx' {instructions = instructions ctx' ++ [Push (Reg EAX)]})
+-- Prelude.return (ctx'' {instructions = instructions ctx'' ++ [Pop (Reg EDI), Cmp (Reg EAX) (Reg EDI), Je (show uuid ++ "eq"), Mov (Reg EAX) (Immediate 4), Mov (Reg EBX) (Immediate 1), MovSection (Reg ECX) "falseMsg", Mov (Reg EDX) (Immediate 3), Interrupt, Jmp (show uuid ++ "end"), Label (show uuid ++ "eq") (length (instructions ctx'') + 1), Mov (Reg EAX) (Immediate 4), Mov (Reg EBX) (Immediate 1), MovSection (Reg ECX) "trueMsg", Mov (Reg EDX) (Immediate 3), Interrupt, Label (show uuid ++ "end") (length (instructions ctx'') + 1)]})
 
 putInferiorInstruction :: [ASTNode] -> ValidState Context -> ValidState Context
 putInferiorInstruction _ (Invalid s) = Invalid s
+
 -- putInferiorInstruction [x, y] ctx = do
 --   ctx' <- instructionFromAST x ctx
 --   ctx'' <- instructionFromAST y (Valid ctx' {instructions = instructions ctx' ++ [Push (Reg EAX)]})
@@ -186,8 +191,8 @@ putModInstruction _ _ = Invalid "Error"
 tryPutFunctionCall :: ValidState Context -> String -> ValidState Context
 tryPutFunctionCall (Invalid s) _ = Invalid s
 tryPutFunctionCall (Valid ctx) s = case blockGet (Valid ctx) s of
-    (Invalid _) -> Invalid ("Symbol or Function not found: " ++ s)
-    Valid _ -> Prelude.return ctx {instructions = instructions ctx ++ [Call s]}
+  (Invalid _) -> Invalid ("Symbol or Function not found: " ++ s)
+  Valid _ -> Prelude.return ctx {instructions = instructions ctx ++ [Call s]}
 
 putSymbolInstruction :: String -> ValidState Context -> ValidState Context
 putSymbolInstruction _ (Invalid s) = Invalid s
@@ -329,7 +334,7 @@ astNodeArrayToHASMLoopBody (Valid ctx) (x : xs) = case instructionFromAST x (Val
             { instructions =
                 instructions c
                   ++ [ MovPtr (Reg ESI) (Reg EAX), -- storing the value of the child node in the allocated memory
-                       Add ESI (Immediate 4)
+                       Add ESI (Immediate 1)
                      ]
             }
       )
@@ -340,6 +345,7 @@ astNodeArrayToHASMLoopBody (Valid ctx) (x : xs) = case instructionFromAST x (Val
 --     arr: the array to convert to HASM
 astNodeArrayToHASM :: ValidState Context -> ASTNode -> ValidState Context
 astNodeArrayToHASM (Invalid s) _ = Invalid s
+astNodeArrayToHASM ctx (ASTNodeArray []) = ctx
 astNodeArrayToHASM (Valid ctx) (ASTNodeArray arr) = astNodeArrayToHASMEnd (astNodeArrayToHASMLoopBody (aSTNodeArrayToHASMPreLoop (Valid ctx) arr) arr)
 astNodeArrayToHASM _ _ = Invalid "Error: could not resolve array"
 
@@ -355,9 +361,8 @@ labelImpl = labelSet
 hASMPointerAlloc :: Int -> [Instruction]
 hASMPointerAlloc size =
   [ Mov (Reg EAX) (Immediate 0x2d), -- syscall number for sbrk, malloc & puts ptr to eax after exec
-    Mov (Reg EBX) (Immediate (size * 4)), -- size of the array in ebx
-    Interrupt, -- exec sbrk with int 0x80
-    Mov (Reg EBX) (Reg EAX) -- we put the pointer to the array in ebx we put the pointer to the array in ebx
+    Alloc size, -- size of the array in ebx
+    Mov (Reg EBX) (Reg EAX) -- we put the pointer to the array in ebx
   ]
 
 aSTNodeArrayToHASMPreLoop :: ValidState Context -> [ASTNode] -> ValidState Context
