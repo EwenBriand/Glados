@@ -22,11 +22,11 @@ data Options = Options {
 options :: Options
 options = Options {
     binary = def &= args &= typ "SRCFILE",
-    srcRaw = def &= help "The raw source file to execute or compile" &= typFile,
-    outputFile = def &= help "The output file to write" &= typFile,
+    srcRaw = def &= help "The text source file to execute or compile" &= typFile,
+    outputFile = def &= help "The output file to write the compiled binary to" &= typFile,
     disassemble = def &= help "Prints the disassembled binary",
     execute = def &= help "Execute the binary loaded / created"
-} &= summary "Very SAD GladOs Compiler & Interpreter" -- SAD: Simple And Dumb, Splendid And Direct, or maybe just sad ;)
+} &= summary "Very SAD GladOs Compiler & Interpreter V1.0" -- SAD: Simple And Dumb, Splendid And Direct, or maybe just sad ;)
 
 getContextOnOps :: Options -> IO (ValidState Context)
 getContextOnOps ops = do
