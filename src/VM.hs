@@ -1,3 +1,5 @@
+{-# LANGUAGE DeriveGeneric #-}
+
 module VM
   ( Register (..),
     Registers (..),
@@ -76,6 +78,8 @@ module VM
     execSyscall,
     detectLabels,
     parseLabels,
+    loadContext,
+    saveContext,
     callEasyPrint,
     blockInitAllocVarSpace,
   )
@@ -88,6 +92,12 @@ import Data.Maybe (fromMaybe)
 import Lexer
 import ValidState
 
+import Data.Binary (Binary, decodeFile, encodeFile, encode, decode)
+import Data.Binary.Get (getWord32le, getWord64le)
+import Data.Binary.Put (putWord32le, putWord64le)
+import qualified Data.ByteString.Lazy as BS
+import GHC.Generics (Generic)
+
 ---------------------------------------------------------------------------
 -- SYSCALLS
 ---------------------------------------------------------------------------
@@ -97,7 +107,9 @@ import ValidState
 data SyscallCode
   = SCExit
   | SCEasyPrint
-  deriving (Show, Eq, Ord)
+  deriving (Show, Eq, Ord, Generic)
+
+instance Binary SyscallCode
 
 codeFromValidStateInt :: ValidState Int -> SyscallCode
 codeFromValidStateInt (Invalid _) = SCExit
@@ -143,9 +155,12 @@ execSyscallWrapper (Valid ctx) = execSyscall (Valid ctx) (codeFromEAX ctx)
 
 -- | The registers of the VM. Cf assembly registers.
 data Register = EAX | EBX | ECX | EDX | ESI | EDI | EBP | ESP
-  deriving (Eq, Ord, Show)
+  deriving (Eq, Ord, Show, Generic)
 
-newtype Registers = Registers {regs :: Map.Map Register Int} deriving (Show, Eq)
+newtype Registers = Registers {regs :: Map.Map Register Int} deriving (Show, Eq, Generic)
+
+instance Binary Registers
+instance Binary Register
 
 -- | Creates a new empty set of registers.
 newRegisters :: Registers
@@ -223,7 +238,9 @@ regXor (Valid context) register value = Valid context {registers = Registers (Ma
 -- STACK
 -------------------------------------------------------------------------------
 
-newtype Stack = Stack {pile :: [Int]} deriving (Show, Eq)
+newtype Stack = Stack {pile :: [Int]} deriving (Show, Eq, Generic)
+
+instance Binary Stack
 
 -- | Creates a new empty stack.
 newStack :: Stack
@@ -295,7 +312,9 @@ stackGetValueFromIndex (Valid context) index = case pile (stack context) of
 
 -- | The heap of the VM. It holds all the created symbols that can be referenced
 -- by their address, and maps them to their value.
-newtype Heap = Heap {mem :: Map.Map Int Int} deriving (Show, Eq)
+newtype Heap = Heap {mem :: Map.Map Int Int} deriving (Show, Eq, Generic)
+
+instance Binary Heap
 
 -- | Creates a new empty heap.
 newHeap :: Heap
@@ -365,7 +384,9 @@ heapFree (Valid context) address = Valid context {heap = Heap (Map.delete addres
 -- referenced by their name, and maps them to their address in the stack.
 
 -- | variable names with their size
-newtype SymTable = SymTable {symTable :: [(String, VarType)]} deriving (Show, Eq)
+newtype SymTable = SymTable {symTable :: [(String, VarType)]} deriving (Show, Eq, Generic)
+
+instance Binary SymTable
 
 newSymTable :: SymTable
 newSymTable = SymTable []
@@ -442,7 +463,9 @@ truePrintValue c varType param = putStrLn (adaptValueToVarType (fromValidState G
 
 -- | The labels of the VM. It holds all the created labels that refer to an
 -- instruction, and maps them to their address in the instruction pile.
-newtype Labels = Labels {labelMap :: Map.Map String Int} deriving (Show, Eq)
+newtype Labels = Labels {labelMap :: Map.Map String Int} deriving (Show, Eq, Generic)
+
+instance Binary Labels
 
 -- | Creates a new empty label pile.
 newLabels :: Labels
@@ -478,9 +501,13 @@ data Flag
   | CF -- Carry flag
   | PF -- Parity flag
   | AF -- Auxiliary flag
-  deriving (Eq, Ord, Show)
+  deriving (Eq, Ord, Show, Generic)
 
-newtype Flags = Flags {flagMap :: Map.Map Flag Bool} deriving (Show, Eq)
+instance Binary Flag
+
+newtype Flags = Flags {flagMap :: Map.Map Flag Bool} deriving (Show, Eq, Generic)
+
+instance Binary Flags
 
 -- | Creates a new empty set of flags.
 newFlags :: Flags
@@ -505,7 +532,9 @@ data Param
   | Immediate Int
   | Memory Int
   | Symbol String
-  deriving (Eq, Ord, Show)
+  deriving (Eq, Ord, Show, Generic)
+
+instance Binary Param
 
 data Instruction
   = Mov Param Param
@@ -548,7 +577,9 @@ data Instruction
   | Interrupt
   | Label String Int -- name of the label, instruction pointer at the time.
   | Alloc Int
-  deriving (Eq, Ord, Show)
+  deriving (Eq, Ord, Show, Generic)
+
+instance Binary Instruction
 
 -- | Prelude.returns the real value contained after resolving the param.
 -- For exemple if the param is a register, this function will Prelude.return the value
@@ -584,9 +615,13 @@ data Block = Block
     blockContext :: ValidState Context,
     blockParamTypes :: [VarType]
   }
-  deriving (Show, Eq)
+  deriving (Show, Eq, Generic)
 
-newtype BlockMap = BlockMap {blockMap :: Map.Map String Block} deriving (Show, Eq)
+instance Binary Block
+
+newtype BlockMap = BlockMap {blockMap :: Map.Map String Block} deriving (Show, Eq, Generic)
+
+instance Binary BlockMap
 
 newBlockMap :: BlockMap
 newBlockMap = BlockMap Map.empty
@@ -632,7 +667,18 @@ data Context = Context
     cAST :: [ASTNode],
     blocks :: BlockMap
   }
-  deriving (Eq)
+  deriving (Eq, Generic)
+
+instance Binary Context
+
+saveContext :: ValidState Context -> String -> IO ()
+saveContext (Invalid s) _ = putStrLn s
+saveContext (Valid c) filepath = BS.writeFile filepath (encode c)
+
+loadContext :: String -> IO (ValidState Context)
+loadContext filepath = do
+  file <- BS.readFile filepath
+  Prelude.return (Valid (decode file))
 
 showInstructArray :: [Instruction] -> String
 showInstructArray [] = ""

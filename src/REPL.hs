@@ -4,6 +4,9 @@
 -- compiled and executed.
 module REPL
   ( runREPL,
+  readContents,
+  logicLoop,
+  execImpl
   )
 where
 
@@ -51,19 +54,23 @@ showTrace (Valid c) s a = do
 -- Runs an interactive console that allows the user to enter commands,
 -- and redirects these commands to the lexer in order to build and evaluate the
 -- AST.
+-- ! DEPRECATED, USE EXECIMPL INSTEAD
 runREPL :: ValidState Context -> IO ()
 runREPL (Invalid _) = runREPL (Valid newContext)
 runREPL (Valid c) = do
     putStr "_> "
     hFlush stdout
     input <- readContents
-    -- print input
     if input == "exit"
         then Prelude.return ()
         else do
             case strToHASM (Valid c) input of
                 Invalid s -> putStrLn s
                 Valid ctx -> logicLoop (execInstructionsIO (detectLabels (Valid ctx)))
+
+execImpl :: ValidState Context -> IO ()
+execImpl (Invalid s) = putStrLn s
+execImpl (Valid c) = logicLoop (execInstructionsIO (detectLabels (Valid c)))
 
 logicLoop :: (ValidState Context, IO()) -> IO()
 logicLoop (Invalid s, io) = io >> putStrLn s

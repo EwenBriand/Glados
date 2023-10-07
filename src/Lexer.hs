@@ -1,4 +1,6 @@
 {-# OPTIONS_GHC -Wno-partial-fields #-}
+{-# LANGUAGE DeriveGeneric #-}
+
 
 module Lexer
   ( -- Expr(..),
@@ -20,17 +22,24 @@ where
 import Tokenizer
 import ValidState
 
+import Data.Binary
+import GHC.Generics (Generic)
+
 data VarType
   = GUndefinedType
   | GInt -- 64 bit integer
   | GBool -- True or False, #t or #f
   | GVoid -- No Prelude.return value
-  deriving (Show, Eq)
+  deriving (Show, Eq, Generic)
+
+instance Binary VarType
 
 data TokorNode
   = T TokenInfo
   | A ASTNode
-  deriving (Eq)
+  deriving (Eq, Generic)
+
+instance Binary TokorNode
 
 instance Show TokorNode where
   show (T t) = show t
@@ -60,7 +69,9 @@ data ASTNode
   | ASTNodeLambda {astndName :: ASTNode, astndParams :: ValidState ASTNode, astndBody :: [ASTNode]}
   | ASTNodeFunctionCall {astnfName :: String, astfnParams :: [ASTNode]}
   | ASTNodeBreak {astneChildren :: [ASTNode]}
-  deriving (Eq)
+  deriving (Eq, Generic)
+
+instance Binary ASTNode
 
 instance Show ASTNode where
   show (ASTNodeError t) = "(Error: " ++ show t ++ ")"

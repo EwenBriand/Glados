@@ -1,3 +1,5 @@
+{-# LANGUAGE DeriveGeneric #-}
+
 module ValidState
   ( ValidState (..),
     fromValidState,
@@ -6,6 +8,9 @@ module ValidState
   )
 where
 
+import GHC.Generics (Generic)
+import Data.Binary
+
 -- ValidState is a monade that behaves exaclty like Maybe,
 -- but it also has a function that allows to add an error message to the monade.
 -- it is used to propagate errors in the parsing of the AST or its evaluation.
@@ -13,7 +18,9 @@ where
 data ValidState a
   = Valid a
   | Invalid String
-  deriving (Show, Ord)
+  deriving (Show, Ord, Generic)
+
+instance Binary a => Binary (ValidState a)
 
 return :: a -> ValidState a
 return = Valid

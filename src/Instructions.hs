@@ -168,7 +168,7 @@ execInstructionsIO context =
     c =
       if fromValidState (-1) (ipGet context) + 1 > nbInstructions context
         then -- Line done for debugging, uncomment next line and comment this one for final version
-          (Invalid "", print context >> print (fromValidState (-1) (getTrueValueFromParam context (Reg EAX))))
+          (Invalid "", print (fromValidState (-1) (getTrueValueFromParam context (Reg EAX))))
         else -- then (Invalid "", print (fromValidState (-1) (getTrueValueFromParam context (Reg EAX))))
         -- then (Invalid "End of program", putStrLn ("Returning accessing at pointer " ++ show (ipGet  context)))
           evalOneInstructionIO (fromValidState newContext context) (getInsIndex context (fromValidState (-1) (ipGet context)))

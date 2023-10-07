@@ -1,3 +1,5 @@
+{-# LANGUAGE DeriveGeneric #-}
+
 module Tokenizer
   ( Token (..),
     tokenize,
@@ -8,6 +10,8 @@ module Tokenizer
 where
 
 import Data.Char (isAlpha, isDigit)
+import GHC.Generics (Generic)
+import Data.Binary
 
 -- | A token is a representation of a word in the language.
 -- For example, "define" is a token, "123" is a token, etc.
@@ -54,9 +58,13 @@ data Token
   | TokenSymPrint -- The "print" keyword
   | TokOpenBrac -- The open bracket character
   | TokCloseBrac -- The close bracket character
-  deriving (Eq, Show)
+  deriving (Eq, Show, Generic)
 
-data TokenInfo = TokenInfo {token :: Token, value :: String} deriving (Eq)
+instance Binary Token
+
+data TokenInfo = TokenInfo {token :: Token, value :: String} deriving (Eq, Generic)
+
+instance Binary TokenInfo
 
 instance Show TokenInfo where
   show (TokenInfo _ v) = v
