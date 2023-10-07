@@ -406,8 +406,8 @@ adaptValueToVarType _ (Invalid s) = s
 adaptValueToVarType tp (Valid val) = case tp of
   GInt -> show val
   GBool -> if val == 0 then "false" else "true"
-  GVoid -> show ""
-  GUndefinedType -> show "Undefined"
+  GVoid -> ""
+  GUndefinedType -> "Undefined"
 
 -- Recieves the Context, list of symbols and the symbol you are looking for and prints it
 sysPrintValue :: ValidState Context -> ValidState VarType -> String -> IO ()
