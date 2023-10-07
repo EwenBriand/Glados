@@ -97,9 +97,6 @@ expendParamList ((ASTNodeParamList l) : xs) = expendParamList l ++ expendParamLi
 expendParamList (x : xs) = x : expendParamList xs
 expendParamList [] = []
 
-createList :: [ASTNode] -> ASTNode
-createList l = ASTNodeList l (length l)
-
 isThisReallyAnArrayOrIsItATrap :: ASTNode -> ASTNode
 isThisReallyAnArrayOrIsItATrap (ASTNodeArray arr) =
   if isSymbolAndParamArray arr
