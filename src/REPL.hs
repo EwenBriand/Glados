@@ -14,6 +14,7 @@ import Lexer
 import System.IO
 import VM
 import ValidState
+import System.Exit
 
 restartREPL :: ValidState Context -> IO ()
 restartREPL (Invalid s) = runREPL (Invalid s)
@@ -62,7 +63,7 @@ runREPL (Valid c) = do
         then Prelude.return ()
         else do
             case strToHASM (Valid c) input of
-                Invalid s -> putStrLn s
+                Invalid s -> putStrLn s >> exitWith (ExitFailure 84)
                 Valid ctx -> logicLoop (execInstructionsIO (detectLabels (Valid ctx)))
 
 logicLoop :: (ValidState Context, IO()) -> IO()
