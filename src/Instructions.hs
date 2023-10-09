@@ -112,27 +112,8 @@ instructionTableIO ctx (MovStackAddr p1 p2) = (movStackAddrImpl ctx p1 p2, putSt
 instructionTableIO ctx (MovFromStackAddr p1 p2) = (movFromStackAddrImpl ctx p1 p2, putStr "")
 instructionTableIO ctx (Call str) = callImpl ctx str
 instructionTableIO ctx (Alloc int) = (allocHeap ctx int, putStr "")
--- instructionTableIO _ _ = (Invalid "Instruction is not recognized", putStrLn "Instruction is not recognized")
-
-
--- evalOneInstructionIO ctx ins = (Valid ctx, putStrLn ("AJAJJDFSAGKJSDGKLAJSFDKLAJS" ++ show ins))
-
--- execInstructionsIO :: ValidState Context -> (ValidState Context, IO ())
--- execInstructionsIO context =
---   case c of
---     (Invalid s, io) -> (Invalid s, io)
---     (ct, io) -> if fromValidState (-1) (ipGet ct) + 1 > nbInstructions ct then (ct, io) else (ipInc ct, io)
---   where
---     c =
---       if fromValidState (-1) (ipGet context) + 1 > nbInstructions context
---         then -- Line done for debugging, uncomment next line and comment this one for final version
---           (Invalid "", print (fromValidState (-1) (getTrueValueFromParam context (Reg EAX))))
---         else -- then (Invalid "", print (fromValidState (-1) (getTrueValueFromParam context (Reg EAX))))
---         -- then (Invalid "End of program", putStrLn ("Returning accessing at pointer " ++ show (ipGet  context)))
---           evalOneInstructionIO (fromValidState newContext context) (getInsIndex context (fromValidState (-1) (ipGet context)))
 
 evalOneInstructionIO :: Context -> Instruction -> (ValidState Context, IO())
--- evalOneInstructionIO ctx instr = (instructionTable (Valid ctx) instr, putStr "")
 evalOneInstructionIO ctx instr = instructionTableIO (Valid ctx) instr
 
 
@@ -147,31 +128,9 @@ execInstructionsIO (context, prevIO) =
         then (context, prevIO)
         else evalOneInstructionIO (fromValidState newContext context) (getInsIndex context (fromValidState (-1) (ipGet context)))
 
--- else (context, putStrLn "Reaches")
-
 ---
 --- Context Logic
 ---
-
--- executeBlock :: ValidState Context -> Block -> ValidState Context
--- executeBlock (Invalid s) _ = Invalid s
--- executeBlock (Valid c) block = do
---   let b = blkSetupCtx c block
---   case execInstructionsIO (detectLabels (blockContext b)) of
---     (Invalid s, _) -> Invalid ("While executing block " ++ blockName b ++ ": " ++ s)
---     (Valid executed, _) -> case getTrueValueFromParam (Valid executed) (Reg EAX) of
---       Invalid s -> Invalid ("While executing block " ++ blockName b ++ ": " ++ s)
---       Valid v -> regSet (Valid c) EAX v
-
--- executeBlock :: ValidState Context -> Block -> (ValidState Context, IO()) -- no io, rec ok
--- executeBlock (Invalid s) _ = (Invalid s, putStr "")
--- executeBlock (Valid c) block = do
---   let b = blkSetupCtx c block
---   case execInstructions (detectLabels (blockContext b)) of
---     Invalid s -> (Invalid ("While executing block " ++ blockName b ++ ": " ++ s), putStr "")
---     Valid executed -> case getTrueValueFromParam (Valid executed) (Reg EAX) of
---       Invalid s -> (Invalid ("While executing block " ++ blockName b ++ ": " ++ s), putStr "")
---       Valid v -> (regSet (Valid c) EAX v, putStr "")
 
 executeBlock :: ValidState Context -> Block -> (ValidState Context, IO())
 executeBlock (Invalid s) _ = (Invalid s, putStr "")
@@ -182,16 +141,6 @@ executeBlock (Valid c) block = do
     (Valid executed, io) -> case getTrueValueFromParam (Valid executed) (Reg EAX) of
       Invalid s -> (Invalid ("While executing block " ++ blockName b ++ ": " ++ s), putStr "invalid in block")
       Valid v -> (regSet (Valid c) EAX v, io)
-
--- executeBlock :: ValidState Context -> Block -> (ValidState Context, IO())
--- executeBlock (Invalid s) _ = (Invalid s, putStr "")
--- executeBlock (Valid c) block = do
---   let b = blkSetupCtx c block
---   case execInstructionsIO (detectLabels (blockContext b)) of
---     (Invalid s, _) -> (Invalid ("While executing block " ++ blockName b ++ ": " ++ s), putStr "")
---     (Valid executed, _) -> case getTrueValueFromParam (Valid executed) (Reg EAX) of
---       Invalid s -> (Invalid ("While executing block " ++ blockName b ++ ": " ++ s), putStr "")
---       Valid v -> (regSet (Valid c) EAX v, putStr "")
 
 
 callImpl :: ValidState Context -> String -> (ValidState Context, IO ())

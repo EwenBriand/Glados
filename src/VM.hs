@@ -447,16 +447,6 @@ truePrintValue c varType param = putStrLn (adaptValueToVarType (fromValidState G
   where
     trueType = intToType (getTrueValueFromParam c varType)
 
--- truePrintValue (Valid c) varType param = case param of
---     Reg register -> case regGet (Valid c) register of
---         (Invalid s) -> putStrLn s
---         Valid val -> putStrLn ("Value in reg is: " ++ show val)
---     Immediate value -> putStrLn ("Value integer is: " ++ show value)
---     Memory address -> putStrLn ("Value in memory is: " ++ show address)
---     Symbol name -> case symGetFull (Valid c) name of
---         (Invalid s) -> putStrLn (s)
---         Valid (name, tp) -> sysPrintValue (Valid c) (intToType (getTrueValueFromParam (Valid c) varType)) name
-
 --------------------------------------------------------------------------------
 -- LABELS
 --------------------------------------------------------------------------------
