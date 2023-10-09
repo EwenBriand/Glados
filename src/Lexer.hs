@@ -87,6 +87,7 @@ instance Show ASTNode where
   show (ASTNodeLambda n p b) = "(lambda: \n\t(name) " ++ show n ++ "\n\t(params) " ++ show p ++ "\n\t(body) {" ++ show b ++ "})\n"
   show (ASTNodeBreak l) = "(break: " ++ show l ++ ")"
   show (ASTNodeEq l) = "(eq: " ++ show l ++ ")"
+  show (ASTNodeInferior l) = "(inferior: " ++ show l ++ ")"
   show _ = "(unknown node)"
 
 isSymbolAndParamArray :: [ASTNode] -> Bool
