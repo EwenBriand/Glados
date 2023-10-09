@@ -673,7 +673,7 @@ instance Binary Context
 
 saveContext :: ValidState Context -> String -> IO ()
 saveContext (Invalid s) _ = putStrLn s
-saveContext (Valid c) filepath = BS.writeFile filepath (encode c)
+saveContext (Valid c) filepath = BS.writeFile filepath (encode (c {cAST = []}))
 
 loadContext :: String -> IO (ValidState Context)
 loadContext filepath = do

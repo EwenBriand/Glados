@@ -10,6 +10,8 @@ import System.Console.CmdArgs
 import EvaluateAST (strToHASM)
 import System.IO
 import REPL
+import qualified Data.Map as Map
+import Control.Monad (mapM_)
 
 data Options = Options {
     binary :: String,
@@ -34,25 +36,47 @@ getContextOnOps ops = do
         loadContext (binary ops)
     else if srcRaw ops /= "" then do
             src <- readFile (srcRaw ops)
-            Prelude.return (strToHASM (Valid newContext) src)
+            Prelude.return (detectLabels (strToHASM (Valid newContext) src))
         else do
             putStrLn "Awaiting input: (Ctrl-d to end input)\n"
             hFlush stdout
-            strToHASM (Valid newContext) <$> readContents
+            c <- strToHASM (Valid newContext) <$> readContents
+            Prelude.return (detectLabels c)
+
+printBlocks :: Context -> BlockMap -> IO ()
+printBlocks c bm = if Map.null (blockMap bm) then
+    putStr ""
+    else do
+        mapM_ (\(k, v) -> do
+            putStrLn ("\n" ++ k ++ ":")
+            showDisassembly (blockContext v)) (Map.toList (blockMap bm))
+
+printInstructions :: [Instruction ] -> IO ()
+printInstructions [] = putStr ""
+printInstructions (i:is) = do
+    print i
+    printInstructions is
+
+showDisassembly :: ValidState Context -> IO ()
+showDisassembly (Invalid s) = putStrLn ("Context invalidated: " ++ s)
+showDisassembly (Valid c) = do
+    -- print (instructions c)
+    printInstructions (instructions c)
+    printBlocks c (blocks c)
 
 execOnOps :: IO (ValidState Context) -> Options -> IO ()
 execOnOps ctx ops = do
     c <- ctx
     if disassemble ops then
-        print c
+        showDisassembly c
     else
-        print ""
+        putStr ""
     if execute ops then
         execImpl c
-    else print ""
+    else putStr ""
     if outputFile ops /= "" then
         saveContext c (outputFile ops)
-    else print ""
+    else putStr ""
 
 
 switchOnOptions :: Options -> IO ()

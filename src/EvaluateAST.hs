@@ -100,15 +100,21 @@ evaluateBlockOneInstr (Valid c) blk _ body = case instructionFromAST body (block
   Invalid s -> Invalid s
   Valid c' -> blockReplace (Valid c) (Valid blk {blockContext = Valid c'})
 
+copyParentBlocks :: Context -> Block -> Block
+copyParentBlocks ctx blk = case blockContext blk of
+  Invalid _ -> blk
+  Valid ctx' -> blk {blockContext = Valid ctx' {blocks = blocks ctx}}
+
 putDefineInstruction :: ValidState Context -> ASTNode -> ValidState ASTNode -> [ASTNode] -> ValidState Context
 putDefineInstruction (Invalid s) _ _ _ = Invalid ("While defining function: \n\t" ++ s)
+putDefineInstruction (Valid c) name params [ASTNodeArray body] = putDefineInstruction (Valid c) name params body
 putDefineInstruction (Valid c) name params body = case blockAdd (Valid c) (astnsName name) of
   Invalid s -> Invalid s
   Valid ctx -> case blockGet (Valid ctx) (astnsName name) of
     Invalid s -> Invalid s
     Valid blk -> case setupBlockParams blk params of
       Invalid s -> Invalid ("While parsing the parameters of the function: \n" ++ s)
-      Valid blk' -> evaluateBlock (Valid ctx) blk' params body
+      Valid blk' -> evaluateBlock (Valid ctx) (copyParentBlocks ctx blk') params body
 
 -- 4 is the syscall for out in asm
 putPrintInstruction :: ValidState Context -> ASTNode -> ValidState Context
