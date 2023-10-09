@@ -23,7 +23,7 @@ module Instructions
     nbInstructions,
     evalOneInstruction,
     movStackAddrImpl,
-    -- evalOneInstructionIO,
+    evalOneInstructionIO,
     execInstructionsIO,
     movFromStackAddrImpl,
     blkSetupCtx,
