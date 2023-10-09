@@ -17,6 +17,7 @@ import Lexer
 import System.IO
 import VM
 import ValidState
+import System.Exit
 
 restartREPL :: ValidState Context -> IO ()
 restartREPL (Invalid s) = runREPL (Invalid s)
@@ -71,6 +72,7 @@ runREPL (Valid c) = do
 execImpl :: ValidState Context -> IO ()
 execImpl (Invalid s) = putStrLn s
 execImpl (Valid c) = logicLoop (execInstructionsIO (Valid c, putStr ""))
+
 
 logicLoop :: (ValidState Context, IO()) -> IO()
 logicLoop (Invalid s, io) = io >> putStrLn s

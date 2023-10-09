@@ -182,6 +182,7 @@ testStrToAST = TestList [
     "build str to ast sum" ~: strToAST "(+ 123 678)" ~?= ASTNodeSum [ASTNodeInteger 123, ASTNodeInteger 678],
     -- (+ (+ 123) 2)
     "build str to ast invalid" ~: strToAST "(+ (+ 123) 2)" ~?= ASTNodeError (TokenInfo TokError "[(,+,(,+,(int: 123),),(int: 2),)]"),
+    -- Define keyword taking everything as array (Needs to be fix)
     -- (define foo 123)
     "declare var foo with value 123" ~: strToAST "(mutable foo 123)" ~?= ASTNodeMutable (ASTNodeSymbol "foo") (ASTNodeArray [(ASTNodeInteger 123)]),
     "declare function foo with value (+ 1 2)" ~: strToAST "(define foo (+ 1 2))" ~?= ASTNodeDefine (ASTNodeSymbol "foo") (Invalid ("foo" ++ " does not take any parameters")) [(ASTNodeSum [ASTNodeInteger 1, ASTNodeInteger 2])],
