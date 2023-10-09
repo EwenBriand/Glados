@@ -35,12 +35,15 @@ instructionFromAST (ASTNodeDiv x) ctx = putDivInstruction x ctx
 instructionFromAST (ASTNodeMod x) ctx = putModInstruction x ctx
 instructionFromAST (ASTNodeEq x) ctx = putEqInstruction x ctx
 instructionFromAST (ASTNodeInferior x) ctx = putInferiorInstruction x ctx
+instructionFromAST (ASTNodeInferiorEq x) ctx = putInferiorEqInstruction x ctx
+instructionFromAST (ASTNodeSuperior x) ctx = putSuperiorInstruction x ctx
+instructionFromAST (ASTNodeSuperiorEq x) ctx = putSuperiorEqInstruction x ctx
 instructionFromAST (ASTNodeMutable name x) ctx = putMutableInstruction name x ctx
 instructionFromAST (ASTNodeParamList _) ctx = ctx -- not an actual instruction, does (Invalid "Error")
 instructionFromAST (ASTNodeArray n) ctx = astNodeArrayToHASM ctx (ASTNodeArray n)
 instructionFromAST (ASTNodeInstructionSequence n) ctx = putInstructionSequence n ctx
 instructionFromAST (ASTNodePrint n) ctx = putPrintInstruction ctx n
-instructionFromAST (ASTNodeBoolean b) ctx = putIntegerInstruction (if b then 1 else 0) ctx
+instructionFromAST (ASTNodeBoolean b) ctx = putBoolInstruction (if b then 1 else 0) ctx
 instructionFromAST (ASTNodeFunctionCall name params) ctx = putFunctionCall ctx name params
 instructionFromAST (ASTNodeLambda name params body) ctx = putDefineInstruction ctx name params body
 instructionFromAST (ASTNodeBreak [ASTNodeLambda _ param body, ASTNodeFunctionCall _ params]) ctx = instructionFromAST (ASTNodeBreak [(ASTNodeFunctionCall u_name params)]) (instructionFromAST (ASTNodeLambda (ASTNodeSymbol u_name) param body) (Valid ctx'))
@@ -131,6 +134,10 @@ putIntegerInstruction :: Int -> ValidState Context -> ValidState Context
 putIntegerInstruction _ (Invalid s) = Invalid s
 putIntegerInstruction i (Valid ctx) = Valid ctx {instructions = instructions ctx ++ [Xor (Reg EAX) (Reg EAX), Mov (Reg EAX) (Immediate i)]}
 
+putBoolInstruction :: Int -> ValidState Context -> ValidState Context
+putBoolInstruction _ (Invalid s) = Invalid s
+putBoolInstruction i (Valid ctx) = Valid ctx {instructions = instructions ctx ++ [Xor (Reg EAX) (Reg EAX), Mov (Reg EAX) (Immediate i), Cmp (Reg EAX) (Immediate 1)]}
+
 putSumInstruction :: [ASTNode] -> ValidState Context -> ValidState Context
 putSumInstruction _ (Invalid s) = Invalid s
 putSumInstruction [x, y] ctx = do
@@ -155,6 +162,33 @@ putInferiorInstruction [x, y] (Valid ctx) = do
   ctx' <- instructionFromAST x (Valid ctx)
   ctx'' <- instructionFromAST y (Valid ctx' {instructions = instructions ctx' ++ [Push (Reg EAX)]})
   Prelude.return (ctx'' {instructions = instructions ctx'' ++ [Pop (Reg EDI), Cmp (Reg EDI) (Reg EAX), Jl (show uuid ++ "inf"), Mov (Reg EAX) (Immediate 0), Jmp (show uuid ++ "end"), Label (show uuid ++ "inf") (length (instructions ctx'') + 1), Mov (Reg EAX) (Immediate 1), Label (show uuid ++ "end") (length (instructions ctx'') + 1)]})
+  where
+    (uuid, _) = nextUUID ctx
+
+putInferiorEqInstruction :: [ASTNode] -> ValidState Context -> ValidState Context
+putInferiorEqInstruction _ (Invalid s) = Invalid s
+putInferiorEqInstruction [x, y] (Valid ctx) = do
+  ctx' <- instructionFromAST x (Valid ctx)
+  ctx'' <- instructionFromAST y (Valid ctx' {instructions = instructions ctx' ++ [Push (Reg EAX)]})
+  Prelude.return (ctx'' {instructions = instructions ctx'' ++ [Pop (Reg EDI), Cmp (Reg EDI) (Reg EAX), Jle (show uuid ++ "inf"), Mov (Reg EAX) (Immediate 0), Jmp (show uuid ++ "end"), Label (show uuid ++ "inf") (length (instructions ctx'') + 1), Mov (Reg EAX) (Immediate 1), Label (show uuid ++ "end") (length (instructions ctx'') + 1)]})
+  where
+    (uuid, _) = nextUUID ctx
+
+putSuperiorEqInstruction :: [ASTNode] -> ValidState Context -> ValidState Context
+putSuperiorEqInstruction _ (Invalid s) = Invalid s
+putSuperiorEqInstruction [x, y] (Valid ctx) = do
+  ctx' <- instructionFromAST x (Valid ctx)
+  ctx'' <- instructionFromAST y (Valid ctx' {instructions = instructions ctx' ++ [Push (Reg EAX)]})
+  Prelude.return (ctx'' {instructions = instructions ctx'' ++ [Pop (Reg EDI), Cmp (Reg EDI) (Reg EAX), Jge (show uuid ++ "inf"), Mov (Reg EAX) (Immediate 0), Jmp (show uuid ++ "end"), Label (show uuid ++ "inf") (length (instructions ctx'') + 1), Mov (Reg EAX) (Immediate 1), Label (show uuid ++ "end") (length (instructions ctx'') + 1)]})
+  where
+    (uuid, _) = nextUUID ctx
+
+putSuperiorInstruction :: [ASTNode] -> ValidState Context -> ValidState Context
+putSuperiorInstruction _ (Invalid s) = Invalid s
+putSuperiorInstruction [x, y] (Valid ctx) = do
+  ctx' <- instructionFromAST x (Valid ctx)
+  ctx'' <- instructionFromAST y (Valid ctx' {instructions = instructions ctx' ++ [Push (Reg EAX)]})
+  Prelude.return (ctx'' {instructions = instructions ctx'' ++ [Pop (Reg EDI), Cmp (Reg EDI) (Reg EAX), Jg (show uuid ++ "inf"), Mov (Reg EAX) (Immediate 0), Jmp (show uuid ++ "end"), Label (show uuid ++ "inf") (length (instructions ctx'') + 1), Mov (Reg EAX) (Immediate 1), Label (show uuid ++ "end") (length (instructions ctx'') + 1)]})
   where
     (uuid, _) = nextUUID ctx
 
@@ -276,19 +310,7 @@ putIfInstruction (Invalid s) _ = Invalid s
 putIfInstruction (Valid c) (ASTNodeIf cond thenBlock elseBlock) =
   let (uuid, c') = nextUUID c
    in do
-        let c1 = ifPutCondition (Valid c') cond
-        let c2 = case c1 of
-              (Invalid s) -> Invalid s
-              Valid c3 ->
-                Valid
-                  c3
-                    { instructions =
-                        instructions c3
-                          ++ [ Cmp (Reg EAX) (Immediate 0),
-                               Je (show uuid ++ "else"),
-                               Label (show uuid ++ "then") (length (instructions c3) + 3)
-                             ]
-                    }
+        let c2 = ifPutCondition (Valid c') cond uuid
         let c3 = putInstructionSequence thenBlock c2
         let c4 = case c3 of
               (Invalid s) -> Invalid s
@@ -316,9 +338,21 @@ putIfInstruction (Valid c) (ASTNodeIf cond thenBlock elseBlock) =
                 }
 putIfInstruction _ _ = Invalid "Invalid arguments to if clause"
 
-ifPutCondition :: ValidState Context -> ASTNode -> ValidState Context
-ifPutCondition (Invalid s) _ = Invalid s
-ifPutCondition (Valid c) cond = instructionFromAST cond (Valid c)
+ifPutCondition :: ValidState Context -> ASTNode -> Int -> ValidState Context
+ifPutCondition (Invalid s) _ _ = Invalid s
+ifPutCondition c cond uuid = do
+  case instructionFromAST cond c of
+    (Invalid s) -> Invalid s
+    Valid c' ->
+      Valid
+        c'
+          { instructions =
+              instructions c'
+                ++ [ Cmp (Reg EAX) (Immediate 1),
+                     Jne (show uuid ++ "else"),
+                     Label (show uuid ++ "then") (length (instructions c') + 3)
+                   ]
+          }
 
 -------------------------------------------------------------------------------
 -- SOLVING CYCLE IMPORT

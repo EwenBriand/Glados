@@ -26,6 +26,10 @@ module Instructions
     evalOneInstructionIO,
     execInstructionsIO,
     movFromStackAddrImpl,
+    blkSetupCtx,
+    setupfunctionStack,
+    instructionTableIO,
+    allocHeap,
   )
 where
 
@@ -112,44 +116,6 @@ blkSetupCtx ctx (Block name bc paramsTypes) = Block name c' paramsTypes
 instructionTableIO :: ValidState Context -> Instruction -> (ValidState Context, IO ())
 instructionTableIO (Invalid s) _ = (Invalid s, putStrLn s)
 instructionTableIO ctx Interrupt = execSyscallWrapper ctx
-instructionTableIO ctx (Mov r1 r2) = (movImpl ctx r1 r2, putStr "")
-instructionTableIO ctx (Cmp r1 r2) = (allCmp ctx r1 r2, putStr "")
-instructionTableIO ctx (Test r1 r2) = (allTest ctx r1 r2, putStr "")
-instructionTableIO ctx (Jmp r1) = (myJmp ctx r1, putStr "")
-instructionTableIO ctx (Je r1) = (myJe ctx r1, putStr "")
-instructionTableIO ctx (Jne r1) = (myJne ctx r1, putStr "")
-instructionTableIO ctx (Js r1) = (myJs ctx r1, putStr "")
-instructionTableIO ctx (Jns r1) = (myJns ctx r1, putStr "")
-instructionTableIO ctx (Jg r1) = (myJg ctx r1, putStr "")
-instructionTableIO ctx (Jge r1) = (myJge ctx r1, putStr "")
-instructionTableIO ctx (Jl r1) = (myJl ctx r1, putStr "")
-instructionTableIO ctx (Jle r1) = (myJle ctx r1, putStr "")
-instructionTableIO ctx (Ja r1) = (myJa ctx r1, putStr "")
-instructionTableIO ctx (Jae r1) = (myJae ctx r1, putStr "")
-instructionTableIO ctx (Jb r1) = (myJb ctx r1, putStr "")
-instructionTableIO ctx (Jbe r1) = (myJbe ctx r1, putStr "")
-instructionTableIO ctx (Inc r1) = (myInc ctx r1 (regGet ctx r1), putStr "")
-instructionTableIO ctx (Dec r1) = (myDec ctx r1 (regGet ctx r1), putStr "")
-instructionTableIO ctx (Neg r1) = (myNeg ctx r1 (regGet ctx r1), putStr "")
-instructionTableIO ctx (Add r1 r2) = (allAdd ctx r1 r2, putStr "")
-instructionTableIO ctx (Sub r1 r2) = (subImpl ctx r1 r2, putStr "")
-instructionTableIO ctx (Mult r1 r2) = (multImpl ctx r1 r2, putStr "")
-instructionTableIO ctx (Div r1) = (divImpl ctx r1, putStr "")
-instructionTableIO ctx (Push r1) = (pushImpl ctx r1, putStr "")
-instructionTableIO ctx (Pop r1) = (popImpl ctx r1, putStr "")
-instructionTableIO ctx (Xor r1 r2) = (xorImpl ctx r1 r2, putStr "")
-instructionTableIO ctx (And r1 r2) = (andImpl ctx r1 r2, putStr "")
-instructionTableIO ctx (Or r1 r2) = (orImpl ctx r1 r2, putStr "")
-instructionTableIO ctx (Not r1) = (notImpl ctx r1, putStr "")
-instructionTableIO ctx (MovPtr p1 p2) = (movPtrImpl ctx p1 p2, putStr "")
-instructionTableIO ctx Nop = (ctx, putStr "")
-instructionTableIO ctx (IMul _ _) = (ctx, putStr "")
-instructionTableIO ctx Enter = (enterImpl (fromValidState newContext ctx), putStr "")
-instructionTableIO ctx Leave = (leaveImpl ctx, putStr "")
-instructionTableIO ctx (Label _ _) = (ctx, putStr "") -- labels are preprocessed before executing
-instructionTableIO ctx (MovStackAddr p1 p2) = (movStackAddrImpl ctx p1 p2, putStr "")
-instructionTableIO ctx (MovFromStackAddr p1 p2) = (movFromStackAddrImpl ctx p1 p2, putStr "")
-instructionTableIO ctx (Call str) = (callImpl ctx str, putStr "")
 instructionTableIO ctx other = (instructionTable ctx other, putStr "")
 instructionTableIO ctx _ = (ctx, putStrLn "Instruction is not recognize")
 instructionTableIO _ _ = (Invalid "Instruction is not recognize", putStrLn "Instruction is not recognize")
