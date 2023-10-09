@@ -1,5 +1,5 @@
-module TestInstructions (
-    testMovImpl,
+module TestInstructions
+  ( testMovImpl,
     testMov,
     testAddImpl,
     testAdd,
@@ -56,104 +56,119 @@ module TestInstructions (
     testPushInstr,
     testIf,
     testPutDefineInstruction,
-    testInstructionTable) where
+    testInstructionTable,
+    testAllocHeap,
+    testEvalOneInstructionIO,
+    testInstructionTableIO,
+    testMyTest,
+    testAllTest,
+    testMyJle,
+    testMyJa,
+    testMyJae,
+    testMyJb,
+    testMyJbe,
+  )
+where
 
-import Test.HUnit
+import Data.Bits
+import qualified Data.IntMap as Map
+import EvaluateAST
 import Instructions
+import Lexer
+  ( ASTNode (ASTNodeBoolean, ASTNodeIf, ASTNodeInteger),
+    strToAST,
+  )
+import Test.HUnit
 import VM
 import ValidState
-import Data.Bits
-import EvaluateAST
-import Lexer
-
 
 testMovImpl :: Bool
 testMovImpl =
-    regGet context2 EBX == Valid 42
-    where
-        -- context2 = regSet (Valid newContext)
-        context2 = instructionTable context ( (Mov (Reg EBX) (Reg EAX)))
-        context = instructionTable (Valid newContext) ( (Mov (Reg EAX) (Immediate 42)))
+  regGet context2 EBX == Valid 42
+  where
+    -- context2 = regSet (Valid newContext)
+    context2 = instructionTable context (Mov (Reg EBX) (Reg EAX))
+    context = instructionTable (Valid newContext) (Mov (Reg EAX) (Immediate 42))
 
 testMov :: Test
 testMov = TestCase (assertBool "mov" testMovImpl)
 
 testAddImpl :: Bool
 testAddImpl =
-    regGet context3 EBX == Valid 43
-    where
-        -- context2 = regSet (Valid newContext)
-        context3 = instructionTable context2 ( (Add EBX (Reg EAX)))
-        context2 = instructionTable context1 ( (Add EBX (Immediate 1)))
-        context1 = instructionTable context ( (Mov (Reg EBX) (Immediate 0)))
-        context = instructionTable (Valid newContext) ( (Mov (Reg EAX) (Immediate 42)))
+  regGet context3 EBX == Valid 43
+  where
+    -- context2 = regSet (Valid newContext)
+    context3 = instructionTable context2 (Add EBX (Reg EAX))
+    context2 = instructionTable context1 (Add EBX (Immediate 1))
+    context1 = instructionTable context (Mov (Reg EBX) (Immediate 0))
+    context = instructionTable (Valid newContext) (Mov (Reg EAX) (Immediate 42))
 
 testAdd :: Test
 testAdd = TestCase (assertBool "add" testAddImpl)
 
 testCmpImpl1 :: Bool
 testCmpImpl1 =
-    if (flagGet c ZF == True) then True else False
-    where
-        c = instructionTable context1 ( (Cmp (Reg EBX) (Reg EAX)))
-        context1 = instructionTable context ( (Mov (Reg EBX) (Immediate 42)))
-        context = instructionTable (Valid newContext) ( (Mov (Reg EAX) (Immediate 42)))
+  flagGet c ZF
+  where
+    c = instructionTable context1 (Cmp (Reg EBX) (Reg EAX))
+    context1 = instructionTable context (Mov (Reg EBX) (Immediate 42))
+    context = instructionTable (Valid newContext) (Mov (Reg EAX) (Immediate 42))
 
 testCmpImpl2 :: Bool
 testCmpImpl2 =
-    if (flagGet c ZF == True) then True else False
-    where
-        c = instructionTable context ( (Cmp (Reg EAX) (Immediate 42)))
-        context = instructionTable (Valid newContext) ( (Mov (Reg EAX) (Immediate 42)))
+  flagGet c ZF
+  where
+    c = instructionTable context (Cmp (Reg EAX) (Immediate 42))
+    context = instructionTable (Valid newContext) (Mov (Reg EAX) (Immediate 42))
 
 testCmpImpl3 :: Bool
 testCmpImpl3 =
-    if (flagGet c ZF == False) then True else False
-    where
-        c = instructionTable context ( (Cmp (Reg EAX) (Immediate 43)))
-        context = instructionTable (Valid newContext) ( (Mov (Reg EAX) (Immediate 42)))
+  not (flagGet c ZF)
+  where
+    c = instructionTable context (Cmp (Reg EAX) (Immediate 43))
+    context = instructionTable (Valid newContext) (Mov (Reg EAX) (Immediate 42))
 
 testCmpImpl4 :: Bool
 testCmpImpl4 =
-    if (flagGet c SF == True) then True else False
-    where
-        c = instructionTable context ( (Cmp (Reg EAX) (Immediate 43)))
-        context = instructionTable (Valid newContext) ( (Mov (Reg EAX) (Immediate 42)))
+  flagGet c SF
+  where
+    c = instructionTable context (Cmp (Reg EAX) (Immediate 43))
+    context = instructionTable (Valid newContext) (Mov (Reg EAX) (Immediate 42))
 
 testCmpImpl5 :: Bool
 testCmpImpl5 =
-    if (flagGet c SF == False) then True else False
-    where
-        c = instructionTable context ( (Cmp (Reg EAX) (Immediate 41)))
-        context = instructionTable (Valid newContext) ( (Mov (Reg EAX) (Immediate 42)))
+  not (flagGet c SF)
+  where
+    c = instructionTable context (Cmp (Reg EAX) (Immediate 41))
+    context = instructionTable (Valid newContext) (Mov (Reg EAX) (Immediate 42))
 
 testCmpImpl6 :: Bool
 testCmpImpl6 =
-    if (flagGet c OF == False) then True else False
-    where
-        c = instructionTable context ( (Cmp (Reg EAX) (Immediate 410)))
-        context = instructionTable (Valid newContext) (Mov (Reg EAX) (Immediate (-42)))
+  not (flagGet c OF)
+  where
+    c = instructionTable context (Cmp (Reg EAX) (Immediate 410))
+    context = instructionTable (Valid newContext) (Mov (Reg EAX) (Immediate (-42)))
 
 testCmpImpl7 :: Bool
 testCmpImpl7 =
-    if (flagGet c OF == False) then True else False
-    where
-        c = instructionTable context ( (Cmp (Reg EAX) (Immediate 43)))
-        context = instructionTable (Valid newContext) (Mov (Reg EAX) (Immediate (-42)))
+  not (flagGet c OF)
+  where
+    c = instructionTable context (Cmp (Reg EAX) (Immediate 43))
+    context = instructionTable (Valid newContext) (Mov (Reg EAX) (Immediate (-42)))
 
 testCmpImpl8 :: Bool
 testCmpImpl8 =
-    if (flagGet c CF == False) then True else False
-    where
-        c = instructionTable context ( (Cmp (Reg EAX) (Immediate 41)))
-        context = instructionTable (Valid newContext) (Mov (Reg EAX) (Immediate 42))
+  not (flagGet c CF)
+  where
+    c = instructionTable context (Cmp (Reg EAX) (Immediate 41))
+    context = instructionTable (Valid newContext) (Mov (Reg EAX) (Immediate 42))
 
 testCmpImpl9 :: Bool
 testCmpImpl9 =
-    if (flagGet c CF == True) then True else False
-    where
-        c = instructionTable context ( (Cmp (Reg EAX) (Immediate 43)))
-        context = instructionTable (Valid newContext) (Mov (Reg EAX) (Immediate 42))
+  flagGet c CF
+  where
+    c = instructionTable context (Cmp (Reg EAX) (Immediate 43))
+    context = instructionTable (Valid newContext) (Mov (Reg EAX) (Immediate 42))
 
 testCmp :: Test
 testCmp =
@@ -171,24 +186,24 @@ testCmp =
 
 testIncImpl :: Bool
 testIncImpl =
-    regGet context1 EBX == Valid 43
-    where
-        context1 = instructionTable context (Inc EBX)
-        context = instructionTable (Valid newContext) ( (Mov (Reg EBX) (Immediate 42)))
+  regGet context1 EBX == Valid 43
+  where
+    context1 = instructionTable context (Inc EBX)
+    context = instructionTable (Valid newContext) (Mov (Reg EBX) (Immediate 42))
 
 testDecImpl :: Bool
 testDecImpl =
-    regGet context1 EBX == Valid 41
-    where
-        context1 = instructionTable context (Dec EBX)
-        context = instructionTable (Valid newContext) ( (Mov (Reg EBX) (Immediate 42)))
+  regGet context1 EBX == Valid 41
+  where
+    context1 = instructionTable context (Dec EBX)
+    context = instructionTable (Valid newContext) (Mov (Reg EBX) (Immediate 42))
 
 testNegImpl :: Bool
 testNegImpl =
-    regGet context1 EBX == Valid (-42)
-    where
-        context1 = instructionTable context (Neg EBX)
-        context = instructionTable (Valid newContext) ( (Mov (Reg EBX) (Immediate 42)))
+  regGet context1 EBX == Valid (-42)
+  where
+    context1 = instructionTable context (Neg EBX)
+    context = instructionTable (Valid newContext) (Mov (Reg EBX) (Immediate 42))
 
 testInc :: Test
 testInc =
@@ -318,15 +333,17 @@ testJmp =
       "Jg false" ~: testJgImpl1 ~?= Valid 0,
       "Jge" ~: testJgeImpl ~?= Valid 42,
       "Jl true" ~: testJlImpl ~?= Valid 42,
-      "Jl false" ~: testJlImpl1 ~?= Valid 0]
-        -- "Jle" ~: testJleImpl ~?= Valid 42,
-        -- "Ja true" ~: testJaImpl ~?= Valid 42,
-        -- "Ja false" ~: testJaImpl1 ~?= Valid 0,
-        -- "Jae" ~: testJaeImpl ~?= Valid 42,
-        -- "Jb true" ~: testJbImpl ~?= Valid 42,
-        -- "Jb false" ~: testJbImpl1 ~?= Valid 0,
-        -- "Jbe" ~: testJbeImpl ~?= Valid 42
-    -- ]
+      "Jl false" ~: testJlImpl1 ~?= Valid 0
+    ]
+
+-- "Jle" ~: testJleImpl ~?= Valid 42,
+-- "Ja true" ~: testJaImpl ~?= Valid 42,
+-- "Ja false" ~: testJaImpl1 ~?= Valid 0,
+-- "Jae" ~: testJaeImpl ~?= Valid 42,
+-- "Jb true" ~: testJbImpl ~?= Valid 42,
+-- "Jb false" ~: testJbImpl1 ~?= Valid 0,
+-- "Jbe" ~: testJbeImpl ~?= Valid 42
+-- ]
 
 testXorImpl :: Int -> Int -> Int
 testXorImpl a b =
@@ -549,59 +566,64 @@ testIfImpl :: [Instruction]
 testIfImpl = instructions (fromValidState newContext (strToHASM (Valid newContext) "(if (true) then (1))"))
 
 testIf :: Test
-testIf = TestList [
-    "build if ast" ~: strToAST "(if (true) then (1))" ~?= ASTNodeIf (ASTNodeBoolean True) [ASTNodeInteger 1] (Invalid "TestError"),
-    "instructions if statement" ~: testIfImpl ~?= [
-        Enter,
-        Xor (Reg EAX) (Reg EAX),
-        Mov (Reg EAX) (Immediate 1),
-        Cmp (Reg EAX) (Immediate 0),
-        Je "0else",
-        VM.Label "0then" 5,
-        Xor (Reg EAX) (Reg EAX),
-        Mov (Reg EAX) (Immediate 1),
-        Jmp "0end",
-        VM.Label "0else" 8,
-        VM.Label "0end" 10
-        ],
-        "build if else ast" ~: strToAST "(if (true) then (1) else (2))" ~?= ASTNodeIf (ASTNodeBoolean True) [ASTNodeInteger 1] (Valid [ASTNodeInteger 2])]
+testIf =
+  TestList
+    [ "build if ast" ~: strToAST "(if (true) then (1))" ~?= ASTNodeIf (ASTNodeBoolean True) [ASTNodeInteger 1] (Invalid "TestError"),
+      "instructions if statement" ~: testIfImpl
+        ~?= [ Enter,
+              Xor (Reg EAX) (Reg EAX),
+              Mov (Reg EAX) (Immediate 1),
+              Cmp (Reg EAX) (Immediate 1),
+              Jne "0else",
+              VM.Label "0then" 6,
+              Xor (Reg EAX) (Reg EAX),
+              Mov (Reg EAX) (Immediate 1),
+              Jmp "0end",
+              VM.Label "0else" 8,
+              VM.Label "0end" 10
+            ],
+      "build if else ast" ~: strToAST "(if (true) then (1) else (2))" ~?= ASTNodeIf (ASTNodeBoolean True) [ASTNodeInteger 1] (Valid [ASTNodeInteger 2])
+    ]
 
 testCreateFunNoParamsImpl :: [Instruction]
-testCreateFunNoParamsImpl = let c = strToHASM (Valid newContext) "(define foo 1)" in
-    case blockGet c "foo" of
+testCreateFunNoParamsImpl =
+  let c = strToHASM (Valid newContext) "(define foo 1)"
+   in case blockGet c "foo" of
         Valid block -> case blockContext block of
-            Valid c' -> instructions c'
-            Invalid _ -> []
+          Valid c' -> instructions c'
+          Invalid _ -> []
         Invalid _ -> []
 
 testPutDefineInstruction :: Test
-testPutDefineInstruction = TestList [
-    "instructions create function no args" ~: testCreateFunNoParamsImpl ~?= [
-        Xor (Reg EAX) (Reg EAX),
-        Mov (Reg EAX) (Immediate 1)],
-        "build if else ast" ~: strToAST "(if (true) then 1 else 2)" ~?= ASTNodeIf (ASTNodeBoolean True) [ASTNodeInteger 1] (Valid [ASTNodeInteger 2])]
+testPutDefineInstruction =
+  TestList
+    [ "instructions create function no args" ~: testCreateFunNoParamsImpl
+        ~?= [ Xor (Reg EAX) (Reg EAX),
+              Mov (Reg EAX) (Immediate 1)
+            ],
+      "build if else ast" ~: strToAST "(if (true) then 1 else 2)" ~?= ASTNodeIf (ASTNodeBoolean True) [ASTNodeInteger 1] (Valid [ASTNodeInteger 2])
+    ]
 
 testInstructionTableInvalid :: Bool
 testInstructionTableInvalid =
-    instructionTable invalid instruction == invalid
-    where
-        invalid = Invalid "invalid instruction"
-        instruction = (Nop)
+  instructionTable invalid instruction == invalid
+  where
+    invalid = Invalid "invalid instruction"
+    instruction = Nop
 
 testInstructionTableNop :: Bool
 testInstructionTableNop =
-    instructionTable context instruction == context
-    where
-        context = Valid newContext
-        instruction = (Nop)
-
+  instructionTable context instruction == context
+  where
+    context = Valid newContext
+    instruction = Nop
 
 testInstructionTable :: Test
-testInstructionTable = TestList [
-    "instruction table invalid" ~: testInstructionTableInvalid ~?= True,
-    "instruction table nop" ~: testInstructionTableNop ~?= True
+testInstructionTable =
+  TestList
+    [ "instruction table invalid" ~: testInstructionTableInvalid ~?= True,
+      "instruction table nop" ~: testInstructionTableNop ~?= True
     ]
-
 
 -- testAllTestsInvalid :: Bool
 -- testAllTestsInvalid = allTest (Invalid "invalid state") (Reg EAX) (Reg EBX) == Invalid "invalid state"
@@ -632,7 +654,6 @@ testInstructionTable = TestList [
 --     where
 --         ctx = Context [] [] [] []
 
-
 -- testAllTests :: Test
 -- testAllTests = TestList [
 --     "all test invalid" ~: testAllTestsInvalid ~?= True,
@@ -641,3 +662,173 @@ testInstructionTable = TestList [
 --     "all test reg mem" ~: testAllTestsRegMem ~?= True,
 --     "all test reg sym" ~: testAllTestsRegSym ~?= True,
 --     "all test invalid param" ~: testAllTestsInvalidParam ~?= True]
+
+testAllocHeap :: Test
+testAllocHeap =
+  TestList
+    [ "Allocates memory in the heap"
+        ~: case allocHeap (Valid newContext) 4 of
+          Valid context -> case regGet (Valid context) EAX of
+            Valid value -> value ~?= 1
+            Invalid s -> 0 ~?= 1
+          Invalid s -> 0 ~?= 1,
+      "Returns an error for an invalid context"
+        ~: allocHeap (Invalid "Invalid context") 4 ~?= Invalid "Invalid context"
+    ]
+
+testInstructionTableIO :: Test
+testInstructionTableIO =
+  TestList
+    [ "Returns an error for an invalid context"
+        ~: case instructionTableIO (Invalid "Invalid context") (Mov (Reg EAX) (Immediate 42)) of
+          (Invalid s, io) -> assertEqual "Error message" s "Invalid context"
+          _ -> assertFailure "Expected an invalid state",
+      "Executes a valid instruction"
+        ~: case instructionTableIO (Valid newContext) (Mov (Reg EAX) (Immediate 42)) of
+          (Valid context, io) -> case regGet (Valid context) EAX of
+            Valid value -> assertEqual "Value of EAX register" value 42
+            Invalid s -> assertFailure s
+          (Invalid s, io) -> assertFailure s,
+      "Returns an error for an unrecognized instruction (2)"
+        ~: case instructionTableIO (Invalid "ok") (VM.Label "test" 0) of
+          (Invalid s, io) -> assertEqual "Error message" s "ok"
+          _ -> assertFailure "Expected an invalid state"
+    ]
+
+testEvalOneInstructionIO :: Test
+testEvalOneInstructionIO =
+  TestList
+    [ "Executes a valid instruction"
+        ~: case evalOneInstructionIO newContext (Mov (Reg EAX) (Immediate 42)) of
+          (Valid context, io) -> case regGet (Valid context) EAX of
+            Valid value -> value ~?= 42
+            Invalid s -> 0 ~?= 1
+          (Invalid s, io) -> 0 ~?= 1
+    ]
+
+testAllTest :: Test
+testAllTest =
+  TestList
+    [ "Tests two register values"
+        ~: case allTest (Valid newContext) (Reg EAX) (Reg EBX) of
+          Valid context -> flagGet (Valid context) ZF ~?= True
+          Invalid s -> 0 ~?= 1,
+      "Tests a register value and an immediate value"
+        ~: case allTest (Valid newContext) (Reg EAX) (Immediate 42) of
+          Valid context -> flagGet (Valid context) ZF ~?= True
+          Invalid s -> 0 ~?= 1,
+      "Tests a register value and a memory value"
+        ~: case allTest (Valid newContext) (Reg EAX) (Memory 0) of
+          Valid context -> flagGet (Valid context) ZF ~?= True
+          Invalid s -> 1 ~?= 1,
+      "Tests a register value and a symbol value"
+        ~: case allTest (Valid newContext) (Reg EAX) (Symbol "test") of
+          Valid context -> flagGet (Valid context) ZF ~?= False
+          Invalid s -> 1 ~?= 1,
+      "Returns an error for an invalid context"
+        ~: allTest (Invalid "Invalid context") (Reg EAX) (Reg EBX) ~?= Invalid "Invalid context",
+      "Returns an error for an invalid test"
+        ~: allTest (Valid newContext) (Reg EAX) (Symbol "0") ~?= Invalid "Invalid test"
+    ]
+
+testMyTest :: Test
+testMyTest =
+  TestList
+    [ "Tests two valid integer values"
+        ~: case myTest (Valid newContext) (Valid 42) (Valid 21) of
+          Valid context -> flagGet (Valid context) ZF ~?= True
+          Invalid s -> 0 ~?= 1,
+      "Returns an error for an invalid context"
+        ~: myTest (Invalid "Invalid context") (Valid 42) (Valid 21) ~?= Invalid "Invalid context",
+      "Returns an error for an invalid first value"
+        ~: myTest (Valid newContext) (Invalid "Invalid value") (Valid 21) ~?= Invalid "Invalid value",
+      "Returns an error for an invalid second value"
+        ~: myTest (Valid newContext) (Valid 42) (Invalid "Invalid value") ~?= Invalid "Invalid test",
+      "Returns an error for two invalid values"
+        ~: myTest (Valid newContext) (Invalid "Invalid value") (Invalid "Invalid value") ~?= Invalid "Invalid value"
+    ]
+
+jleTest :: Bool
+jleTest =
+  case regGet context EAX of
+    Valid s -> s == 1
+    Invalid _ -> False
+  where
+    context = Valid newContext {instructions = [Mov (Reg EAX) (Immediate 42), Cmp (Reg EAX) (Immediate 42), Jbe "test", Mov (Reg EAX) (Immediate 0), Jmp "end", VM.Label "test" 0, Mov (Reg EAX) (Immediate 1), VM.Label "end" 0]}
+
+testMyJle :: Test
+testMyJle =
+  TestList
+    [ "Jumps to the label if ZF is set or SF is not equal to OF"
+        ~: jleTest ~?= True,
+      "Returns an error for an invalid context"
+        ~: myJle (Invalid "Invalid context") "test" ~?= Invalid "Invalid context"
+    ]
+
+jaTest :: Bool
+jaTest =
+  case regGet context EAX of
+    Valid s -> s == 1
+    Invalid _ -> False
+  where
+    context = Valid newContext {instructions = [Mov (Reg EAX) (Immediate 43), Cmp (Reg EAX) (Immediate 42), Jbe "test", Mov (Reg EAX) (Immediate 0), Jmp "end", VM.Label "test" 0, Mov (Reg EAX) (Immediate 1), VM.Label "end" 0]}
+
+testMyJa :: Test
+testMyJa =
+  TestList
+    [ "Jumps to the label if CF is not set and ZF is not set"
+        ~: jaTest ~?= True,
+      "Returns an error for an invalid context"
+        ~: myJa (Invalid "Invalid context") "test" ~?= Invalid "Invalid context"
+    ]
+
+jaeTest :: Bool
+jaeTest =
+  case regGet context EAX of
+    Valid s -> s == 1
+    Invalid _ -> False
+  where
+    context = Valid newContext {instructions = [Mov (Reg EAX) (Immediate 42), Cmp (Reg EAX) (Immediate 42), Jbe "test", Mov (Reg EAX) (Immediate 0), Jmp "end", VM.Label "test" 0, Mov (Reg EAX) (Immediate 1), VM.Label "end" 0]}
+
+testMyJae :: Test
+testMyJae =
+  TestList
+    [ "Jumps to the label if CF is not set"
+        ~: jaeTest ~?= True,
+      "Returns an error for an invalid context"
+        ~: myJae (Invalid "Invalid context") "test" ~?= Invalid "Invalid context"
+    ]
+
+jbTest :: Bool
+jbTest =
+  case regGet context EAX of
+    Valid s -> s == 1
+    Invalid _ -> False
+  where
+    context = Valid newContext {instructions = [Mov (Reg EAX) (Immediate 40), Cmp (Reg EAX) (Immediate 42), Jbe "test", Mov (Reg EAX) (Immediate 0), Jmp "end", VM.Label "test" 0, Mov (Reg EAX) (Immediate 1), VM.Label "end" 0]}
+
+testMyJb :: Test
+testMyJb =
+  TestList
+    [ "Jumps to the label if CF is set"
+        ~: jbTest ~?= True,
+      "Returns an error for an invalid context"
+        ~: myJb (Invalid "Invalid context") "test" ~?= Invalid "Invalid context"
+    ]
+
+jbeTest :: Bool
+jbeTest =
+  case regGet context EAX of
+    Valid s -> s == 1
+    Invalid _ -> False
+  where
+    context = Valid newContext {instructions = [Mov (Reg EAX) (Immediate 42), Cmp (Reg EAX) (Immediate 42), Jbe "test", Mov (Reg EAX) (Immediate 0), Jmp "end", VM.Label "test" 0, Mov (Reg EAX) (Immediate 1), VM.Label "end" 0]}
+
+testMyJbe :: Test
+testMyJbe =
+  TestList
+    [ "Jumps to the label if CF is set or ZF is set"
+        ~: jbeTest ~?= True,
+      "Returns an error for an invalid context"
+        ~: myJbe (Invalid "Invalid context") "test" ~?= Invalid "Invalid context"
+    ]
