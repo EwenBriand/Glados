@@ -55,6 +55,9 @@ data Token
     TokenEqual
   | -- | The "<" keyword
     TokenInferior
+  | TokenInferiorEq
+  | TokenSuperior
+  | TokenSuperiorEq
   | TokenSymPrint -- The "print" keyword
   | TokOpenBrac -- The open bracket character
   | TokCloseBrac -- The close bracket character
@@ -102,6 +105,9 @@ wordToTok "then" = TokenInfo {token = TokenKeywordThen, value = "then"}
 wordToTok "else" = TokenInfo {token = TokenKeywordElse, value = "else"}
 wordToTok "eq?" = TokenInfo {token = TokenEqual, value = "eq?"}
 wordToTok "<" = TokenInfo {token = TokenInferior, value = "<"}
+wordToTok "<=" = TokenInfo {token = TokenInferiorEq, value = "<="}
+wordToTok ">" = TokenInfo {token = TokenSuperior, value = ">"}
+wordToTok ">=" = TokenInfo {token = TokenSuperiorEq, value = ">="}
 wordToTok "#" = TokenInfo {token = TokenKeywordPartialExpression, value = "#"}
 wordToTok "lambda" = TokenInfo {token = TokLambda, value = "lambda"}
 wordToTok "print" = TokenInfo {token = TokenSymPrint, value = "print"}

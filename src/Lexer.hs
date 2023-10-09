@@ -63,6 +63,9 @@ data ASTNode
   | ASTNodeBoolean {astnbValue :: Bool}
   | ASTNodeEq {astneChildren :: [ASTNode]}
   | ASTNodeInferior {astniChildren :: [ASTNode]}
+  | ASTNodeInferiorEq {astniChildren :: [ASTNode]}
+  | ASTNodeSuperior {astniChildren :: [ASTNode]}
+  | ASTNodeSuperiorEq {astniChildren :: [ASTNode]}
   | ASTNodeIf {astniCondition :: ASTNode, astniThen :: [ASTNode], astniElse :: ValidState [ASTNode]}
   | ASTNodePrint {astnPrint :: ASTNode}
   | ASTNodeDefine {astndName :: ASTNode, astndParams :: ValidState ASTNode, astndBody :: [ASTNode]}
@@ -99,9 +102,9 @@ instance Show ASTNode where
   show _ = "(unknown node)"
 
 isSymbolAndParamArray :: [ASTNode] -> Bool
-isSymbolAndParamArray [(ASTNodeSymbol _), _] = True
+isSymbolAndParamArray [ASTNodeSymbol _, _] = True
 isSymbolAndParamArray ((ASTNodeSymbol _) : _ : _) = True
-isSymbolAndParamArray ((ASTNodeLambda _ _ _) : _) = True
+isSymbolAndParamArray ((ASTNodeLambda {}) : _) = True
 isSymbolAndParamArray _ = False
 
 expendParamList :: [ASTNode] -> [ASTNode]
@@ -113,9 +116,10 @@ expendParamList [] = []
 isThisReallyAnArrayOrIsItATrap :: ASTNode -> ASTNode
 isThisReallyAnArrayOrIsItATrap (ASTNodeArray arr) =
   if isSymbolAndParamArray arr
-    then case arr !! 0 of
-      ASTNodeSymbol _ -> ASTNodeFunctionCall (astnsName (arr !! 0)) (tail arr)
-      ASTNodeLambda name params body -> ASTNodeBreak ([(ASTNodeLambda name params body), ASTNodeFunctionCall (astnsName name) (expendParamList (tail arr))])
+    then case head arr of
+      ASTNodeSymbol _ -> ASTNodeFunctionCall (astnsName (head arr)) (tail arr)
+      ASTNodeLambda name params body -> ASTNodeBreak [ASTNodeLambda name params body, ASTNodeFunctionCall (astnsName name) (expendParamList (tail arr))]
+      _ -> ASTNodeError (TokenInfo TokError "")
     else -- then ASTNodeFunctionCall (astnsName (arr !! 0)) (tail arr)
       ASTNodeArray arr
 isThisReallyAnArrayOrIsItATrap a = a
@@ -127,6 +131,7 @@ isThisReallyAnArrayOrIsItATrap a = a
 tokOrExprToASTNode :: [TokorNode] -> ASTNode
 -- error: empty
 tokOrExprToASTNode [] = ASTNodeError (TokenInfo TokError "")
+tokOrExprToASTNode [T (TokenInfo TokOperatorMinus _), A (ASTNodeInteger i)] = ASTNodeInteger (-i)
 -- call function with parameters. (no params is just handled by node symbol)
 -- tokOrExprToASTNode [A (ASTNodeArray ((ASodeTNodeSymbol sym):params))] = ASTNodeFunctionCall sym params
 tokOrExprToASTNode [A (ASTNodeArray [ASTNodeSymbol sym, ASTNodeInteger i])] = ASTNodeFunctionCall sym [ASTNodeInteger i]
@@ -137,15 +142,16 @@ tokOrExprToASTNode [A (ASTNodeArray [ASTNodeSymbol sym, ASTNodeInteger i])] = AS
 -- lambda with parameters
 tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokLambda _), A (ASTNodeParamList [ASTNodeFunctionCall param1 params, body]), T (TokenInfo TokCloseParen _)] = ASTNodeLambda (ASTNodeSymbol "") (Valid (ASTNodeParamList (ASTNodeSymbol param1 : params))) [body]
 -- lambda with variable
-tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokKeywordDefine _), A (ASTNodeSymbol sym), A (ASTNodeLambda _ param body), T (TokenInfo TokCloseParen _)] = ASTNodeDefine (ASTNodeSymbol sym) param (expendParamList body)
+-- tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokKeywordDefine _), A (ASTNodeSymbol sym), A (ASTNodeLambda _ param body), T (TokenInfo TokCloseParen _)] = ASTNodeDefine (ASTNodeSymbol sym) param (expendParamList body)
 --end lambda
 
 -- declaration of a Function
 -- with parameters
 tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokKeywordDefine _), A (ASTNodeSymbol sym), A (ASTNodeArray params), A (ASTNodeArray body), T (TokenInfo TokCloseParen _)] = ASTNodeDefine (ASTNodeSymbol sym) (Valid (ASTNodeParamList params)) body
 tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokKeywordDefine _), A (ASTNodeParamList [ASTNodeSymbol name, ASTNodeArray params, body]), T (TokenInfo TokCloseParen _)] = ASTNodeDefine (ASTNodeSymbol name) (Valid (ASTNodeParamList params)) [body]
-tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokKeywordDefine _), A (ASTNodeSymbol sym), A (ASTNodeFunctionCall a as), A (ASTNodeArray body), T (TokenInfo TokCloseParen _)] = ASTNodeDefine (ASTNodeSymbol sym) (Valid (ASTNodeParamList ((ASTNodeSymbol a) : as))) body
+tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokKeywordDefine _), A (ASTNodeSymbol sym), A (ASTNodeFunctionCall a as), A (ASTNodeArray body), T (TokenInfo TokCloseParen _)] = ASTNodeDefine (ASTNodeSymbol sym) (Valid (ASTNodeParamList (ASTNodeSymbol a : as))) body
 tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokKeywordDefine _), A (ASTNodeParamList [ASTNodeSymbol name, ASTNodeFunctionCall n ns, body]), T (TokenInfo TokCloseParen _)] = ASTNodeDefine (ASTNodeSymbol name) (Valid (ASTNodeParamList (ASTNodeSymbol n : ns))) [body]
+tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokKeywordDefine _), A (ASTNodeParamList [ASTNodeFunctionCall name param, body]), T (TokenInfo TokCloseParen _)] = ASTNodeDefine (ASTNodeSymbol name) (Valid (ASTNodeParamList param)) [body]
 -- without parameters
 tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokKeywordDefine _), A (ASTNodeSymbol sym), A body, T (TokenInfo TokCloseParen _)] = ASTNodeDefine (ASTNodeSymbol sym) (Invalid (sym ++ " does not take any parameters")) [body]
 -- an if statement
@@ -154,15 +160,16 @@ tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokKeywordDefine 
 -- cond: arr then: arr else: nop
 
 -- tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokenKeywordIf _), A (ASTNodeArray [cond]), A (ASTNodeArray thenOps), T (TokenInfo TokCloseParen _)] = ASTNodeIf cond thenOps (Invalid "3")
-tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokenKeywordIf _), A (ASTNodeParamList [ASTNodeInferior cond, ASTNodeParamList [n1, n2]]), T (TokenInfo TokCloseParen _)] = ASTNodeIf (ASTNodeInferior cond) [n1] (Valid [n2])
-tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokenKeywordIf _), A (ASTNodeParamList [ASTNodeEq cond, ASTNodeParamList [n1, n2]]), T (TokenInfo TokCloseParen _)] = ASTNodeIf (ASTNodeEq cond) [n1] (Valid [n2])
 tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokenKeywordIf _), A (ASTNodeParamList [ASTNodeBoolean cond, n1, n2]), T (TokenInfo TokCloseParen _)] = ASTNodeIf (ASTNodeBoolean cond) [n1] (Valid [n2])
+tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokenKeywordIf _), A (ASTNodeParamList [ASTNodeBoolean cond, n1, n2]), T (TokenInfo TokCloseParen _)] = ASTNodeIf (ASTNodeBoolean cond) [n1] (Valid [n2])
+tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokenKeywordIf _), A (ASTNodeParamList [cond, n1, n2]), T (TokenInfo TokCloseParen _)] = ASTNodeIf cond [n1] (Valid [n2])
 tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokenKeywordIf _), A (ASTNodeArray [cond]), A (ASTNodeArray thenOps), A (ASTNodeArray elseOps), T (TokenInfo TokCloseParen _)] = ASTNodeIf cond thenOps (Valid elseOps)
 tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokenKeywordIf _), A (ASTNodeArray [cond]), T (TokenInfo TokenKeywordThen _), A (ASTNodeArray thenOps), T (TokenInfo TokCloseParen _)] = ASTNodeIf cond thenOps (Invalid "3")
 tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokenKeywordIf _), A (ASTNodeArray [cond]), T (TokenInfo TokenKeywordThen _), A (ASTNodeArray thenOps), T (TokenInfo TokenKeywordElse _), A (ASTNodeArray elseOps), T (TokenInfo TokCloseParen _)] = ASTNodeIf cond thenOps (Valid elseOps)
 tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokenKeywordIf _), A (ASTNodeArray [cond]), A thenOps, A elseOps, T (TokenInfo TokCloseParen _)] = ASTNodeIf cond [thenOps] (Valid [elseOps])
 tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokenKeywordIf _), A (ASTNodeArray [cond]), T (TokenInfo TokenKeywordThen _), A thenOps, T (TokenInfo TokCloseParen _)] = ASTNodeIf cond [thenOps] (Invalid "3")
 tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokenKeywordIf _), A (ASTNodeArray [cond]), T (TokenInfo TokenKeywordThen _), A thenOps, T (TokenInfo TokenKeywordElse _), A elseOps, T (TokenInfo TokCloseParen _)] = ASTNodeIf cond [thenOps] (Valid [elseOps])
+tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokenKeywordIf _), A cond, T (TokenInfo TokenKeywordThen _), A thenOps, T (TokenInfo TokenKeywordElse _), A elseOps, T (TokenInfo TokCloseParen _)] = ASTNodeIf cond (expendParamList [thenOps]) (Valid (expendParamList [elseOps]))
 -- print
 tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokenSymPrint _), A n, T (TokenInfo TokCloseParen _)] = ASTNodePrint n
 -- array
@@ -190,6 +197,9 @@ tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokenEqual _), A 
 -- a < of expressions
 -- tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokenInferior _), A n1, A n2, T (TokenInfo TokCloseParen _)] = ASTNodeInferior [n1, n2]
 tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokenInferior _), A (ASTNodeParamList [n1, n2]), T (TokenInfo TokCloseParen _)] = ASTNodeInferior [n1, n2]
+tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokenInferiorEq _), A (ASTNodeParamList [n1, n2]), T (TokenInfo TokCloseParen _)] = ASTNodeInferiorEq [n1, n2]
+tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokenSuperior _), A (ASTNodeParamList [n1, n2]), T (TokenInfo TokCloseParen _)] = ASTNodeSuperior [n1, n2]
+tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokenSuperiorEq _), A (ASTNodeParamList [n1, n2]), T (TokenInfo TokCloseParen _)] = ASTNodeSuperiorEq [n1, n2]
 -- a mod of expressions
 -- tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokOperatorMod _), A n1, A n2, T (TokenInfo TokCloseParen _)] = ASTNodeMod [n1, n2]
 tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokOperatorMod _), A (ASTNodeParamList [n1, n2]), T (TokenInfo TokCloseParen _)] = ASTNodeMod [n1, n2]

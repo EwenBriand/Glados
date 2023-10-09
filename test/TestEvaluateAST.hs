@@ -1,5 +1,5 @@
-module TestEvaluateAST (
-    testInstructionFromAST,
+module TestEvaluateAST
+  ( testInstructionFromAST,
     testAstPush,
     testAstPushExec,
     testAstPushExec2,
@@ -16,34 +16,42 @@ module TestEvaluateAST (
     testputDefineInstruction,
     testMovFromStackAddr,
     testFuncCall,
-    testPutSymbolInstruction) where
+    testPutSymbolInstruction,
+  )
+where
 
-import Test.HUnit
 import EvaluateAST
-import VM
 import Instructions
 import Lexer
+import Test.HUnit
+import VM
 import ValidState
-
 
 testInstructionFromAST :: Test
 testInstructionFromAST =
   TestList
     [ "instruction from ast Node interger" ~: instructionFromAST (ASTNodeInteger 123) (Valid newContext) ~?= Valid (newContext {instructions = [Xor (Reg EAX) (Reg EAX), Mov (Reg EAX) (Immediate 123)]}),
-      "instruction from ast Node sum" ~: instructionFromAST (ASTNodeSum [ASTNodeInteger 123, ASTNodeInteger 678]) (Valid newContext) ~?= Valid (newContext {instructions = [Xor (Reg EAX) (Reg EAX),Mov (Reg EAX) (Immediate 123),Push (Reg EAX),Xor (Reg EAX) (Reg EAX),Mov (Reg EAX) (Immediate 678),Pop (Reg EDI),Add EAX (Reg EDI)]}),
-      "instruction from ast Node sub" ~: instructionFromAST (ASTNodeSub [ASTNodeInteger 123, ASTNodeInteger 678]) (Valid newContext) ~?= Valid (newContext {instructions = [Xor (Reg EAX) (Reg EAX),Mov (Reg EAX) (Immediate 678),Push (Reg EAX),Xor (Reg EAX) (Reg EAX),Mov (Reg EAX) (Immediate 123),Pop (Reg EDI),Sub (Reg EAX) (Reg EDI)]}),
-      "instructions if statement" ~: instructionFromAST (ASTNodeIf (ASTNodeBoolean True) [ASTNodeInteger 1] (Invalid "nop")) (Valid newContext) ~?= Valid (newContext {instructions = [
-        Xor (Reg EAX) (Reg EAX),
-        Mov (Reg EAX) (Immediate 1),
-        Cmp (Reg EAX) (Immediate 0),
-        Je "0else",
-        VM.Label "0then" 5,
-        Xor (Reg EAX) (Reg EAX),
-        Mov (Reg EAX) (Immediate 1),
-        Jmp "0end",
-        VM.Label "0else" 8,
-        VM.Label "0end" 10
-        ], uuids = 1}),
+      "instruction from ast Node sum" ~: instructionFromAST (ASTNodeSum [ASTNodeInteger 123, ASTNodeInteger 678]) (Valid newContext) ~?= Valid (newContext {instructions = [Xor (Reg EAX) (Reg EAX), Mov (Reg EAX) (Immediate 123), Push (Reg EAX), Xor (Reg EAX) (Reg EAX), Mov (Reg EAX) (Immediate 678), Pop (Reg EDI), Add EAX (Reg EDI)]}),
+      "instruction from ast Node sub" ~: instructionFromAST (ASTNodeSub [ASTNodeInteger 123, ASTNodeInteger 678]) (Valid newContext) ~?= Valid (newContext {instructions = [Xor (Reg EAX) (Reg EAX), Mov (Reg EAX) (Immediate 678), Push (Reg EAX), Xor (Reg EAX) (Reg EAX), Mov (Reg EAX) (Immediate 123), Pop (Reg EDI), Sub (Reg EAX) (Reg EDI)]}),
+      "instructions if statement" ~: instructionFromAST (ASTNodeIf (ASTNodeBoolean True) [ASTNodeInteger 1] (Invalid "nop")) (Valid newContext)
+        ~?= Valid
+          ( newContext
+              { instructions =
+                  [ Xor (Reg EAX) (Reg EAX),
+                    Mov (Reg EAX) (Immediate 1),
+                    Cmp (Reg EAX) (Immediate 1),
+                    Cmp (Reg EAX) (Immediate 1),
+                    Jne "0else",
+                    VM.Label "0then" 6,
+                    Xor (Reg EAX) (Reg EAX),
+                    Mov (Reg EAX) (Immediate 1),
+                    Jmp "0end",
+                    VM.Label "0else" 9,
+                    VM.Label "0end" 11
+                  ],
+                uuids = 1
+              }
+          ),
       "instruction invalid context" ~: instructionFromAST (ASTNodeInteger 123) (Invalid "nop") ~?= Invalid "nop",
       "instruction AstSymbol" ~: instructionFromAST (ASTNodeSymbol "oui") (Valid newContext) ~?= Invalid "Symbol or Function not found: oui"
     ]
@@ -110,8 +118,8 @@ testAstToInstr =
 
 testArrToHASMImpl :: [Instruction]
 testArrToHASMImpl = case astNodeArrayToHASM (Valid newContext) (ASTNodeArray [ASTNodeInteger 1, ASTNodeInteger 2]) of
-    Valid c -> instructions c
-    Invalid _ -> []
+  Valid c -> instructions c
+  Invalid _ -> []
 
 testArrToHASM :: Test
 testArrToHASM = TestList [
@@ -119,64 +127,76 @@ testArrToHASM = TestList [
 
 testStrToHASMImp :: String -> [Instruction]
 testStrToHASMImp str = case strToHASM (Valid newContext) str of
-    Valid c -> instructions c
-    Invalid _ -> []
+  Valid c -> instructions c
+  Invalid _ -> []
 
 testStrToHASM :: Test
 testStrToHASM = TestList [
     "(1) array" ~: testStrToHASMImp "(1)" ~?= [Enter,Push (Reg EBX),Push (Reg ESI),Mov (Reg EAX) (Immediate 45),Alloc 1,Mov (Reg EBX) (Reg EAX),Mov (Reg ESI) (Reg EBX),Xor (Reg EAX) (Reg EAX),Mov (Reg EAX) (Immediate 1),MovPtr (Reg ESI) (Reg EAX),Add ESI (Immediate 1),Mov (Reg EAX) (Reg EBX),Pop (Reg EBX),Pop (Reg ESI)],
     "(1 2) array" ~: testStrToHASMImp "(1 2)" ~?= [Enter,Push (Reg EBX),Push (Reg ESI),Mov (Reg EAX) (Immediate 45),Alloc 2,Mov (Reg EBX) (Reg EAX),Mov (Reg ESI) (Reg EBX),Xor (Reg EAX) (Reg EAX),Mov (Reg EAX) (Immediate 1),MovPtr (Reg ESI) (Reg EAX),Add ESI (Immediate 1),Xor (Reg EAX) (Reg EAX),Mov (Reg EAX) (Immediate 2),MovPtr (Reg ESI) (Reg EAX),Add ESI (Immediate 1),Mov (Reg EAX) (Reg EBX),Pop (Reg EBX),Pop (Reg ESI)],
     "(+ 1 2) sum" ~: testStrToHASMImp "(+ 1 2)" ~?= [Enter, Xor (Reg EAX) (Reg EAX),Mov (Reg EAX) (Immediate 1),Push (Reg EAX),Xor (Reg EAX) (Reg EAX),Mov (Reg EAX) (Immediate 2),Pop (Reg EDI),Add EAX (Reg EDI)]]
-
 testMovStackAddrImpl :: [Int]
 testMovStackAddrImpl = pile (stack c)
-    where
-        c = fromValidState newContext (movStackAddrImpl ctx (Immediate 2) (Immediate 1))
-        ctx = stackPush (stackPush (stackPush (stackPush (Valid newContext) 0) 0) 0) 0
+  where
+    c = fromValidState newContext (movStackAddrImpl ctx (Immediate 2) (Immediate 1))
+    ctx = stackPush (stackPush (stackPush (stackPush (Valid newContext) 0) 0) 0) 0
 
 testMovStackAddr :: Test
-testMovStackAddr = TestList [
-    "mov stack addr" ~: testMovStackAddrImpl ~?= [0, 0, 1, 0]]
+testMovStackAddr =
+  TestList
+    [ "mov stack addr" ~: testMovStackAddrImpl ~?= [0, 0, 1, 0]
+    ]
 
 testputDefineInstruction :: Test
-testputDefineInstruction = TestList [
-      "instruction from ast Node define" ~: instructionFromAST (ASTNodeMutable (ASTNodeSymbol "oui") (ASTNodeInteger 42)) (Valid newContext) ~?= Valid newContext {instructions = [Xor (Reg EAX) (Reg EAX),Mov (Reg EAX) (Immediate 42),MovStackAddr (Immediate 0) (Reg EAX)], symbolTable = SymTable {symTable = [("oui", GInt)]}}]
+testputDefineInstruction =
+  TestList
+    [ "instruction from ast Node define" ~: instructionFromAST (ASTNodeMutable (ASTNodeSymbol "oui") (ASTNodeInteger 42)) (Valid newContext) ~?= Valid newContext {instructions = [Xor (Reg EAX) (Reg EAX), Mov (Reg EAX) (Immediate 42), MovStackAddr (Immediate 0) (Reg EAX)], symbolTable = SymTable {symTable = [("oui", GInt)]}}
+    ]
 
 testMovFromStackAddr :: Test
-testMovFromStackAddr = TestList [
-      "getting index two of the stack" ~: movFromStackAddrImpl (Valid newContext {stack = Stack [0, 1, 2, 3]}) (Reg EAX) (Immediate 2) ~?= regSet (Valid newContext {stack = Stack [0, 1, 2, 3]}) EAX 2]
+testMovFromStackAddr =
+  TestList
+    [ "getting index two of the stack" ~: movFromStackAddrImpl (Valid newContext {stack = Stack [0, 1, 2, 3]}) (Reg EAX) (Immediate 2) ~?= regSet (Valid newContext {stack = Stack [0, 1, 2, 3]}) EAX 2
+    ]
 
 testFunCallNoArgs :: [Instruction]
 testFunCallNoArgs = case strToHASM (Valid newContext) "(define foo 1) foo" of
-    Valid c -> instructions c
-    Invalid _ -> []
+  Valid c -> instructions c
+  Invalid _ -> []
 
 testFunCallArgs :: [Instruction]
 testFunCallArgs = case strToHASM (Valid newContext) "(define foo (a) (1))(foo 1)" of
-    Valid c -> instructions c
-    Invalid _ -> []
+  Valid c -> instructions c
+  Invalid _ -> []
 
 testASTFunCallArgsImpl :: [ASTNode]
 testASTFunCallArgsImpl = case strToHASM (Valid newContext) "(define foo (a) (1))(foo 1)" of
-    Valid c -> cAST c
-    Invalid _ -> [ASTNodeInteger 0]
+  Valid c -> cAST c
+  Invalid _ -> [ASTNodeInteger 0]
 
 testFuncCall :: Test
-testFuncCall = TestList [
-    "ast fun call with arguments" ~: testASTFunCallArgsImpl ~?= [
-        -- ASTNodeInstructionSequence [ASTNodeDefine (ASTNodeSymbol "foo") (Valid (ASTNodeParamList [ASTNodeSymbol "a"])) [ASTNodeInteger 1], ASTNodeArray ([ASTNodeSymbol "foo", ASTNodeInteger 1])]],
-        ASTNodeInstructionSequence [ASTNodeDefine (ASTNodeSymbol "foo") (Valid (ASTNodeParamList [ASTNodeSymbol "a"])) [ASTNodeInteger 1], (ASTNodeFunctionCall "foo" [ASTNodeInteger 1])]],
-    "fun call no arguments: " ~: testFunCallNoArgs ~?= [
-        Enter,
-        Call "foo"],
-    "fun call with arguments: " ~: testFunCallArgs ~?= [
-        Enter,
-        Xor (Reg EAX) (Reg EAX),
-        Mov (Reg EAX) (Immediate 1),
-        Mov (Reg EDI) (Reg EAX),
-        Call "foo"]]
+testFuncCall =
+  TestList
+    [ "ast fun call with arguments" ~: testASTFunCallArgsImpl
+        ~?= [
+              -- ASTNodeInstructionSequence [ASTNodeDefine (ASTNodeSymbol "foo") (Valid (ASTNodeParamList [ASTNodeSymbol "a"])) [ASTNodeInteger 1], ASTNodeArray ([ASTNodeSymbol "foo", ASTNodeInteger 1])]],
+              ASTNodeInstructionSequence [ASTNodeDefine (ASTNodeSymbol "foo") (Valid (ASTNodeParamList [ASTNodeSymbol "a"])) [ASTNodeInteger 1], (ASTNodeFunctionCall "foo" [ASTNodeInteger 1])]
+            ],
+      "fun call no arguments: " ~: testFunCallNoArgs
+        ~?= [ Enter,
+              Call "foo"
+            ],
+      "fun call with arguments: " ~: testFunCallArgs
+        ~?= [ Enter,
+              Xor (Reg EAX) (Reg EAX),
+              Mov (Reg EAX) (Immediate 1),
+              Mov (Reg EDI) (Reg EAX),
+              Call "foo"
+            ]
+    ]
 
 testPutSymbolInstruction :: Test
-testPutSymbolInstruction = TestList [
-      "instruction from ast Node symbol" ~: instructionFromAST (ASTNodeSymbol "oui") (Valid newContext) ~?= Invalid "Symbol or Function not found: oui"
-      ]
+testPutSymbolInstruction =
+  TestList
+    [ "instruction from ast Node symbol" ~: instructionFromAST (ASTNodeSymbol "oui") (Valid newContext) ~?= Invalid "Symbol or Function not found: oui"
+    ]
