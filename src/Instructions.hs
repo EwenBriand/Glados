@@ -44,49 +44,7 @@ import ValidState
 
 instructionTable :: ValidState Context -> Instruction -> ValidState Context
 instructionTable (Invalid s) _ = Invalid s
-instructionTable ctx (Mov r1 r2) = movImpl ctx r1 r2
-instructionTable ctx (Cmp r1 r2) = allCmp ctx r1 r2
-instructionTable ctx (Test r1 r2) = allTest ctx r1 r2
-instructionTable ctx (Jmp r1) = myJmp ctx r1
-instructionTable ctx (Je r1) = myJe ctx r1
-instructionTable ctx (Jne r1) = myJne ctx r1
-instructionTable ctx (Js r1) = myJs ctx r1
-instructionTable ctx (Jns r1) = myJns ctx r1
-instructionTable ctx (Jg r1) = myJg ctx r1
-instructionTable ctx (Jge r1) = myJge ctx r1
-instructionTable ctx (Jl r1) = myJl ctx r1
-instructionTable ctx (Jle r1) = myJle ctx r1
-instructionTable ctx (Ja r1) = myJa ctx r1
-instructionTable ctx (Jae r1) = myJae ctx r1
-instructionTable ctx (Jb r1) = myJb ctx r1
-instructionTable ctx (Jbe r1) = myJbe ctx r1
-instructionTable ctx (Inc r1) = myInc ctx r1 (regGet ctx r1)
-instructionTable ctx (Dec r1) = myDec ctx r1 (regGet ctx r1)
-instructionTable ctx (Neg r1) = myNeg ctx r1 (regGet ctx r1)
-instructionTable ctx (Add r1 r2) = allAdd ctx r1 r2
-instructionTable ctx (Sub r1 r2) = subImpl ctx r1 r2
-instructionTable ctx (Mult r1 r2) = multImpl ctx r1 r2
-instructionTable ctx (Div r1) = divImpl ctx r1
-instructionTable ctx (Push r1) = pushImpl ctx r1
-instructionTable ctx (Pop r1) = popImpl ctx r1
-instructionTable ctx (Xor r1 r2) = xorImpl ctx r1 r2
-instructionTable ctx (And r1 r2) = andImpl ctx r1 r2
-instructionTable ctx (Or r1 r2) = orImpl ctx r1 r2
-instructionTable ctx (Not r1) = notImpl ctx r1
-instructionTable ctx (MovPtr p1 p2) = movPtrImpl ctx p1 p2
-instructionTable ctx Nop = ctx
-instructionTable ctx (IMul _ _) = ctx
-instructionTable ctx Enter = enterImpl (fromValidState newContext ctx)
-instructionTable ctx Leave = leaveImpl ctx
--- instructionTable ctx (Label name p) = labelSet ctx name p
-instructionTable ctx (Label _ _) = ctx -- labels are preprocessed before executing
--- instructionTable ctx Interrupt = fst (ctx , Valid (putStrLn "Io00000000000000000"))
--- instructionTable ctx Interrupt = execSyscallWrapper ctx
-instructionTable ctx (MovStackAddr p1 p2) = movStackAddrImpl ctx p1 p2
-instructionTable ctx (MovFromStackAddr p1 p2) = movFromStackAddrImpl ctx p1 p2
-instructionTable ctx (Call str) = callImpl ctx str
-instructionTable ctx (Alloc int) = allocHeap ctx int
-instructionTable _ _ = Invalid "Instruction is not recognize"
+instructionTable ctx instr = fst (instructionTableIO ctx instr)
 
 allocHeap :: ValidState Context -> Int -> ValidState Context
 allocHeap (Invalid s) _ = Invalid s
@@ -106,7 +64,10 @@ setupfunctionStack _ _ _ _ = Invalid "Invalid function call"
 blkSetupCtx :: Context -> Block -> Block
 blkSetupCtx ctx (Block name bc paramsTypes) = Block name c' paramsTypes
   where
-    c' = setupfunctionStack (Valid ctx) (stackClear bc) paramsTypes [EDI, ESI, EDX, ECX]
+    c' = case c'' of
+        Invalid s -> Invalid s
+        Valid c -> Valid (c {blocks = blocks ctx, instructionPointer = 0})
+    c'' = setupfunctionStack (Valid ctx) (stackClear bc) paramsTypes [EDI, ESI, EDX, ECX]
 
 -- c' = Block name (execInstructions (detectLabels (setupFunctionStack bc ctx))) paramsTypes
 ---
@@ -114,51 +75,81 @@ blkSetupCtx ctx (Block name bc paramsTypes) = Block name c' paramsTypes
 ---
 
 instructionTableIO :: ValidState Context -> Instruction -> (ValidState Context, IO ())
-instructionTableIO (Invalid s) _ = (Invalid s, putStrLn s)
+-- instructionTableIO (Invalid s) _ = (Invalid s, putStrLn s)
 instructionTableIO ctx Interrupt = execSyscallWrapper ctx
-instructionTableIO ctx other = (instructionTable ctx other, putStr "")
-instructionTableIO ctx _ = (ctx, putStrLn "Instruction is not recognize")
-instructionTableIO _ _ = (Invalid "Instruction is not recognize", putStrLn "Instruction is not recognize")
+instructionTableIO ctx (Mov r1 r2) = (movImpl ctx r1 r2, putStr "")
+instructionTableIO ctx (Cmp r1 r2) = (allCmp ctx r1 r2, putStr "")
+instructionTableIO ctx (Test r1 r2) = (allTest ctx r1 r2, putStr "")
+instructionTableIO ctx (Jmp r1) = (myJmp ctx r1, putStr "")
+instructionTableIO ctx (Je r1) = (myJe ctx r1, putStr "")
+instructionTableIO ctx (Jne r1) = (myJne ctx r1, putStr "")
+instructionTableIO ctx (Js r1) = (myJs ctx r1, putStr "")
+instructionTableIO ctx (Jns r1) = (myJns ctx r1, putStr "")
+instructionTableIO ctx (Jg r1) = (myJg ctx r1, putStr "")
+instructionTableIO ctx (Jge r1) = (myJge ctx r1, putStr "")
+instructionTableIO ctx (Jl r1) = (myJl ctx r1, putStr "")
+instructionTableIO ctx (Jle r1) = (myJle ctx r1, putStr "")
+instructionTableIO ctx (Ja r1) = (myJa ctx r1, putStr "")
+instructionTableIO ctx (Jae r1) = (myJae ctx r1, putStr "")
+instructionTableIO ctx (Jb r1) = (myJb ctx r1, putStr "")
+instructionTableIO ctx (Jbe r1) = (myJbe ctx r1, putStr "")
+instructionTableIO ctx (Inc r1) = (myInc ctx r1 (regGet ctx r1), putStr "")
+instructionTableIO ctx (Dec r1) = (myDec ctx r1 (regGet ctx r1), putStr "")
+instructionTableIO ctx (Neg r1) = (myNeg ctx r1 (regGet ctx r1), putStr "")
+instructionTableIO ctx (Add r1 r2) = (allAdd ctx r1 r2, putStr "")
+instructionTableIO ctx (Sub r1 r2) = (subImpl ctx r1 r2, putStr "")
+instructionTableIO ctx (Mult r1 r2) = (multImpl ctx r1 r2, putStr "")
+instructionTableIO ctx (Div r1) = (divImpl ctx r1, putStr "")
+instructionTableIO ctx (Push r1) = (pushImpl ctx r1, putStr "")
+instructionTableIO ctx (Pop r1) = (popImpl ctx r1, putStr "")
+instructionTableIO ctx (Xor r1 r2) = (xorImpl ctx r1 r2, putStr "")
+instructionTableIO ctx (And r1 r2) = (andImpl ctx r1 r2, putStr "")
+instructionTableIO ctx (Or r1 r2) = (orImpl ctx r1 r2, putStr "")
+instructionTableIO ctx (Not r1) = (notImpl ctx r1, putStr "")
+instructionTableIO ctx (MovPtr p1 p2) = (movPtrImpl ctx p1 p2, putStr "")
+instructionTableIO ctx Nop = (ctx, putStr "")
+instructionTableIO ctx (IMul _ _) = (ctx, putStr "")
+instructionTableIO ctx Enter = (enterImpl (fromValidState newContext ctx), putStr "")
+instructionTableIO ctx Leave = (leaveImpl ctx, putStr "")
+instructionTableIO ctx (Label _ _) = (ctx, putStr "") -- labels are preprocessed before executing
+instructionTableIO ctx (MovStackAddr p1 p2) = (movStackAddrImpl ctx p1 p2, putStr "")
+instructionTableIO ctx (MovFromStackAddr p1 p2) = (movFromStackAddrImpl ctx p1 p2, putStr "")
+instructionTableIO ctx (Call str) = callImpl ctx str
+instructionTableIO ctx (Alloc int) = (allocHeap ctx int, putStr "")
+evalOneInstructionIO :: Context -> Instruction -> (ValidState Context, IO())
+evalOneInstructionIO ctx instr = instructionTableIO (Valid ctx) instr
 
-evalOneInstructionIO :: Context -> Instruction -> (ValidState Context, IO ())
-evalOneInstructionIO ctx = instructionTableIO (Valid ctx)
 
--- evalOneInstructionIO ctx ins = (Valid ctx, putStrLn ("AJAJJDFSAGKJSDGKLAJSFDKLAJS" ++ show ins))
-
-execInstructionsIO :: ValidState Context -> (ValidState Context, IO ())
-execInstructionsIO context =
+execInstructionsIO :: (ValidState Context, IO()) -> (ValidState Context, IO())
+execInstructionsIO (context, prevIO) =
   case c of
-    (Invalid s, io) -> (Invalid s, io)
-    (ct, io) -> if fromValidState (-1) (ipGet ct) + 1 > nbInstructions ct then (ct, io) else (ipInc ct, io)
+    (Invalid s, io) -> (Invalid s, prevIO >> io)
+    (ct, io) -> if fromValidState (-1) (ipGet ct) + 1 > nbInstructions ct then (ct, prevIO >> io) else execInstructionsIO (ipInc ct, prevIO >> io)
   where
     c =
       if fromValidState (-1) (ipGet context) + 1 > nbInstructions context
-        then -- Line done for debugging, uncomment next line and comment this one for final version
-          (Invalid "", print context >> print (fromValidState (-1) (getTrueValueFromParam context (Reg EAX))))
-        else -- then (Invalid "", print (fromValidState (-1) (getTrueValueFromParam context (Reg EAX))))
-        -- then (Invalid "End of program", putStrLn ("Returning accessing at pointer " ++ show (ipGet  context)))
-          evalOneInstructionIO (fromValidState newContext context) (getInsIndex context (fromValidState (-1) (ipGet context)))
-
--- else (context, putStrLn "Reaches")
+        then (context, prevIO)
+        else evalOneInstructionIO (fromValidState newContext context) (getInsIndex context (fromValidState (-1) (ipGet context)))
 
 ---
 --- Context Logic
 ---
 
-executeBlock :: ValidState Context -> Block -> ValidState Context
-executeBlock (Invalid s) _ = Invalid s
+executeBlock :: ValidState Context -> Block -> (ValidState Context, IO())
+executeBlock (Invalid s) _ = (Invalid s, putStr "")
 executeBlock (Valid c) block = do
   let b = blkSetupCtx c block
-  case execInstructions (detectLabels (blockContext b)) of
-    Invalid s -> Invalid ("While executing block " ++ blockName b ++ ": " ++ s)
-    Valid executed -> case getTrueValueFromParam (Valid executed) (Reg EAX) of
-      Invalid s -> Invalid ("While executing block " ++ blockName b ++ ": " ++ s)
-      Valid v -> regSet (Valid c) EAX v
+  case execInstructionsIO (detectLabels (blockContext b), putStr "")of
+    (Invalid s, _) -> (Invalid ("While executing block " ++ blockName b ++ ": " ++ s), putStr "")
+    (Valid executed, io) -> case getTrueValueFromParam (Valid executed) (Reg EAX) of
+      Invalid s -> (Invalid ("While executing block " ++ blockName b ++ ": " ++ s), putStr "invalid in block")
+      Valid v -> (regSet (Valid c) EAX v, io)
 
-callImpl :: ValidState Context -> String -> ValidState Context
-callImpl (Invalid s) _ = Invalid s
+
+callImpl :: ValidState Context -> String -> (ValidState Context, IO ())
+callImpl (Invalid s) _ = (Invalid s, putStr "")
 callImpl (Valid c) symName = case blockGet (Valid c) symName of
-  Invalid s -> Invalid s
+  Invalid s -> (Invalid s, putStr "")
   Valid block -> executeBlock (Valid c) block
 
 -- | Evaluates one instruction and Prelude.returns the resulting context. Does not increase the instruction count.
@@ -168,7 +159,6 @@ evalOneInstruction ctx = instructionTable (Valid ctx)
 -- | Executes all the instructions until the instruction pointer reaches the end of the program.
 -- Increases the instruction pointer after each call.
 execInstructions :: ValidState Context -> ValidState Context
-execInstructions (Invalid s) = Invalid s
 execInstructions context =
   case c of
     Invalid s -> Invalid s

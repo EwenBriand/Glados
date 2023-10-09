@@ -122,10 +122,8 @@ testArrToHASMImpl = case astNodeArrayToHASM (Valid newContext) (ASTNodeArray [AS
   Invalid _ -> []
 
 testArrToHASM :: Test
-testArrToHASM =
-  TestList
-    [ "Array to ASM" ~: testArrToHASMImpl ~?= [Push (Reg EBX), Push (Reg ESI), Mov (Reg EAX) (Immediate 45), Mov (Reg EBX) (Immediate 8), Interrupt, Mov (Reg EBX) (Reg EAX), Mov (Reg ESI) (Reg EBX), Xor (Reg EAX) (Reg EAX), Mov (Reg EAX) (Immediate 1), MovPtr (Reg ESI) (Reg EAX), Add ESI (Immediate 4), Xor (Reg EAX) (Reg EAX), Mov (Reg EAX) (Immediate 2), MovPtr (Reg ESI) (Reg EAX), Add ESI (Immediate 4), Mov (Reg EAX) (Reg EBX), Pop (Reg EBX), Pop (Reg ESI)]
-    ]
+testArrToHASM = TestList [
+    "Array to ASM" ~: testArrToHASMImpl ~?= [Push (Reg EBX),Push (Reg ESI),Mov (Reg EAX) (Immediate 45),Alloc 2,Mov (Reg EBX) (Reg EAX),Mov (Reg ESI) (Reg EBX),Xor (Reg EAX) (Reg EAX),Mov (Reg EAX) (Immediate 1),MovPtr (Reg ESI) (Reg EAX),Add ESI (Immediate 1),Xor (Reg EAX) (Reg EAX),Mov (Reg EAX) (Immediate 2),MovPtr (Reg ESI) (Reg EAX),Add ESI (Immediate 1),Mov (Reg EAX) (Reg EBX),Pop (Reg EBX),Pop (Reg ESI)]]
 
 testStrToHASMImp :: String -> [Instruction]
 testStrToHASMImp str = case strToHASM (Valid newContext) str of
@@ -133,13 +131,10 @@ testStrToHASMImp str = case strToHASM (Valid newContext) str of
   Invalid _ -> []
 
 testStrToHASM :: Test
-testStrToHASM =
-  TestList
-    [ "(1) array" ~: testStrToHASMImp "(1)" ~?= [Enter, Push (Reg EBX), Push (Reg ESI), Mov (Reg EAX) (Immediate 45), Mov (Reg EBX) (Immediate 4), Interrupt, Mov (Reg EBX) (Reg EAX), Mov (Reg ESI) (Reg EBX), Xor (Reg EAX) (Reg EAX), Mov (Reg EAX) (Immediate 1), MovPtr (Reg ESI) (Reg EAX), Add ESI (Immediate 4), Mov (Reg EAX) (Reg EBX), Pop (Reg EBX), Pop (Reg ESI)],
-      "(1 2) array" ~: testStrToHASMImp "(1 2)" ~?= [Enter, Push (Reg EBX), Push (Reg ESI), Mov (Reg EAX) (Immediate 45), Mov (Reg EBX) (Immediate 8), Interrupt, Mov (Reg EBX) (Reg EAX), Mov (Reg ESI) (Reg EBX), Xor (Reg EAX) (Reg EAX), Mov (Reg EAX) (Immediate 1), MovPtr (Reg ESI) (Reg EAX), Add ESI (Immediate 4), Xor (Reg EAX) (Reg EAX), Mov (Reg EAX) (Immediate 2), MovPtr (Reg ESI) (Reg EAX), Add ESI (Immediate 4), Mov (Reg EAX) (Reg EBX), Pop (Reg EBX), Pop (Reg ESI)],
-      "(+ 1 2) sum" ~: testStrToHASMImp "(+ 1 2)" ~?= [Enter, Xor (Reg EAX) (Reg EAX), Mov (Reg EAX) (Immediate 1), Push (Reg EAX), Xor (Reg EAX) (Reg EAX), Mov (Reg EAX) (Immediate 2), Pop (Reg EDI), Add EAX (Reg EDI)]
-    ]
-
+testStrToHASM = TestList [
+    "(1) array" ~: testStrToHASMImp "(1)" ~?= [Enter,Push (Reg EBX),Push (Reg ESI),Mov (Reg EAX) (Immediate 45),Alloc 1,Mov (Reg EBX) (Reg EAX),Mov (Reg ESI) (Reg EBX),Xor (Reg EAX) (Reg EAX),Mov (Reg EAX) (Immediate 1),MovPtr (Reg ESI) (Reg EAX),Add ESI (Immediate 1),Mov (Reg EAX) (Reg EBX),Pop (Reg EBX),Pop (Reg ESI)],
+    "(1 2) array" ~: testStrToHASMImp "(1 2)" ~?= [Enter,Push (Reg EBX),Push (Reg ESI),Mov (Reg EAX) (Immediate 45),Alloc 2,Mov (Reg EBX) (Reg EAX),Mov (Reg ESI) (Reg EBX),Xor (Reg EAX) (Reg EAX),Mov (Reg EAX) (Immediate 1),MovPtr (Reg ESI) (Reg EAX),Add ESI (Immediate 1),Xor (Reg EAX) (Reg EAX),Mov (Reg EAX) (Immediate 2),MovPtr (Reg ESI) (Reg EAX),Add ESI (Immediate 1),Mov (Reg EAX) (Reg EBX),Pop (Reg EBX),Pop (Reg ESI)],
+    "(+ 1 2) sum" ~: testStrToHASMImp "(+ 1 2)" ~?= [Enter, Xor (Reg EAX) (Reg EAX),Mov (Reg EAX) (Immediate 1),Push (Reg EAX),Xor (Reg EAX) (Reg EAX),Mov (Reg EAX) (Immediate 2),Pop (Reg EDI),Add EAX (Reg EDI)]]
 testMovStackAddrImpl :: [Int]
 testMovStackAddrImpl = pile (stack c)
   where

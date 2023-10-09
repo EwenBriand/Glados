@@ -4,6 +4,9 @@
 -- compiled and executed.
 module REPL
   ( runREPL,
+  readContents,
+  logicLoop,
+  execImpl
   )
 where
 
@@ -52,20 +55,28 @@ showTrace (Valid c) s a = do
 -- Runs an interactive console that allows the user to enter commands,
 -- and redirects these commands to the lexer in order to build and evaluate the
 -- AST.
+-- ! DEPRECATED, USE EXECIMPL INSTEAD
 runREPL :: ValidState Context -> IO ()
 runREPL (Invalid _) = runREPL (Valid newContext)
 runREPL (Valid c) = do
     putStr "_> "
     hFlush stdout
     input <- readContents
-    -- print input
     if input == "exit"
         then Prelude.return ()
         else do
             case strToHASM (Valid c) input of
-                Invalid s -> putStrLn s >> exitWith (ExitFailure 84)
-                Valid ctx -> logicLoop (execInstructionsIO (detectLabels (Valid ctx)))
+                Invalid s -> putStrLn s
+                Valid ctx -> logicLoop (execInstructionsIO (detectLabels (Valid ctx), putStr ""))
+
+execImpl :: ValidState Context -> IO ()
+execImpl (Invalid s) = putStrLn s
+execImpl (Valid c) = logicLoop (execInstructionsIO (Valid c, putStr ""))
+
 
 logicLoop :: (ValidState Context, IO()) -> IO()
 logicLoop (Invalid s, io) = io >> putStrLn s
-logicLoop (Valid c, io) = io >> logicLoop (execInstructionsIO (detectLabels (Valid c)))
+logicLoop (Valid c, io) = if instructionPointer c >= length (instructions c)
+    then io >> print (fromValidState (-1) (getTrueValueFromParam (Valid c) (Reg EAX)))
+    else io >> logicLoop (execInstructionsIO (detectLabels (Valid c), putStr ""))
+    -- io >> logicLoop (execInstructionsIO (detectLabels (Valid c)))
