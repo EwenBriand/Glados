@@ -1,5 +1,5 @@
 (define foo (a b) (
-    if (< 1 2) then (
+    if (true) then (
         (+ a 1)
     ) else (
         (+ b 1)

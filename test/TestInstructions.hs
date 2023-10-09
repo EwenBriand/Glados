@@ -574,13 +574,14 @@ testIf =
               Xor (Reg EAX) (Reg EAX),
               Mov (Reg EAX) (Immediate 1),
               Cmp (Reg EAX) (Immediate 1),
+              Cmp (Reg EAX) (Immediate 1),
               Jne "0else",
               VM.Label "0then" 6,
               Xor (Reg EAX) (Reg EAX),
               Mov (Reg EAX) (Immediate 1),
               Jmp "0end",
-              VM.Label "0else" 8,
-              VM.Label "0end" 10
+              VM.Label "0else" 9,
+              VM.Label "0end" 11
             ],
       "build if else ast" ~: strToAST "(if (true) then (1) else (2))" ~?= ASTNodeIf (ASTNodeBoolean True) [ASTNodeInteger 1] (Valid [ASTNodeInteger 2])
     ]
