@@ -9,6 +9,7 @@ import ValidState
 import System.Console.CmdArgs
 import EvaluateAST (strToHASM)
 import System.IO
+import System.Exit
 import REPL
 import qualified Data.Map as Map
 import Control.Monad (mapM_)
@@ -58,7 +59,7 @@ printInstructions (i:is) = do
     printInstructions is
 
 showDisassembly :: ValidState Context -> IO ()
-showDisassembly (Invalid s) = putStrLn ("Context invalidated: " ++ s)
+showDisassembly (Invalid s) = putStrLn ("Context invalidated: " ++ s) >> exitWith (ExitFailure 84)
 showDisassembly (Valid c) = do
     -- print (instructions c)
     printInstructions (instructions c)

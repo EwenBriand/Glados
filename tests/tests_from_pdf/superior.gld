@@ -1,0 +1,4 @@
+(define (sup a b)
+(if (eq? a b) #f
+    (if (< a b) #f #t)))
+(sup 10 2)

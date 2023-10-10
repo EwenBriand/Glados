@@ -66,16 +66,16 @@ runREPL (Valid c) = do
         then Prelude.return ()
         else do
             case strToHASM (Valid c) input of
-                Invalid s -> putStrLn s
+                Invalid s -> putStrLn s >> exitWith (ExitFailure 84)
                 Valid ctx -> logicLoop (execInstructionsIO (detectLabels (Valid ctx), putStr ""))
 
 execImpl :: ValidState Context -> IO ()
-execImpl (Invalid s) = putStrLn s
+execImpl (Invalid s) = putStrLn s >> exitWith (ExitFailure 84)
 execImpl (Valid c) = logicLoop (execInstructionsIO (Valid c, putStr ""))
 
 
 logicLoop :: (ValidState Context, IO()) -> IO()
-logicLoop (Invalid s, io) = io >> putStrLn s
+logicLoop (Invalid s, io) = io >> putStrLn s >> exitWith (ExitFailure 84)
 logicLoop (Valid c, io) = if instructionPointer c >= length (instructions c)
     then io >> print (fromValidState (-1) (getTrueValueFromParam (Valid c) (Reg EAX)))
     else io >> logicLoop (execInstructionsIO (detectLabels (Valid c), putStr ""))
