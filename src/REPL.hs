@@ -34,8 +34,11 @@ readContents = do
     then Prelude.return ""
     else do
       c <- getChar
-      rest <- readContents
-      Prelude.return (c : rest)
+      if c == '\n'
+        then Prelude.return ""
+        else do
+          rest <- readContents
+          Prelude.return (c : rest)
 
 showInstructionRange :: Context -> Int -> Int -> IO ()
 showInstructionRange c start end = do
