@@ -1,4 +1,1 @@
-(define adds
-(lambda (a b)
-(+ a b)))
-(adds 3 4)
+(define adds(lambda (a b)(+ a b)))(adds 3 4)
