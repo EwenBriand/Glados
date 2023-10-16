@@ -12,7 +12,7 @@ const yellow = '\x1b[33m%s\x1b[0m';
 const directoryPath = './tests';
 
 // Define the path to your executable
-const executablePath = './glados -e';
+const executablePath = './glados -e -s';
 
 // Tests File Extension
 const fileExtension = '.gld';
@@ -64,7 +64,7 @@ function parseLastLine(input) {
 async function processFile(pathToFile) {
   try {
     // Do a bash command with the path to file and the executable binary
-    const { stdout } = await exec(`cat ${pathToFile} | ${executablePath}`);
+    const { stdout } = await exec(`${executablePath} ${pathToFile}`);
 
     return stdout;
   } catch (err) {
