@@ -1,0 +1,3 @@
+(mutable test 13)
+(define ok (lambda (a) (+ a test)))
+(ok 12)
