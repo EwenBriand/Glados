@@ -13,13 +13,15 @@ import System.Exit
 import REPL
 import qualified Data.Map as Map
 import Control.Monad (mapM_)
+import MakeELF
 
 data Options = Options {
     binary :: String,
     srcRaw :: String,
     outputFile :: String,
     disassemble :: Bool,
-    execute :: Bool
+    execute :: Bool,
+    compileObject :: String
 } deriving (Show, Data, Typeable)
 
 options :: Options
@@ -28,7 +30,8 @@ options = Options {
     srcRaw = def &= help "The text source file to execute or compile" &= typFile,
     outputFile = def &= help "The output file to write the compiled binary to" &= typFile,
     disassemble = def &= help "Prints the disassembled binary",
-    execute = def &= help "Execute the binary loaded / created"
+    execute = def &= help "Execute the binary loaded / created",
+    compileObject = def &= help "The path to the object file to produce" &= typFile
 } &= summary "Very SAD GladOs Compiler & Interpreter V1.0" -- SAD: Simple And Dumb, Splendid And Direct, or maybe just sad ;)
 
 getContextOnOps :: Options -> IO (ValidState Context)
@@ -66,18 +69,22 @@ showDisassembly (Valid c) = do
     printBlocks c (blocks c)
 
 execOnOps :: IO (ValidState Context) -> Options -> IO ()
-execOnOps ctx ops = do
-    c <- ctx
-    if disassemble ops then
-        showDisassembly c
-    else
-        putStr ""
-    if execute ops then
-        execImpl c
-    else putStr ""
-    if outputFile ops /= "" then
-        saveContext c (outputFile ops)
-    else putStr ""
+execOnOps ctx ops =
+    if compileObject ops /= "" then
+        debugLoadAndShowElf (compileObject ops)
+        
+    else do
+        c <- ctx
+        if disassemble ops then
+            showDisassembly c
+        else
+            putStr ""
+        if execute ops then
+            execImpl c
+        else putStr ""
+        if outputFile ops /= "" then
+            saveContext c (outputFile ops)
+        else putStr ""
 
 
 switchOnOptions :: Options -> IO ()

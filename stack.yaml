@@ -22,9 +22,16 @@ compiler: ghc-8.10.3
 extra-deps:
   - Cabal-3.2.1.0
   - containers-0.6.2.1
-  - data-elf-0.2
+  # - data-elf-0.2
+  # - melf-1.3.0
+  # - elf-0.31
+  - github: aleksey-makarov/melf
+    commit: v1.3.0
   - data-flags-0.0.3.4
   - data-sword-0.2.0.3
+  - exceptions-0.10.4
+  - lens-5.2.3@sha256:637287c76adff383063b3206a4213640de1a74839ec16008cc71b5b407f7d05e,15237
+  # - singletons-2.7
   # - llvm-hs-9.0.0-hs-9.0.0@sha256:ee6ec2eb8cba4daf2a43586388a87dbfd6a2ec6d81d1f9965896ac187acad286,8700
   # url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/21/12.yaml
 
