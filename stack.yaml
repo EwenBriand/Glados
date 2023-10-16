@@ -21,8 +21,10 @@ resolver: lts-18.5
 compiler: ghc-8.10.3
 extra-deps:
   - Cabal-3.2.1.0
-  - llvm-hs-9.0.0
   - containers-0.6.2.1
+  - data-elf-0.2
+  - data-flags-0.0.3.4
+  - data-sword-0.2.0.3
   # - llvm-hs-9.0.0-hs-9.0.0@sha256:ee6ec2eb8cba4daf2a43586388a87dbfd6a2ec6d81d1f9965896ac187acad286,8700
   # url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/21/12.yaml
 

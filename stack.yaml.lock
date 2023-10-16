@@ -12,19 +12,33 @@ packages:
   original:
     hackage: Cabal-3.2.1.0
 - completed:
-    hackage: llvm-hs-9.0.0@sha256:ee6ec2eb8cba4daf2a43586388a87dbfd6a2ec6d81d1f9965896ac187acad286,8700
-    pantry-tree:
-      sha256: 537616dec1351bd9f7905182f82f132359cf3058ebbb059c03b4edcef04b2689
-      size: 13599
-  original:
-    hackage: llvm-hs-9.0.0
-- completed:
     hackage: containers-0.6.2.1@sha256:550b39286f70c39402a21e61f0f8a8b19e0f2b9270197d8524b8f3cbe4f43ee1,2561
     pantry-tree:
       sha256: 0463a6f54ce2fcddb0def77c78a013a982f84aa88c923ab1f6ffe3c51aaa0775
       size: 2823
   original:
     hackage: containers-0.6.2.1
+- completed:
+    hackage: data-elf-0.2@sha256:37bb4e353f9ac62d87b0a0e40a20b65e4501dff606b8ef31078de289a8220577,973
+    pantry-tree:
+      sha256: a651abe8e41c765af95e2450b41d4a91c48b438dad1322a091e6eaf7f094c540
+      size: 256
+  original:
+    hackage: data-elf-0.2
+- completed:
+    hackage: data-flags-0.0.3.4@sha256:a133f2912e0e22f03419dc89a04b1e117ff6290f1777f5b7f037f683b80ed2cf,1097
+    pantry-tree:
+      sha256: fabce261d22601659cc3aeab1d5bb8f918dd3f8a8b01a8b9c483a08113a2535a
+      size: 383
+  original:
+    hackage: data-flags-0.0.3.4
+- completed:
+    hackage: data-sword-0.2.0.3@sha256:953cca4b4533a388df0ef17e06ac5530652d1d73decfe8b656242ccdf4b40999,1568
+    pantry-tree:
+      sha256: 60a104a3d3cbba2e099a9e7ce561322b2884f5323cf74fd876dfb59f265d803c
+      size: 439
+  original:
+    hackage: data-sword-0.2.0.3
 snapshots:
 - completed:
     sha256: 22d24d0dacad9c1450b9a174c28d203f9bb482a2a8da9710a2f2a9f4afee2887

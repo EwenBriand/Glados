@@ -725,19 +725,6 @@ ipInc (Valid context) =
 -- evalOneInstruction :: Context -> Instruction -> ValidState Context
 -- evalOneInstruction c i = instructionTable
 
--- | Executes all the instructions until the instruction pointer reaches the end of the program.
--- Increases the instruction pointer after each call.
--- execInstructions :: ValidState Context -> ValidState Context
--- execInstructions (Invalid s) = Invalid s
--- execInstructions ctx = execInstructions (ipInc c)
---   where
---     c = case ctx of
---       (Invalid s) -> Invalid s
---       Valid context ->
---         if instructionPointer context + 1 >= length (instructions context)
---           then Invalid s
---           else evalOneInstruction context (instructions context !! instructionPointer context)
-
 -- | Push instruction on the ins pile
 insPush :: ValidState Context -> Instruction -> ValidState Context
 insPush (Invalid s) _ = Invalid s
