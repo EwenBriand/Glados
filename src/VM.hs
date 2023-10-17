@@ -69,6 +69,7 @@ module VM
     newBlockMap,
     blockAdd,
     blockGet,
+    stackGetValueFromIndex,
     blockReplace,
     codeFromValidStateInt,
     SyscallCode (..),
@@ -82,6 +83,17 @@ module VM
     saveContext,
     callEasyPrint,
     blockInitAllocVarSpace,
+    addressDoesntExist,
+    maxKey,
+    symGet,
+    symGetType,
+    adaptValueToVarType,
+    sysPrintValue,
+    truePrintValue,
+    labelGet,
+    labelFree,
+    showInstructArray,
+    hasmNStackPush
   )
 where
 

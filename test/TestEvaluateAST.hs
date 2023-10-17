@@ -53,7 +53,9 @@ testInstructionFromAST =
               }
           ),
       "instruction invalid context" ~: instructionFromAST (ASTNodeInteger 123) (Invalid "nop") ~?= Invalid "nop",
-      "instruction AstSymbol" ~: instructionFromAST (ASTNodeSymbol "oui") (Valid newContext) ~?= Invalid "Symbol or Function not found: oui"
+      "instruction AstSymbol" ~: instructionFromAST (ASTNodeSymbol "oui") (Valid newContext) ~?= Invalid "Symbol or Function not found: oui",
+      -- "instruction if clause" ~: instructionFromAST (ASTNodeIf (ASTNodeArray []) thenBlock elseBlock) (Valid newContext)
+      "instruction Eq" ~: instructionFromAST (ASTNodeEq [ASTNodeInteger 3, ASTNodeInteger 3]) (Valid newContext) ~?= putEqInstruction [ASTNodeInteger 3, ASTNodeInteger 3] (Valid newContext)
     ]
 
 testAstPush :: Int
@@ -150,7 +152,8 @@ testMovStackAddr =
 testputDefineInstruction :: Test
 testputDefineInstruction =
   TestList
-    [ "instruction from ast Node define" ~: instructionFromAST (ASTNodeMutable (ASTNodeSymbol "oui") (ASTNodeInteger 42)) (Valid newContext) ~?= Valid newContext {instructions = [Xor (Reg EAX) (Reg EAX), Mov (Reg EAX) (Immediate 42), MovStackAddr (Immediate 0) (Reg EAX)], symbolTable = SymTable {symTable = [("oui", GInt)]}}
+    [
+      -- "instruction from ast Node define" ~: instructionFromAST (ASTNodeDefine (ASTNodeSymbol "oui") (Valid (ASTNodeInteger 42)) ([])) (Valid newContext) ~?= Valid newContext {instructions = [Xor (Reg EAX) (Reg EAX), Mov (Reg EAX) (Immediate 42), MovStackAddr (Immediate 0) (Reg EAX)], symbolTable = SymTable {symTable = [("oui", GInt)]}}
     ]
 
 testMovFromStackAddr :: Test

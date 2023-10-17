@@ -58,6 +58,13 @@ packages:
   original:
     hackage: exceptions-0.10.4
 - completed:
+    hackage: silently-1.2.5.2@sha256:1496b654d2113b9653d14f92e39acb40d0e1ed5de830214857191622b8ed4653,2302
+    pantry-tree:
+      sha256: 4d933f0543e1c1b2c87948844cd84890259388d4b14705313c76bdc602df8e8e
+      size: 374
+  original:
+    hackage: silently-1.2.5.2
+- completed:
     hackage: lens-5.2.3@sha256:637287c76adff383063b3206a4213640de1a74839ec16008cc71b5b407f7d05e,15237
     pantry-tree:
       sha256: 2a69ee338ef79da9aaa0d406f8307b11e3b8f969aa8fc28e46ca250c1f6ef40d
