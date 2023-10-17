@@ -25,6 +25,7 @@ extra-deps:
   # - data-elf-0.2
   # - melf-1.3.0
   # - elf-0.31
+  - prettyprinter-1.7.0
   - github: aleksey-makarov/melf
     commit: v1.3.0
   - data-flags-0.0.3.4
