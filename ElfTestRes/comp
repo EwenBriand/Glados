@@ -1,0 +1,12 @@
+#!/bin/bash
+
+if [ $# -ne 1 ]; then
+  echo "Usage: $0 <asm-file>"
+  exit 1
+fi
+
+asm_file="$1"
+obj_file="${asm_file%.*}.o"
+
+nasm -f elf64 -o "$obj_file" "$asm_file"
+objdump -d "$obj_file"

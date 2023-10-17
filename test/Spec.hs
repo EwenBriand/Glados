@@ -7,6 +7,7 @@ import Test.HUnit.Text (runTestTT)
 import TestEvaluateAST
 import TestInstructions
 import TestLexer
+import TestRealASM
 import TestTokenizer
 import TestVM
 import TestVM (testBlockShow)
@@ -125,7 +126,9 @@ testFunctions =
     testInstructionTableIO,
     testEvalOneInstructionIO,
     testAllTest,
-    testMyTest
+    testMyTest,
+    testEncodeMov,
+    testEncodeMovqRegImm
   ]
 
 -- Run all test functions and return the results as a list

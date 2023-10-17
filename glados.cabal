@@ -26,6 +26,7 @@ source-repository head
 library
   exposed-modules:
       AsmAArch64
+      DummyLd
       EvaluateAST
       Instructions
       Lexer
@@ -83,6 +84,7 @@ test-suite glados-test
       TestEvaluateAST
       TestInstructions
       TestLexer
+      TestRealASM
       TestTokenizer
       TestValidState
       TestVM

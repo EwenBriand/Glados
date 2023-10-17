@@ -10,24 +10,18 @@
 {-# LANGUAGE TypeFamilies #-}
 
 module AsmAArch64
-  ( CodeState,
+  ( CodeState (..),
     Register,
     Label,
-    adr,
-    b,
     mov,
-    ldr,
-    svc,
     ascii,
     label,
     exportSymbol,
     assemble,
-    x0,
-    x1,
-    x2,
-    x8,
-    w0,
-    w1,
+    convertOneInstruction,
+    encodeMovqRegImm,
+    movqRegImmByteArray,
+    byteStringToInteger,
   )
 where
 
@@ -44,6 +38,9 @@ import Data.Elf.Headers
 import Data.Int
 import Data.Kind
 import Data.Word
+import Debug.Trace
+import VM
+import ValidState
 import Prelude as P
 
 data RegisterWidth = X | W
@@ -61,29 +58,50 @@ instance SingRegisterWidthI 'X where
 instance SingRegisterWidthI 'W where
   singRegisterWidth = SW
 
-newtype Register (c :: RegisterWidth) = R Word32
+newtype RRegister (c :: RegisterWidth) = R Word32
 
 newtype CodeOffset = CodeOffset {getCodeOffset :: Int64} deriving (Eq, Show, Ord, Num, Enum, Real, Integral, Bits, FiniteBits)
 
-newtype Instruction = Instruction {getInstruction :: Word32} deriving (Eq, Show, Ord, Num, Enum, Real, Integral, Bits, FiniteBits)
+newtype RInstruction = RInstruction {getInstruction :: Integer} deriving (Eq, Show, Ord, Num) -- , Bits, FiniteBits, num, Real
+
+-- instance Num ByteString where
+--   (+) xs ys = BSL.pack (BSL.unpack xs ++ BSL.unpack ys)
+--   (-) xs ys = BSL.pack (BSL.unpack xs ++ BSL.unpack ys)
+--   (*) xs ys = BSL.pack (BSL.unpack xs ++ BSL.unpack ys)
+--   negate xs = BSL.pack (BSL.unpack xs)
+--   abs xs = BSL.pack (BSL.unpack xs)
+--   signum xs = BSL.pack (BSL.unpack xs)
+--   fromInteger n = BSL.pack (fromIntegral n :: [Word8])
+
+-- byteStringToInteger :: ByteString -> Integer
+-- byteStringToInteger xs = toInteger (BSL.foldr (\b acc -> acc * 256 + fromIntegral b) 0 xs)
+
+-- instance Integral BS.ByteString where
+--   toInteger xs = byteStringToInteger xs
+--   quotRem xs ys = (BS.pack (fromIntegral q :: [Word8]), BS.pack (fromIntegral r :: [Word8]))
+--     where
+--       (q, r) = byteStringToInteger xs `quotRem` byteStringToInteger ys
+
+-- instance Real ByteString where
+--   toRational xs = toRational (BSL.foldr (\b acc -> acc * 256 + fromIntegral b) 0 (BSL.unpack xs))
 
 data Label
   = CodeRef !CodeOffset
   | PoolRef !CodeOffset
 
 -- Args:
--- Offset of the instruction
+-- Offset of the Rinstruction
 -- Offset of the pool
-type InstructionGen = CodeOffset -> CodeOffset -> Either String Instruction
+type RInstructionGen = CodeOffset -> CodeOffset -> Either String RInstruction
 
 data CodeState = CodeState
   { offsetInPool :: CodeOffset,
     poolReversed :: [Builder],
-    codeReversed :: [InstructionGen],
+    codeReversed :: [RInstructionGen],
     symbolsRefersed :: [(String, Label)]
   }
 
-emit' :: MonadState CodeState m => InstructionGen -> m ()
+emit' :: MonadState CodeState m => RInstructionGen -> m ()
 emit' g = modify f
   where
     f CodeState {..} =
@@ -92,7 +110,7 @@ emit' g = modify f
           ..
         }
 
-emit :: MonadState CodeState m => Instruction -> m ()
+emit :: MonadState CodeState m => RInstruction -> m ()
 emit i = emit' $ \_ _ -> Right i
 
 emitPool :: MonadState CodeState m => Word -> ByteString -> m Label
@@ -112,16 +130,6 @@ emitPool a bs = state f
 label :: MonadState CodeState m => m Label
 label = gets (CodeRef . (* instructionSize) . fromIntegral . P.length . codeReversed)
 
-x0, x1, x2, x8 :: Register 'X
-x0 = R 0
-x1 = R 1
-x2 = R 2
-x8 = R 8
-
-w0, w1 :: Register 'W
-w0 = R 0
-w1 = R 1
-
 isPower2 :: (Bits i, Num i) => i -> Bool
 isPower2 n = n .&. (n - 1) == 0
 
@@ -135,57 +143,16 @@ align a n = (n + a' - 1) .&. complement (a' - 1)
 builderRepeatZero :: Int -> Builder
 builderRepeatZero n = mconcat $ P.replicate n (word8 0)
 
-b64 :: forall w. SingRegisterWidthI w => Register w -> Word32
+b64 :: forall w. SingRegisterWidthI w => RRegister w -> Word32
 b64 _ = case singRegisterWidth @w of
   SX -> 1
   SW -> 0
 
--- | C6.2.10 ADR
-adr :: MonadState CodeState m => Register 'X -> Label -> m ()
-adr (R n) rr = emit' f
-  where
-    offsetToImm :: CodeOffset -> Either String Word32
-    offsetToImm (CodeOffset o) =
-      if not $ isBitN 19 o
-        then Left "offset is too big"
-        else
-          let immlo = o .&. 3
-              immhi = (o `shiftR` 2) .&. 0x7ffff
-           in Right $ fromIntegral $ (immhi `shift` 5) .|. (immlo `shift` 29)
-
-    f :: InstructionGen
-    f instrAddr poolOffset = do
-      imm <- offsetToImm $ findOffset poolOffset rr - instrAddr
-      return $
-        Instruction $
-          0x10000000
-            .|. imm
-            .|. n
-
--- | C6.2.26 B
-b :: MonadState CodeState m => Label -> m ()
-b rr = emit' f
-  where
-    offsetToImm26 :: CodeOffset -> Either String Word32
-    offsetToImm26 (CodeOffset o)
-      | o .&. 0x3 /= 0 = Left $ "offset is not aligned: " ++ show o
-      | not $ isBitN 28 o = Left "offset is too big"
-      | otherwise = Right $ fromIntegral $ o `shiftR` 2
-
-    f :: InstructionGen
-    f instrAddr poolOffset = do
-      imm26 <- offsetToImm26 $ findOffset poolOffset rr - instrAddr
-      return $ Instruction $ 0x14000000 .|. imm26
-
 -- | C6.2.187 MOV (wide immediate)
-mov :: (MonadState CodeState m, SingRegisterWidthI w) => Register w -> Word16 -> m ()
-mov r@(R n) imm =
+mov :: (MonadState CodeState m) => Register -> Word16 -> m ()
+mov r imm =
   emit $
-    Instruction $
-      (b64 r `shift` 31)
-        .|. 0x52800000
-        .|. (fromIntegral imm `shift` 5)
-        .|. n
+    RInstruction $ (encodeMovqRegImm r (fromIntegral imm)) -- updated for x64
 
 -- | The number can be represented with bitN bits
 isBitN :: (Num b, Bits b, Ord b) => Int -> b -> Bool
@@ -197,30 +164,6 @@ isBitN bitN w =
 findOffset :: CodeOffset -> Label -> CodeOffset
 findOffset _poolOffset (CodeRef codeOffset) = codeOffset
 findOffset poolOffset (PoolRef offsetInPool) = poolOffset + offsetInPool
-
--- | C6.2.132 LDR (literal)
-ldr :: (MonadState CodeState m, SingRegisterWidthI w) => Register w -> Label -> m ()
-ldr r@(R n) rr = emit' f
-  where
-    offsetToImm19 :: CodeOffset -> Either String Word32
-    offsetToImm19 (CodeOffset o)
-      | o .&. 0x3 /= 0 = Left "offset is not aligned"
-      | not $ isBitN 21 o = Left "offset is too big"
-      | otherwise = Right $ fromIntegral $ o `shiftR` 2
-
-    f :: InstructionGen
-    f instrAddr poolOffset = do
-      imm19 <- offsetToImm19 $ findOffset poolOffset rr - instrAddr
-      return $
-        Instruction $
-          (b64 r `shift` 30)
-            .|. 0x18000000
-            .|. (imm19 `shift` 5)
-            .|. n
-
--- | C6.2.317 SVC
-svc :: MonadState CodeState m => Word16 -> m ()
-svc imm = emit $ 0xd4000001 .|. (fromIntegral imm `shift` 5)
 
 ascii :: MonadState CodeState m => String -> m Label
 ascii s = emitPool 1 $ BSLC.pack s
@@ -246,6 +189,11 @@ shstrtabSecN = 2
 strtabSecN = 3
 symtabSecN = 4
 
+makeCodeBuilder :: Integer -> ByteString
+makeCodeBuilder i = word8ArrayToByteString (reverseArray (integerToWord8Array i))
+
+-- makeCodeBuilder i = BSL.reverse (integerToByteString i)
+
 assemble :: MonadCatch m => StateT CodeState m () -> m Elf
 assemble m = do
   CodeState {..} <- execStateT m (CodeState 0 [] [] [])
@@ -255,19 +203,27 @@ assemble m = do
   let poolOffset = instructionSize * fromIntegral (P.length codeReversed)
       poolOffsetAligned = align 8 poolOffset
 
-      f :: (InstructionGen, CodeOffset) -> Either String Instruction
+      f :: (RInstructionGen, CodeOffset) -> Either String RInstruction
       f (ff, n) = ff n poolOffsetAligned
 
   code <- $eitherAddContext' $ mapM f $ P.zip (P.reverse codeReversed) (fmap (instructionSize *) [CodeOffset 0 ..])
 
-  let codeBuilder = mconcat $ fmap (word32LE . getInstruction) code
-      txt =
-        toLazyByteString $
-          codeBuilder
-            <> builderRepeatZero (fromIntegral $ poolOffsetAligned - poolOffset)
-            <> mconcat (P.reverse poolReversed)
+  --   let codeBuilder = mconcat $ fmap (word32LE . getInstruction) code
+  --       txt =
+  --         toLazyByteString $
+  --           codeBuilder
+  --             <> builderRepeatZero (fromIntegral $ poolOffsetAligned - poolOffset)
+  --             <> mconcat (P.reverse poolReversed)
 
+  --   let codeBuilder = mconcat $ fmap (makeCodeBuilder . getInstruction) code
+  --       txt =
+  --         toLazyByteString $
+  --           codeBuilder
+  -- <> builderRepeatZero (fromIntegral $ poolOffsetAligned - poolOffset)
+  -- <> mconcat (P.reverse poolReversed)
   -- resolve symbolTable
+
+  let txt = mconcat $ fmap (makeCodeBuilder . getInstruction) code
 
   let ff :: (String, Label) -> ElfSymbolXX 'ELFCLASS64
       ff (s, r) =
@@ -283,64 +239,178 @@ assemble m = do
 
   (symbolTableData, stringTableData) <- serializeSymbolTable ELFDATA2LSB (zeroIndexStringItem : symbolTable)
 
-  return $
-    Elf SELFCLASS64 $
-      ElfHeader
-        { ehData = ELFDATA2LSB,
-          ehOSABI = ELFOSABI_SYSV,
-          ehABIVersion = 0,
-          ehType = ET_REL,
-          ehMachine = EM_AARCH64,
-          ehEntry = 0,
-          ehFlags = 0
-        }
-        ~: ElfSection
-          { esName = ".text",
-            esType = SHT_PROGBITS,
-            esFlags = SHF_EXECINSTR .|. SHF_ALLOC,
-            esAddr = 0,
-            esAddrAlign = 8,
-            esEntSize = 0,
-            esN = textSecN,
-            esLink = 0,
-            esInfo = 0,
-            esData = ElfSectionData txt
+  trace ("text is: " ++ show txt) $
+    P.return $
+      Elf SELFCLASS64 $
+        ElfHeader
+          { ehData = ELFDATA2LSB,
+            ehOSABI = ELFOSABI_SYSV,
+            ehABIVersion = 0,
+            ehType = ET_REL,
+            ehMachine = EM_X86_64,
+            ehEntry = 0,
+            ehFlags = 0
           }
-        ~: ElfSection
-          { esName = ".shstrtab",
-            esType = SHT_STRTAB,
-            esFlags = 0,
-            esAddr = 0,
-            esAddrAlign = 1,
-            esEntSize = 0,
-            esN = shstrtabSecN,
-            esLink = 0,
-            esInfo = 0,
-            esData = ElfSectionDataStringTable
-          }
-        ~: ElfSection
-          { esName = ".symtab",
-            esType = SHT_SYMTAB,
-            esFlags = 0,
-            esAddr = 0,
-            esAddrAlign = 8,
-            esEntSize = symbolTableEntrySize ELFCLASS64,
-            esN = symtabSecN,
-            esLink = fromIntegral strtabSecN,
-            esInfo = 1,
-            esData = ElfSectionData symbolTableData
-          }
-        ~: ElfSection
-          { esName = ".strtab",
-            esType = SHT_STRTAB,
-            esFlags = 0,
-            esAddr = 0,
-            esAddrAlign = 1,
-            esEntSize = 0,
-            esN = strtabSecN,
-            esLink = 0,
-            esInfo = 0,
-            esData = ElfSectionData stringTableData
-          }
-        ~: ElfSectionTable
-        ~: ElfListNull
+          ~: ElfSection
+            { esName = ".text",
+              esType = SHT_PROGBITS,
+              esFlags = SHF_EXECINSTR .|. SHF_ALLOC,
+              esAddr = 0,
+              esAddrAlign = 8,
+              esEntSize = 0,
+              esN = textSecN,
+              esLink = 0,
+              esInfo = 0,
+              esData = ElfSectionData txt
+            }
+          ~: ElfSection
+            { esName = ".shstrtab",
+              esType = SHT_STRTAB,
+              esFlags = 0,
+              esAddr = 0,
+              esAddrAlign = 1,
+              esEntSize = 0,
+              esN = shstrtabSecN,
+              esLink = 0,
+              esInfo = 0,
+              esData = ElfSectionDataStringTable
+            }
+          ~: ElfSection
+            { esName = ".symtab",
+              esType = SHT_SYMTAB,
+              esFlags = 0,
+              esAddr = 0,
+              esAddrAlign = 8,
+              esEntSize = symbolTableEntrySize ELFCLASS64,
+              esN = symtabSecN,
+              esLink = fromIntegral strtabSecN,
+              esInfo = 1,
+              esData = ElfSectionData symbolTableData
+            }
+          ~: ElfSection
+            { esName = ".strtab",
+              esType = SHT_STRTAB,
+              esFlags = 0,
+              esAddr = 0,
+              esAddrAlign = 1,
+              esEntSize = 0,
+              esN = strtabSecN,
+              esLink = 0,
+              esInfo = 0,
+              esData = ElfSectionData stringTableData
+            }
+          ~: ElfSectionTable
+          ~: ElfListNull
+
+------------------------------------------------------------------------------
+------------------------------------------------------------------------------
+-- END OF DOCUMENTATION
+------------------------------------------------------------------------------
+------------------------------------------------------------------------------
+-- OUR CODE NOW :)
+------------------------------------------------------------------------------
+------------------------------------------------------------------------------
+
+integerToWord8Array :: Integer -> [Word8]
+integerToWord8Array n = reverseArray $ go n []
+  where
+    go 0 acc = acc
+    go m acc = go (m `shiftR` 8) (fromIntegral m : acc)
+
+inverseEndiannessInteger :: Integer -> Integer
+inverseEndiannessInteger i =
+  let bs = integerToByteString i
+      bs' = inverseEndiannessByteString bs
+   in byteStringToInteger bs'
+
+inverseEndiannessByteString :: ByteString -> ByteString
+inverseEndiannessByteString bs =
+  let w8array = BSL.unpack bs
+      w8array' = inverseEndiannessW8Array w8array
+   in BSL.pack w8array'
+
+inverseEndiannessW8 :: Word8 -> Word8
+inverseEndiannessW8 w =
+  let w1 = w `shiftR` 4
+      w2 = w .&. 0x0f
+   in (w2 `shiftL` 4) .|. w1
+
+inverseEndiannessW8Array :: [Word8] -> [Word8]
+inverseEndiannessW8Array [] = []
+inverseEndiannessW8Array (x : xs) = inverseEndiannessW8 x : inverseEndiannessW8Array xs
+
+reverseArray :: [a] -> [a]
+reverseArray [] = []
+reverseArray (x : xs) = reverseArray xs ++ [x]
+
+greatestPowerOf256 :: Integer -> Int
+greatestPowerOf256 n = go n 0
+  where
+    go 0 acc = acc
+    go m acc = go (m `shiftR` 8) (acc + 1)
+
+integerToByteString :: Integer -> ByteString
+integerToByteString n =
+  BSL.pack
+    ( [fromIntegral ((n `shiftR` (8 * i)) .&. 0xff) | i <- [0 .. greatestPowerOf256 n]]
+    )
+
+byteStringToInteger :: ByteString -> Integer
+byteStringToInteger xs =
+  let w8array = reverseArray (BSL.unpack xs)
+   in P.foldr (\b acc -> acc * 256 + fromIntegral b) 0 w8array
+
+byteListToStr :: [Int] -> String
+byteListToStr [] = ""
+byteListToStr (x : xs) = show x ++ byteListToStr xs
+
+word32FromByteList :: [Int] -> Word32
+word32FromByteList l = read (byteListToStr l) :: Word32
+
+word8ArrayToByteString :: [Word8] -> ByteString
+word8ArrayToByteString [] = BSL.pack []
+word8ArrayToByteString (x : xs) = BSL.cons x (word8ArrayToByteString xs)
+
+movqOpCodeFromReg :: Register -> Word8
+movqOpCodeFromReg EAX = read "0xb8" :: Word8
+movqOpCodeFromReg ECX = read "0xb9" :: Word8
+movqOpCodeFromReg EDX = read "0xba" :: Word8
+movqOpCodeFromReg EBX = read "0xbb" :: Word8
+movqOpCodeFromReg ESP = read "0xbc" :: Word8
+movqOpCodeFromReg EBP = read "0xbd" :: Word8
+movqOpCodeFromReg ESI = read "0xbe" :: Word8
+movqOpCodeFromReg EDI = read "0xbf" :: Word8
+
+movqRegImmByteArray :: Register -> Int -> [Word8]
+movqRegImmByteArray r i =
+  let opcode = movqOpCodeFromReg r
+      immBytes = encodeImmediate i
+   in [opcode] ++ immBytes
+
+encodeMovqRegImm :: Register -> Int -> Integer
+encodeMovqRegImm r i =
+  byteStringToInteger
+    (word8ArrayToByteString ((movqRegImmByteArray r i)))
+
+intToWord16 :: Int -> Word16
+intToWord16 i = fromIntegral i :: Word16
+
+encodeImmediate :: Int -> [Word8] -- Word32
+encodeImmediate n =
+  [fromIntegral ((n `shiftR` (8 * i)) .&. 0xff) | i <- [0 .. 3]]
+
+convertOneInstruction :: MonadState CodeState m => Instruction -> m ()
+convertOneInstruction (Mov (Reg r) (Immediate i)) = mov r (intToWord16 i)
+
+hasmToAsm :: MonadState CodeState m => [Instruction] -> m [Int]
+hasmToAsm [] = P.return []
+hasmToAsm (i : is) =
+  let op = convertOneInstruction i
+   in do
+        op
+        hasmToAsm is
+
+execAsm :: ValidState Context -> Elf
+execAsm (Invalid s) = error s
+
+-- execAsm (Valid c) = execState (assemble (Rinstructions c)) (CodeState 0 [] [] [])

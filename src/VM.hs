@@ -85,18 +85,17 @@ module VM
   )
 where
 
+import Data.Binary (Binary, decode, decodeFile, encode, encodeFile)
+import Data.Binary.Get (getWord32le, getWord64le)
+import Data.Binary.Put (putWord32le, putWord64le)
 import Data.Bits (Bits (complement, xor, (.&.), (.|.)))
+import qualified Data.ByteString.Lazy as BS
 import Data.List (elemIndex)
 import qualified Data.Map as Map
 import Data.Maybe (fromMaybe)
+import GHC.Generics (Generic)
 import Lexer
 import ValidState
-
-import Data.Binary (Binary, decodeFile, encodeFile, encode, decode)
-import Data.Binary.Get (getWord32le, getWord64le)
-import Data.Binary.Put (putWord32le, putWord64le)
-import qualified Data.ByteString.Lazy as BS
-import GHC.Generics (Generic)
 
 ---------------------------------------------------------------------------
 -- SYSCALLS
@@ -154,12 +153,13 @@ execSyscallWrapper (Valid ctx) = execSyscall (Valid ctx) (codeFromEAX ctx)
 -------------------------------------------------------------------------------
 
 -- | The registers of the VM. Cf assembly registers.
-data Register = EAX | EBX | ECX | EDX | ESI | EDI | EBP | ESP
+data Register = EAX | EBX | ECX | EDX | ESI | EDI | EBP | ESP | E8 | E9
   deriving (Eq, Ord, Show, Generic)
 
 newtype Registers = Registers {regs :: Map.Map Register Int} deriving (Show, Eq, Generic)
 
 instance Binary Registers
+
 instance Binary Register
 
 -- | Creates a new empty set of registers.

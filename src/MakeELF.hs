@@ -54,7 +54,7 @@ debugLoadAndShowElf path = do
   bs <- fromStrict <$> BS.readFile path
   elf <- parseElf bs
   let elf' = loadDefaultElf
-  easyPrintElf elf'
+  easyPrintElf elf
 
 -- easyPrintElf elf
 -- doc <- printElf_ False elf
