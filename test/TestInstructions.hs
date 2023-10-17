@@ -67,6 +67,7 @@ module TestInstructions
     testMyJae,
     testMyJb,
     testMyJbe,
+    testSetupfunctionStack
   )
 where
 
@@ -833,3 +834,23 @@ testMyJbe =
       "Returns an error for an invalid context"
         ~: myJbe (Invalid "Invalid context") "test" ~?= Invalid "Invalid context"
     ]
+
+testSetupfunctionStack :: Test
+testSetupfunctionStack = TestList
+  [
+    "Invalid setupfunctionStack"
+      ~: setupfunctionStack (Invalid "Error") (Invalid "Error") [] [] ~?= Invalid "Error",
+    "Invalid setupfunctionStack 2"
+      ~: setupfunctionStack (Valid newContext) (Invalid "Error") [] [] ~?= Invalid "Error",
+    "Valid setupfunctionStack"
+      ~: setupfunctionStack (Valid newContext) (Valid newContext) [] [] ~?= Valid newContext
+  ]
+
+-- testBlkSetupCtx :: Test
+-- testBlkSetupCtx = TestList
+--   [
+--     "Invalid blkSetupCtx"
+--       ~:
+--       let block1 = Block "foo" (Valid newContext) []
+--       in blkSetupCtx (Invalid "Error") block1  ~?= Invalid "Error"
+--   ]

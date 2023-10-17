@@ -2,6 +2,7 @@ module EvaluateAST
   ( instructionFromAST,
     astNodeArrayToHASM,
     strToHASM,
+    putEqInstruction,
   )
 where
 

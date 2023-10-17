@@ -39,7 +39,10 @@ testBind =
     [ "bind with Valid value"
         ~: bindTest (Valid 42) ~?= Valid 52,
       "bind with Invalid value"
-        ~: bindTest (Invalid "bad everything") ~?= Invalid "bad everything"
+        ~: bindTest (Invalid "bad everything") ~?= Invalid "bad everything",
+        ">>= should work for Invalid" ~: do
+        let action = Invalid "error message" ValidState.>>= (\x -> ValidState.return (x * 2))
+        assertEqual "Invalid 'error message' >>= (x -> return (x * 2))" (Invalid "error message") action
     ]
 
 testFunctor :: Test
@@ -94,6 +97,11 @@ testEq =
         ~: Invalid "Error" == (Valid 42 :: ValidState Int) ~?= False
     ]
 
+testBindInvalid :: Test
+testBindInvalid = ">>= should work for Invalid ValidState" ~: do
+    let action = Invalid "error message" ValidState.>>= (\x -> ValidState.return (x * 2))
+    assertEqual "Invalid 'error message' >>= (x -> return (x * 2))" (Invalid "error message") action
+
 testMonad :: Test
 testMonad =
   TestList
@@ -119,7 +127,8 @@ testMonad =
         ~: do
           let value = Invalid "Error"
               result = value ValidState.>>= (\x -> Valid (x + 10))
-          assertEqual "Result should be Invalid with the same message" (Invalid "Error") result
+          assertEqual "Result should be Invalid with the same message" (Invalid "Error") result,
+      testBindInvalid
     ]
 
 testFromValidState :: Test

@@ -34,6 +34,8 @@ module TestVM
     testLabelSetGet,
     testFlagGetSet,
     testCodeFromValidStateInt,
+    testExecSyscall,
+    testExecSyscallWrapper,
     testCodeFromEAX,
     testCallEasyPrint,
     testBlock,
@@ -52,19 +54,56 @@ module TestVM
     testParam,
     testInstruction,
     testGetTrueValueFromParam,
+    testStackClear,
+    testRegInvalids,
     testSetTrueValueFromParam,
     testEq,
     testShow,
     testOrd,
+    testStackGetValueFromIndex,
+    testAddressDoesntExist,
+    testInvalidHeap,
+    testSymGet,
+    testAdaptValueToVarType,
+    testSysPrintValue,
+    testsLabelsFuncs,
+    testFlagInvalid,
+    testContext,
+    testNextUUIDValid,
+    testIps,
+    testHasmNStackPush,
+    testLabels
   )
 where
 
 import qualified Data.Map as Map
 import GHC.Generics (Fixity (Prefix), FixityI (PrefixI))
-import Lexer (VarType (GBool, GInt))
+import Lexer (VarType (GBool, GInt, GVoid))
 import Test.HUnit
 import VM
 import ValidState
+import System.IO.Silently
+
+testRegInvalids :: Test
+testRegInvalids = TestList
+  [
+    "RegSetInvalid" ~:  regSet (Invalid "Error") EAX 1 ~?= Invalid "Error",
+    "RegGetInvalid" ~:  regGet (Invalid "Error") EAX ~?= Invalid "Error",
+    "RegGetNothing" ~:  regGet (Valid newContext {registers = Registers (Map.fromList [(EAX, 42)])}) EDX ~?= Invalid "Register not found",
+    "RegNotInvalid" ~:  regNot (Invalid "Error") EAX ~?= Invalid "Error",
+    "RegIncInvalid" ~:  regInc (Invalid "Error") EAX ~?= Invalid "Error",
+    "RegDecInvalid" ~:  regDec (Invalid "Error") EAX ~?= Invalid "Error",
+    "RegAddInvalid" ~:  regAdd (Invalid "Error") EAX 1 ~?= Invalid "Error",
+    "RegSubInvalid" ~:  regSub (Invalid "Error") EAX 1 ~?= Invalid "Error",
+    "RegMulInvalid" ~:  regMul (Invalid "Error") EAX 1 ~?= Invalid "Error",
+    "RegDivInvalid" ~:  regDiv (Invalid "Error") EAX 1 ~?= Invalid "Error",
+    "RegDivInvalidDiv" ~:  regDiv (regSet (Valid newContext) EAX 9) EAX 0 ~?= Invalid "Division by zero",
+    "RegModInvalid" ~:  regMod (Invalid "Error") EAX 1 ~?= Invalid "Error",
+    "RegModInvalidMod" ~:  regMod (regSet (Valid newContext) EAX 9) EAX 0 ~?= Invalid "Modulo by zero",
+    "RegAndInvalid" ~: regAnd (Invalid "Error") EAX 1 ~?= Invalid "Error",
+    "RegOrInvalid" ~: regOr (Invalid "Error") EAX 1 ~?= Invalid "Error",
+    "RegXorInvalid" ~: regXor (Invalid "Error") EAX 1 ~?= Invalid "Error"
+  ]
 
 testIncRegisterImpl :: Bool
 testIncRegisterImpl =
@@ -360,6 +399,19 @@ testStackRotImpl =
 testHeapAlloc :: Test
 testHeapAlloc = TestCase (assertBool "heap set get" testHeapAllocImpl)
 
+testAddressDoesntExist :: Test
+testAddressDoesntExist = TestList
+  [
+    "addressDoesntExist should return True when the address doesn't exist" ~: do
+      let m = Map.fromList [(1, 10), (2, 20), (3, 30)]
+      let address = 4
+      assertBool "Address 4 should not exist in the map" (addressDoesntExist m address),
+    "addressDoesntExist should return False when the address exists" ~: do
+      let m = Map.fromList [(1, 10), (2, 20), (3, 30)]
+      let address = 2
+      assertBool "Address 2 exists in the map" (not $ addressDoesntExist m address)
+  ]
+
 testHeapAllocImpl :: Bool
 testHeapAllocImpl =
   addr == Valid 2
@@ -410,6 +462,16 @@ testLabelSetGetImpl =
 testLabelSetGet :: Test
 testLabelSetGet = TestCase (assertBool "label set get" testLabelSetGetImpl)
 
+testsLabelsFuncs :: Test
+testsLabelsFuncs = TestList
+  [
+    "Invalid labelSet" ~: labelSet (Invalid "Error") "jaja" 43 ~?= Invalid "Error",
+    "Invalid labelGet" ~: labelGet (Invalid "Error") "test" ~?= Invalid "Error",
+    "Invalid labelGet" ~: labelGet (Valid newContext) "test" ~?= Invalid "Label not allocated",
+    "Invalid labelFree" ~: labelFree (Invalid "Error") "test" ~?= Invalid "Error",
+    "Valid labelFree" ~: labelFree (labelSet (Valid newContext) "test" 1) "test" ~?= Valid newContext {labels = Labels Map.empty}
+  ]
+
 testFlagGetSetImpl :: Bool
 testFlagGetSetImpl =
   value == True
@@ -419,6 +481,13 @@ testFlagGetSetImpl =
 
 testFlagGetSet :: Test
 testFlagGetSet = TestCase (assertBool "flag get set" testFlagGetSetImpl)
+
+testFlagInvalid :: Test
+testFlagInvalid = TestList
+  [
+    "Invalid flagSet" ~: flagSet (Invalid "Error") ZF True ~?= Invalid "Error",
+    "Invalid flagGet" ~: flagGet (Invalid "Error") ZF ~?= False
+  ]
 
 testCodeFromValidStateInt :: Test
 testCodeFromValidStateInt =
@@ -435,6 +504,9 @@ testCodeFromValidStateInt =
       "returns an Invalid ValidState Context for an Invalid input"
         ~: let x = Invalid "Error"
             in callExit x ~?= Invalid "Error",
+      "returns SCEasyPrint from the ValidState Int"
+        ~: let x = Valid 4
+            in codeFromValidStateInt x ~?= SCEasyPrint,
       "sets the exit flag to True for a Valid input"
         ~: let x = Valid newContext {exit = False}
             in callExit x ~?= Valid newContext {exit = True},
@@ -444,6 +516,39 @@ testCodeFromValidStateInt =
                context = exit context'
             in context ~?= True
     ]
+
+testExecSyscall :: Test
+testExecSyscall = TestList
+  [
+    "If context is invalid should print invalid"
+      ~: do
+        let (result, ioAction) = execSyscall (Invalid "Error") SCExit
+        (result) ~?= Invalid "Error",
+    "If context is valid and syscall is exit should print exit"
+      ~: do
+        let (result, ioAction) = execSyscall (Valid newContext) SCExit
+        let expected = (Valid newContext {exit = True}, putStr "Exit")
+        (result) ~?= Valid newContext {exit = True},
+    "If context is valid and syscall is print should return valid context"
+      ~: do
+        let (result, ioAction) = execSyscall (Valid newContext) SCEasyPrint
+        let expected = (Valid newContext, putStr "0")
+        (result) ~?= Valid newContext
+  ]
+
+testExecSyscallWrapper:: Test
+testExecSyscallWrapper = TestList
+  [
+    "If context is invalid should print invalid"
+      ~: do
+        let (result, ioAction) = execSyscallWrapper (Invalid "Error")
+        (result) ~?= Invalid "Error",
+    "If context is valid and syscall is exit should print exit"
+      ~: do
+        let (result, ioAction) = execSyscallWrapper (Valid newContext {exit=True, registers = Registers (Map.fromList [(EAX,0),(EBX,0),(ECX,0),(EDX,0),(ESI,0),(EDI,0),(EBP,0),(ESP,0)])})
+        -- let expected = Valid newContext
+        (result) ~?= Valid newContext {exit = True}
+  ]
 
 extract :: ValidState t -> t
 extract (Valid x) = x
@@ -610,6 +715,16 @@ testSymTable =
             in r ~?= Valid 2
     ]
 
+testInvalidHeap :: Test
+testInvalidHeap = TestList
+  [
+    "Invalid Context in Heap Set" ~: heapSet (Invalid "Error") 1 4 ~?= Invalid "Error",
+    "Invalid Context in Heap Get" ~: heapGet (Invalid "Error") 1 ~?= Invalid "Error",
+    "Invalid Max Key" ~:
+      let m = Map.fromList []
+      in maxKey m ~?= (Invalid "Empty map")
+  ]
+
 testHeap :: Test
 testHeap =
   TestList
@@ -751,6 +866,29 @@ testStackGetPointer =
         ~: stackGetPointer (Invalid "Invalid context") ~?= (0, Invalid "Invalid context")
     ]
 
+testStackClear :: Test
+testStackClear = TestList
+  [
+    "Clears a non-empty stack"
+      ~: stackClear (Valid newContext {stack = Stack [1, 2, 3]})
+      ~?= Valid newContext {stack = newStack, registers = Registers (Map.fromList [(EAX, 0), (EBX, 0), (ECX, 0), (EDX, 0), (ESI, 0), (EDI, 0), (EBP, 0), (ESP, 0)])},
+    "Returns an error for an invalid context"
+      ~: stackClear (Invalid "Invalid context") ~?= Invalid "Invalid context"
+  ]
+
+testStackGetValueFromIndex :: Test
+testStackGetValueFromIndex = TestList
+  [
+    "Returns an error for an invalid context"
+      ~: stackGetValueFromIndex (Invalid "Invalid context") 0 ~?= Invalid "Invalid context",
+    "Returns an error for an empty stack"
+      ~: stackGetValueFromIndex (Valid newContext {stack = newStack}) 0 ~?= Invalid "Empty stack",
+    "Get the position of the elem"
+      ~: stackGetValueFromIndex (Valid newContext {stack = Stack [1, 2, 3]}) 3 ~?= Valid 2,
+    "Returns an error for an invalid index"
+      ~: stackGetValueFromIndex (Valid newContext {stack = Stack [1, 2, 3]}) 4 ~?= Invalid "Value not retrieve"
+  ]
+
 testParam :: Test
 testParam =
   TestList
@@ -803,7 +941,7 @@ testGetTrueValueFromParam =
       "Returns the value at a memory address"
         ~: getTrueValueFromParam (Valid newContext {heap = Heap (Map.singleton 0 42)}) (Memory 0) ~?= Valid 42,
       -- "Returns the value of a symbol"
-      --   ~: getTrueValueFromParam (Valid newContext {heap = Heap (Map.singleton 0 42), symbolTable = Symbol (Map.singleton "foo" 0)}) (Symbol "foo") ~?= Valid 42,
+        -- ~: getTrueValueFromParam (Valid newContext {heap = Heap (Map.singleton 0 42), symbolTable = Symbol (Map.singleton "foo" 0)}) (Symbol "foo") ~?= Valid 42,
       "Returns an error for an invalid context"
         ~: getTrueValueFromParam (Invalid "Invalid context") (Reg EAX) ~?= Invalid "Invalid context"
         -- "Returns an error for an immediate type parameter"
@@ -813,8 +951,9 @@ testGetTrueValueFromParam =
 testSetTrueValueFromParam :: Test
 testSetTrueValueFromParam =
   TestList
-    [ -- "Sets the value of a register"
-      --   ~: setTrueValueFromParam (Valid newContext) (Reg EAX) 42 >>= \context -> regGet (Valid context) EAX ~?= Valid 42,
+    [
+      -- "Sets the value of a register"
+        -- ~: setTrueValueFromParam (Valid newContext) (Reg EAX) 42 Prelude.>>= \context -> regGet (Valid context) EAX ~?= Valid 42,
       "Returns an error for an immediate type parameter"
         ~: setTrueValueFromParam (Valid newContext) (Immediate 42) 99 ~?= Invalid "Cannot set value of an immediate type parameter",
       -- "Sets the value at a memory address"
@@ -879,3 +1018,74 @@ testOrd =
       "Symbols are not equal"
         ~: Symbol "foo" `compare` Symbol "bar" ~?= GT
     ]
+
+testSymGet :: Test
+testSymGet = TestList
+  [
+    "Invalid SymGet" ~: symGet (Invalid "Error") "jsjs" ~?= Invalid "Error",
+    "Invalid symGetType" ~: symGetType (Invalid "Error") "jsjsj" ~?= Invalid "Error",
+    "Invalid symGetType Not found" ~: symGetType (Valid newContext {symbolTable = SymTable [("foo", GInt), ("bar", GBool)]}) "test" ~?= Invalid "Symbol not found",
+    "Valid symGetType Found" ~: symGetType (Valid newContext {symbolTable = SymTable [("foo", GInt), ("bar", GBool)]}) "foo" ~?= Valid GInt
+  ]
+
+testAdaptValueToVarType :: Test
+testAdaptValueToVarType = TestList
+  [
+    "Invalid adaptValueToVarType" ~: adaptValueToVarType GInt (Invalid "Error") ~?= "Error",
+    "Valid adaptValueToVarType" ~: adaptValueToVarType GInt (Valid 42) ~?= "42",
+    "Valid adaptValueToVarType" ~: adaptValueToVarType GBool (Valid 1) ~?= "true",
+    "Valid adaptValueToVarType" ~: adaptValueToVarType GBool (Valid 0) ~?= "false",
+    "Valid adaptValueToVarType" ~: adaptValueToVarType GVoid (Valid 42) ~?= ""
+  ]
+
+testSysPrintValue :: Test
+testSysPrintValue = TestList
+  [
+    "Invalid sysPrintValue" ~: sysPrintValue (Invalid "Error") (Valid GInt) "test",
+    "Valid sysPrintValue" ~: sysPrintValue (Valid newContext) (Invalid "Err")  "test",
+    "Valid sysPrintValue" ~: sysPrintValue (Valid newContext) (Valid GInt) "test",
+    "Invalid truePrintValue" ~: truePrintValue (Invalid "Error") (Reg EAX) (Reg EAX)
+  ]
+
+testContext :: Test
+testContext = TestList
+  [
+    "Invalid saveContext" ~: saveContext (Invalid "Error") "test",
+    "Valid saveContext" ~: saveContext (Valid newContext)  "test.gld",
+    "showInstructArray" ~: showInstructArray [Nop] ~?= "Nop\n"
+  ]
+
+testNextUUIDValid :: Test
+testNextUUIDValid = TestList
+  [
+    "Invalid nextUUIDValid" ~: nextUUIDValid (Invalid "Error") ~?=  (0, newContext),
+    "Valid nextUUIDValid" ~: nextUUIDValid (Valid newContext) ~?= (uuids newContext, newContext {uuids = uuids newContext + 1})
+  ]
+
+testIps :: Test
+testIps = TestList
+  [
+    "Invalid IpSet" ~: ipSet (Invalid "Error") 0 ~?= Invalid "Error",
+    "Invalid IpSet Value" ~: ipSet (Valid newContext) (-1) ~?= Invalid "Invalid instruction pointer value",
+    "Invalid IpGet" ~: ipGet (Invalid "Error") ~?= Invalid "Error",
+    "Invalid IpInc" ~: ipInc (Invalid "Error") ~?= Invalid "Error",
+    "Invalid IpInc" ~: ipInc (Valid newContext {instructions = [], instructionPointer = 1})~?= Invalid "Invalid instruction pointer value",
+    "Invalid insPush" ~: insPush (Invalid "Error") Nop ~?= Invalid "Error"
+  ]
+
+testHasmNStackPush :: Test
+testHasmNStackPush = TestList
+  [
+    "hasmNStackPush" ~: hasmNStackPush 1 ~?= [Push (Immediate 0)],
+    "Invalid blockInitAllocVarSpace" ~: blockInitAllocVarSpace (Invalid "Error") ~?= []
+  ]
+
+testLabels :: Test
+testLabels = TestList
+  [
+    "Invalid parseLabels" ~: parseLabels (Invalid "Error") [] 0 ~?= Invalid "Error",
+    "Empty parseLabels" ~: parseLabels (Valid newContext) [] 0 ~?= Valid newContext,
+    "Valid parseLabels" ~: parseLabels (Valid newContext) [Nop] 0 ~?= Valid newContext,
+    "Invalid detectLabels" ~: detectLabels (Invalid "Error") ~?= Invalid "Error",
+    "Valid detectLabels" ~: detectLabels (Valid newContext) ~?= Valid newContext
+  ]

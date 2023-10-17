@@ -75,7 +75,7 @@ blkSetupCtx ctx (Block name bc paramsTypes) = Block name c' paramsTypes
 ---
 
 instructionTableIO :: ValidState Context -> Instruction -> (ValidState Context, IO ())
--- instructionTableIO (Invalid s) _ = (Invalid s, putStrLn s)
+instructionTableIO (Invalid s) _ = (Invalid s, putStrLn s)
 instructionTableIO ctx Interrupt = execSyscallWrapper ctx
 instructionTableIO ctx (Mov r1 r2) = (movImpl ctx r1 r2, putStr "")
 instructionTableIO ctx (Cmp r1 r2) = (allCmp ctx r1 r2, putStr "")

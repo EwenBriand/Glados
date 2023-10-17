@@ -34,11 +34,32 @@ testWordToToken =
       "WordToToken comment" ~: wordToTok "//" ~?= TokenInfo TokComment "//",
       "WordToToken open paren" ~: wordToTok "(" ~?= TokenInfo TokOpenParen "(",
       "WordToToken close paren" ~: wordToTok ")" ~?= TokenInfo TokCloseParen ")",
+      "WordToToken open bracket" ~: wordToTok "[" ~?= TokenInfo TokOpenBrac "[",
+      "WordToToken close bracket" ~: wordToTok "]" ~?= TokenInfo TokCloseBrac "]",
+      "WordToToken open curly bracket" ~: wordToTok "{" ~?= TokenInfo TokOpenCurrBrac "{",
+      "WordToToken close curly bracket" ~: wordToTok "}" ~?= TokenInfo TokCloseCurrBrac "}",
       "WordToToken whitespace" ~: wordToTok " " ~?= TokenInfo TokWhitespace " ",
       "WordToToken newline" ~: wordToTok "\n" ~?= TokenInfo TokNewLine "\n",
       "WordToToken error" ~: wordToTok "°" ~?= TokenInfo TokError "°",
       "WordToToken then" ~: wordToTok "then" ~?= TokenInfo TokenKeywordThen "then",
-      "WordToToken else" ~: wordToTok "else" ~?= TokenInfo TokenKeywordElse "else"
+      "WordToToken else" ~: wordToTok "else" ~?= TokenInfo TokenKeywordElse "else",
+      "WordToToken elif" ~: wordToTok "elif" ~?= TokenInfo TokenElif "elif",
+      "WordToToken eq?" ~: wordToTok "eq?" ~?= TokenInfo TokenEqual "eq?",
+      "WordToToken <" ~: wordToTok "<" ~?= TokenInfo TokenInferior "<",
+      "WordToToken <=" ~: wordToTok "<=" ~?= TokenInfo TokenInferiorEq "<=",
+      "WordToToken >" ~: wordToTok ">" ~?= TokenInfo TokenSuperior ">",
+      "WordToToken >=" ~: wordToTok ">=" ~?= TokenInfo TokenSuperiorEq ">=",
+      "WordToToken !=" ~: wordToTok "!=" ~?= TokenInfo TokenNotEqual "!=",
+      "WordToToken #" ~: wordToTok "#" ~?= TokenInfo TokenKeywordPartialExpression "#",
+      "WordToToken !" ~: wordToTok "!" ~?= TokenInfo TokenKeywordPartialExpression "!",
+      "WordToToken lambda" ~: wordToTok "lambda" ~?= TokenInfo TokLambda "lambda",
+      "WordToToken print" ~: wordToTok "print" ~?= TokenInfo TokenSymPrint "print",
+      "WordToToken int" ~: wordToTok "int" ~?= TokenInfo TokenType "int",
+      "WordToToken bool" ~: wordToTok "bool" ~?= TokenInfo TokenType "bool",
+      "WordToToken =" ~: wordToTok "=" ~?= TokenInfo TokenEq "=",
+      "WordToToken :" ~: wordToTok ";" ~?= TokenInfo TokenPointComma ";",
+      "WordToToken while" ~: wordToTok "while" ~?= TokenInfo TokenKeywordWhile "while",
+      "WordToToken for" ~: wordToTok "for" ~?= TokenInfo TokenKeywordFor "for"
     ]
 
 testTryTokenizeOne :: Test
