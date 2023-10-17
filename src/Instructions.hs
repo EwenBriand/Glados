@@ -116,6 +116,7 @@ instructionTableIO ctx (MovStackAddr p1 p2) = (movStackAddrImpl ctx p1 p2, putSt
 instructionTableIO ctx (MovFromStackAddr p1 p2) = (movFromStackAddrImpl ctx p1 p2, putStr "")
 instructionTableIO ctx (Call str) = callImpl ctx str
 instructionTableIO ctx (Alloc int) = (allocHeap ctx int, putStr "")
+
 evalOneInstructionIO :: Context -> Instruction -> (ValidState Context, IO())
 evalOneInstructionIO ctx instr = instructionTableIO (Valid ctx) instr
 

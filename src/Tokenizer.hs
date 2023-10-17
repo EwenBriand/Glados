@@ -61,6 +61,12 @@ data Token
   | TokenSymPrint -- The "print" keyword
   | TokOpenBrac -- The open bracket character
   | TokCloseBrac -- The close bracket character
+  | TokOpenCurrBrac -- The open curly bracket character
+  | TokCloseCurrBrac -- The close curly bracket character
+  | TokenInt
+  | TokenEq -- The "=" operator
+  | TokenPointComma -- The ";" operator
+  | TokenElif -- The "elif" keyword
   deriving (Eq, Show, Generic)
 
 instance Binary Token
@@ -94,6 +100,8 @@ wordToTok "(" = TokenInfo {token = TokOpenParen, value = "("}
 wordToTok ")" = TokenInfo {token = TokCloseParen, value = ")"}
 wordToTok "[" = TokenInfo {token = TokOpenBrac, value = "["}
 wordToTok "]" = TokenInfo {token = TokCloseBrac, value = "]"}
+wordToTok "{" = TokenInfo {token = TokOpenCurrBrac, value = "{"}
+wordToTok "}" = TokenInfo {token = TokCloseCurrBrac, value = "}"}
 wordToTok " " = TokenInfo {token = TokWhitespace, value = " "}
 wordToTok "\n" = TokenInfo {token = TokNewLine, value = "\n"}
 wordToTok "#t" = TokenInfo {token = TokenBool, value = "true"}
@@ -103,6 +111,7 @@ wordToTok "false" = TokenInfo {token = TokenBool, value = "false"}
 wordToTok "if" = TokenInfo {token = TokenKeywordIf, value = "if"}
 wordToTok "then" = TokenInfo {token = TokenKeywordThen, value = "then"}
 wordToTok "else" = TokenInfo {token = TokenKeywordElse, value = "else"}
+wordToTok "elif" = TokenInfo {token = TokenElif, value = "elif"}
 wordToTok "eq?" = TokenInfo {token = TokenEqual, value = "eq?"}
 wordToTok "<" = TokenInfo {token = TokenInferior, value = "<"}
 wordToTok "<=" = TokenInfo {token = TokenInferiorEq, value = "<="}
@@ -111,6 +120,9 @@ wordToTok ">=" = TokenInfo {token = TokenSuperiorEq, value = ">="}
 wordToTok "#" = TokenInfo {token = TokenKeywordPartialExpression, value = "#"}
 wordToTok "lambda" = TokenInfo {token = TokLambda, value = "lambda"}
 wordToTok "print" = TokenInfo {token = TokenSymPrint, value = "print"}
+wordToTok "int" = TokenInfo {token = TokenInt, value = "int"}
+wordToTok "=" = TokenInfo {token = TokenEq, value = "="}
+wordToTok ";" = TokenInfo {token = TokenPointComma, value = ";"}
 wordToTok str
   | all isAlpha str = TokenInfo {token = TokSymbol, value = str}
   | all isDigit str = TokenInfo {token = TokInteger, value = str}

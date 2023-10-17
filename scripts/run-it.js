@@ -47,6 +47,7 @@ const testsOutput = {
   './tests/tests_from_pdf/lambda1.gld': '3',
   './tests/tests_from_pdf/lambda2.gld': '7',
   './tests/tests_from_pdf/superior.gld': '1',
+  './tests/new_language_if.gld': '7',
 };
 
 function parseLastLine(input) {
