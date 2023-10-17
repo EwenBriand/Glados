@@ -17,7 +17,7 @@ section 1 ".data" {
     EntSize:   0x0000000000000000
     Info:      0x00000000
     Link:      0x00000000
-    Data:      48 65 6c 6c 6f 2c 20 77 6f 72 6c 64 21 00       # Hello, world!.
+    Data:      
 }
 section 2 ".text" {
     Type:      SHT_PROGBITS
@@ -27,9 +27,8 @@ section 2 ".text" {
     EntSize:   0x0000000000000000
     Info:      0x00000000
     Link:      0x00000000
-    Data:      b8 01 00 00 00 bf 01 00 00 00 48 be 00 00 00 00 # ..........H.....
-               00 00 00 00 ba 0d 00 00 00 0f 05 b8 3c 00 00 00 # ............<...
-               48 31 ff 0f 05                                  # H1...
+    Data:      48 31 c0 b8 01 00 00 00 50 48 31 c0 b8 02 00 00 # H1......PH1.....
+               00 5f 48 01 f8                                  # ._H..
 }
 string table section 3 ".shstrtab"
 symbol table section 4 ".symtab" {
@@ -38,7 +37,7 @@ symbol table section 4 ".symtab" {
     Addr:      0x0000000000000000
     AddrAlign: 0x0000000000000008
     EntSize:   0x0000000000000018
-    Info:      0x00000005
+    Info:      0x00000004
     Link:      0x00000005
     Data:      
         symbol "" {
@@ -63,7 +62,7 @@ symbol table section 4 ".symtab" {
             Value: 0x0000000000000000
             Size:  0x0000000000000000
         }
-        total: 6
+        total: 5
 }
 section 5 ".strtab" {
     Type:      SHT_STRTAB
@@ -73,17 +72,6 @@ section 5 ".strtab" {
     EntSize:   0x0000000000000000
     Info:      0x00000000
     Link:      0x00000000
-    Data:      00 68 65 6c 6c 6f 2e 61 73 6d 00 68 65 6c 6c 6f # .hello.asm.hello
-               00 5f 73 74 61 72 74 00                         # ._start.
-}
-section 6 ".rela.text" {
-    Type:      SHT_RELA
-    Flags:     []
-    Addr:      0x0000000000000000
-    AddrAlign: 0x0000000000000008
-    EntSize:   0x0000000000000018
-    Info:      0x00000002
-    Link:      0x00000004
-    Data:      0c 00 00 00 00 00 00 00 01 00 00 00 02 00 00 00 # ................
-               00 00 00 00 00 00 00 00                         # ........
+    Data:      00 68 65 6c 6c 6f 2e 61 73 6d 00 5f 73 74 61 72 # .hello.asm._star
+               74 00                                           # t.
 }
