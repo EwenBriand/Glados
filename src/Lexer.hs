@@ -74,6 +74,7 @@ data ASTNode
   | ASTNodeLambda {astndName :: ASTNode, astndParams :: ValidState ASTNode, astndBody :: [ASTNode]}
   | ASTNodeFunctionCall {astnfName :: String, astfnParams :: [ASTNode]}
   | ASTNodeBreak {astneChildren :: [ASTNode]}
+  | ASTNodeWhile {astniCondition :: ASTNode, astniThen :: [ASTNode]}
   deriving (Eq, Generic)
 
 instance Binary ASTNode
@@ -82,7 +83,7 @@ instance Show ASTNode where
   show (ASTNodeError t) = "(Error: " ++ show t ++ ")"
   show (ASTNodeInteger i) = "(int: " ++ show i ++ ")"
   show (ASTNodeSymbol s) = "(sym: " ++ s ++ ")"
-  show (ASTNodeMutable n c) = "(define: " ++ show n ++ " \n\t" ++ show c ++ ")"
+  show (ASTNodeMutable n c) = "(mutable: " ++ show n ++ " \n\t" ++ show c ++ ")"
   show (ASTNodeSum l) = "(sum: " ++ show l ++ ")"
   show (ASTNodeSub l) = "(sub: " ++ show l ++ ")"
   show (ASTNodeMul l) = "(mul: " ++ show l ++ ")"
@@ -103,6 +104,7 @@ instance Show ASTNode where
   show (ASTNodeBreak l) = "(break: " ++ show l ++ ")"
   show (ASTNodeEq l) = "(eq: " ++ show l ++ ")"
   show (ASTNodeInferior l) = "(inferior: " ++ show l ++ ")"
+  show (ASTNodeWhile c t) = "(while: \n\t(condition) " ++ show c ++ "\n\t(then) " ++ show t ++ ")"
   show _ = "(unknown node)"
 
 isSymbolAndParamArray :: [ASTNode] -> Bool
@@ -151,7 +153,8 @@ tokOrExprToASTNode [A (ASTNodeElif cond thenOps elseOps), A (ASTNodeElif cond2 t
 tokOrExprToASTNode [A (ASTNodeIf cond thenOps elseOps), A (ASTNodeElif cond2 thenOps2 (Valid elseOps2))] = ASTNodeIf cond thenOps (Valid [ASTNodeElif cond2 thenOps2 (Valid elseOps2)])
 tokOrExprToASTNode [A (ASTNodeIf cond thenOps elseOps), A (ASTNodeElse elseOps2)] = ASTNodeIf cond thenOps (Valid elseOps2)
 
-
+tokOrExprToASTNode [T (TokenInfo TokenKeywordWhile _), A cond, T (TokenInfo TokOpenCurrBrac _), A thenOps, T (TokenInfo TokCloseCurrBrac _)] = ASTNodeWhile cond [thenOps]
+tokOrExprToASTNode [T (TokenInfo TokenKeywordWhile _), A (ASTNodeArray cond), T (TokenInfo TokOpenCurrBrac _), A thenOps, T (TokenInfo TokCloseCurrBrac _)] = ASTNodeWhile (head cond) [thenOps]
 
 
 

@@ -48,6 +48,7 @@ instructionFromAST (ASTNodePrint n) ctx = putPrintInstruction ctx n
 instructionFromAST (ASTNodeBoolean b) ctx = putBoolInstruction (if b then 1 else 0) ctx
 instructionFromAST (ASTNodeFunctionCall name params) ctx = putFunctionCall ctx name params
 instructionFromAST (ASTNodeLambda name params body) ctx = putDefineInstruction ctx name params body
+instructionFromAST (ASTNodeWhile cond body) ctx = putWhileInstruction ctx cond body
 instructionFromAST (ASTNodeBreak [ASTNodeLambda _ param body, ASTNodeFunctionCall _ params]) ctx = instructionFromAST (ASTNodeBreak [(ASTNodeFunctionCall u_name params)]) (instructionFromAST (ASTNodeLambda (ASTNodeSymbol u_name) param body) (Valid ctx'))
   where
     u_name = "lambda@" ++ show uuid
@@ -245,6 +246,40 @@ putSymbolInstruction s (Valid ctx) = do
   case sym of
     Valid sym' -> Prelude.return (ctx {instructions = instructions ctx ++ [Xor (Reg EAX) (Reg EAX), MovFromStackAddr (Reg EAX) (Immediate sym')]})
     Invalid _ -> tryPutFunctionCall (Valid ctx) s
+
+putWhileInstruction :: ValidState Context -> ASTNode -> [ASTNode] -> ValidState Context
+putWhileInstruction (Invalid s) _ _ = Invalid s
+putWhileInstruction (Valid ctx) cond body = do
+  let (uuid, ctx') = nextUUID ctx
+  let ctx'' = putWhileCondition (Valid ctx'{instructions = instructions ctx' ++ [Label (show uuid ++ "while") (length (instructions ctx') + 1)]}) cond uuid
+  let ctx''' = putInstructionSequence body ctx''
+  case ctx''' of
+    (Invalid s) -> Invalid s
+    Valid ctx'''' ->
+      Valid
+        ctx''''
+          { instructions =
+              instructions ctx''''
+                ++ [ Jmp (show uuid ++ "while"),
+                     Label (show uuid ++ "end") (length (instructions ctx'''') + 1)
+                   ]
+          }
+
+putWhileCondition :: ValidState Context -> ASTNode -> Int -> ValidState Context
+putWhileCondition (Invalid s) _ _ = Invalid s
+putWhileCondition ctx cond uuid = do
+  let ctx' = instructionFromAST cond ctx
+  case ctx' of
+    (Invalid s) -> Invalid s
+    Valid ctx'' ->
+      Valid
+        ctx''
+          { instructions =
+              instructions ctx''
+                ++ [ Cmp (Reg EAX) (Immediate 1),
+                     Jne (show uuid ++ "end")
+                   ]
+          }
 
 -- putDefineInstruction :: ASTNode -> ASTNode -> ValidState Context -> ValidState Context
 -- putDefineInstruction _ _ (Invalid "Error") = (Invalid "Error")
