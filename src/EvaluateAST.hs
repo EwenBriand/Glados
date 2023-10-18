@@ -49,6 +49,7 @@ instructionFromAST (ASTNodeBoolean b) ctx = putBoolInstruction (if b then 1 else
 instructionFromAST (ASTNodeFunctionCall name params) ctx = putFunctionCall ctx name params
 instructionFromAST (ASTNodeLambda name params body) ctx = putDefineInstruction ctx name params body
 instructionFromAST (ASTNodeWhile cond body) ctx = putWhileInstruction ctx cond body
+instructionFromAST (ASTNodeSet name value) ctx = putSetInstruction ctx name value
 instructionFromAST (ASTNodeBreak [ASTNodeLambda _ param body, ASTNodeFunctionCall _ params]) ctx = instructionFromAST (ASTNodeBreak [(ASTNodeFunctionCall u_name params)]) (instructionFromAST (ASTNodeLambda (ASTNodeSymbol u_name) param body) (Valid ctx'))
   where
     u_name = "lambda@" ++ show uuid
@@ -337,6 +338,27 @@ putMutableInstruction name node ctx =
    in case newCtx of
         Valid _ -> Invalid "Error: Variable already exists" -- error, the variable already exists!
         Invalid _ -> putMutableNoErrCheck name node ctx
+
+putSetNoErrCheck :: ValidState Context -> ASTNode -> ASTNode -> ValidState Context
+putSetNoErrCheck (Invalid s) _ _ = Invalid s
+putSetNoErrCheck ctx name node = do
+  let ctx' = instructionFromAST node ctx
+    in case ctx' of
+      Invalid s -> Invalid s
+      Valid ctx' -> (Valid ctx' {instructions = instructions ctx' ++ [MovStackAddr (Immediate addr) (Reg EAX)]})
+      where
+        addr = case symGet ctx (astnsName name) of
+          Invalid _ -> 0
+          Valid addr' -> addr'
+
+
+putSetInstruction :: ValidState Context -> ASTNode -> ASTNode -> ValidState Context
+putSetInstruction (Invalid s) _ _ = Invalid s
+putSetInstruction ctx name node =
+  let newCtx = instructionFromAST name ctx
+    in case newCtx of
+      Invalid _ -> Invalid "Error: Variable does't exists" -- error, the variable
+      Valid _ -> putSetNoErrCheck ctx name node
 
 -- | Implements the following behaviour:
 -- - tests the condition

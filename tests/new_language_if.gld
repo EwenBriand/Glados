@@ -2,7 +2,7 @@ if (true) {
     if (false) {
         (add 1 2)
     } else {
-        (add 3 4)
+        (print 5)
     }
 } elif(false) {
     (add 8 9)

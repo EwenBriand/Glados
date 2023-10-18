@@ -1,0 +1,5 @@
+(mutable f 2)
+for((mutable i 0); (< i 11); i++;) {
+    f = f * 2;
+}
+(print f)

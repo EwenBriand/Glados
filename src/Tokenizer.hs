@@ -67,6 +67,8 @@ data Token
   | TokenEq -- The "=" operator
   | TokenPointComma -- The ";" operator
   | TokenElif -- The "elif" keyword
+  | TokenKeywordWhile -- The "while" keyword
+  | TokenKeywordFor -- The "for" keyword
   deriving (Eq, Show, Generic)
 
 instance Binary Token
@@ -123,6 +125,8 @@ wordToTok "print" = TokenInfo {token = TokenSymPrint, value = "print"}
 wordToTok "int" = TokenInfo {token = TokenInt, value = "int"}
 wordToTok "=" = TokenInfo {token = TokenEq, value = "="}
 wordToTok ";" = TokenInfo {token = TokenPointComma, value = ";"}
+wordToTok "while" = TokenInfo {token = TokenKeywordWhile, value = "while"}
+wordToTok "for" = TokenInfo {token = TokenKeywordFor, value = "for"}
 wordToTok str
   | all isAlpha str = TokenInfo {token = TokSymbol, value = str}
   | all isDigit str = TokenInfo {token = TokInteger, value = str}

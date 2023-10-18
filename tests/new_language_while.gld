@@ -1,0 +1,5 @@
+(mutable foo 2)
+while(< foo 11) {
+    foo = (add foo 1);
+}
+(print foo)
