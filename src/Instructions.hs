@@ -65,8 +65,8 @@ blkSetupCtx :: Context -> Block -> Block
 blkSetupCtx ctx (Block name bc paramsTypes) = Block name c' paramsTypes
   where
     c' = case c'' of
-        Invalid s -> Invalid s
-        Valid c -> Valid (c {blocks = blocks ctx, instructionPointer = 0})
+      Invalid s -> Invalid s
+      Valid c -> Valid (c {blocks = blocks ctx, instructionPointer = 0})
     c'' = setupfunctionStack (Valid ctx) (stackClear bc) paramsTypes [EDI, ESI, EDX, ECX]
 
 -- c' = Block name (execInstructions (detectLabels (setupFunctionStack bc ctx))) paramsTypes
@@ -120,8 +120,7 @@ instructionTableIO ctx (Alloc int) = (allocHeap ctx int, putStr "")
 evalOneInstructionIO :: Context -> Instruction -> (ValidState Context, IO())
 evalOneInstructionIO ctx instr = instructionTableIO (Valid ctx) instr
 
-
-execInstructionsIO :: (ValidState Context, IO()) -> (ValidState Context, IO())
+execInstructionsIO :: (ValidState Context, IO ()) -> (ValidState Context, IO ())
 execInstructionsIO (context, prevIO) =
   case c of
     (Invalid s, io) -> (Invalid s, prevIO >> io)
@@ -136,16 +135,15 @@ execInstructionsIO (context, prevIO) =
 --- Context Logic
 ---
 
-executeBlock :: ValidState Context -> Block -> (ValidState Context, IO())
+executeBlock :: ValidState Context -> Block -> (ValidState Context, IO ())
 executeBlock (Invalid s) _ = (Invalid s, putStr "")
 executeBlock (Valid c) block = do
   let b = blkSetupCtx c block
-  case execInstructionsIO (detectLabels (blockContext b), putStr "")of
+  case execInstructionsIO (detectLabels (blockContext b), putStr "") of
     (Invalid s, _) -> (Invalid ("While executing block " ++ blockName b ++ ": " ++ s), putStr "")
     (Valid executed, io) -> case getTrueValueFromParam (Valid executed) (Reg EAX) of
       Invalid s -> (Invalid ("While executing block " ++ blockName b ++ ": " ++ s), putStr "invalid in block")
       Valid v -> (regSet (Valid c) EAX v, io)
-
 
 callImpl :: ValidState Context -> String -> (ValidState Context, IO ())
 callImpl (Invalid s) _ = (Invalid s, putStr "")

@@ -1,0 +1,102 @@
+cabal-version: 1.12
+
+-- This file has been generated from package.yaml by hpack version 0.36.0.
+--
+-- see: https://github.com/sol/hpack
+
+name:           glados
+version:        0.1.0.0
+description:    Please see the README on GitHub at <https://github.com/githubuser/glados#readme>
+homepage:       https://github.com/githubuser/glados#readme
+bug-reports:    https://github.com/githubuser/glados/issues
+author:         BEBOUUUUUUU
+maintainer:     example@example.com
+copyright:      2023 BEBOUUUUUUU
+license:        BSD3
+license-file:   LICENSE
+build-type:     Simple
+extra-source-files:
+    README.md
+    CHANGELOG.md
+
+source-repository head
+  type: git
+  location: https://github.com/githubuser/glados
+
+library
+  exposed-modules:
+      EvaluateAST
+      Instructions
+      Lexer
+      Lib
+      MakeELF
+      REPL
+      Tokenizer
+      ValidState
+      VM
+  other-modules:
+      Paths_glados
+  hs-source-dirs:
+      src
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints
+  build-depends:
+      HUnit
+    , array >=0.5.4.0
+    , base >=4.7 && <5
+    , binary >=0.8.8.0
+    , bytestring >=0.10.12.0
+    , cmdargs >=0.10.21
+    , containers >=0.6.2.1
+    , exceptions >=0.10.4
+    , melf >=1.3.0
+    , prettyprinter >=1.7.0
+  default-language: Haskell2010
+
+executable glados-exe
+  main-is: Main.hs
+  other-modules:
+      Paths_glados
+  hs-source-dirs:
+      app
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      HUnit
+    , array >=0.5.4.0
+    , base >=4.7 && <5
+    , binary >=0.8.8.0
+    , bytestring >=0.10.12.0
+    , cmdargs >=0.10.21
+    , containers >=0.6.2.1
+    , exceptions >=0.10.4
+    , glados
+    , melf >=1.3.0
+    , prettyprinter >=1.7.0
+  default-language: Haskell2010
+
+test-suite glados-test
+  type: exitcode-stdio-1.0
+  main-is: Spec.hs
+  other-modules:
+      TestEvaluateAST
+      TestInstructions
+      TestLexer
+      TestTokenizer
+      TestValidState
+      TestVM
+      Paths_glados
+  hs-source-dirs:
+      test
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      HUnit
+    , array >=0.5.4.0
+    , base >=4.7 && <5
+    , binary >=0.8.8.0
+    , bytestring >=0.10.12.0
+    , cmdargs >=0.10.21
+    , containers >=0.6.2.1
+    , exceptions >=0.10.4
+    , glados
+    , melf >=1.3.0
+    , prettyprinter >=1.7.0
+  default-language: Haskell2010

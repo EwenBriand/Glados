@@ -173,6 +173,7 @@ putInferiorInstruction [x, y] (Valid ctx) = do
   Prelude.return (ctx'' {instructions = instructions ctx'' ++ [Pop (Reg EDI), Cmp (Reg EDI) (Reg EAX), Jl (show uuid ++ "inf"), Mov (Reg EAX) (Immediate 0), Jmp (show uuid ++ "infend"), Label (show uuid ++ "inf") (length (instructions ctx'') + 1), Mov (Reg EAX) (Immediate 1), Label (show uuid ++ "infend") (length (instructions ctx'') + 1)]})
   where
     (uuid, c) = nextUUID ctx
+putInferiorInstruction _ _ = Invalid "Error"
 
 putInferiorEqInstruction :: [ASTNode] -> ValidState Context -> ValidState Context
 putInferiorEqInstruction _ (Invalid s) = Invalid s
@@ -182,6 +183,7 @@ putInferiorEqInstruction [x, y] (Valid ctx) = do
   Prelude.return (ctx'' {instructions = instructions ctx'' ++ [Pop (Reg EDI), Cmp (Reg EDI) (Reg EAX), Jle (show uuid ++ "inf"), Mov (Reg EAX) (Immediate 0), Jmp (show uuid ++ "infeqend"), Label (show uuid ++ "inf") (length (instructions ctx'') + 1), Mov (Reg EAX) (Immediate 1), Label (show uuid ++ "infeqend") (length (instructions ctx'') + 1)]})
   where
     (uuid, c) = nextUUID ctx
+putInferiorEqInstruction _ _ = Invalid "Error"
 
 putSuperiorEqInstruction :: [ASTNode] -> ValidState Context -> ValidState Context
 putSuperiorEqInstruction _ (Invalid s) = Invalid s
@@ -191,6 +193,7 @@ putSuperiorEqInstruction [x, y] (Valid ctx) = do
   Prelude.return (ctx'' {instructions = instructions ctx'' ++ [Pop (Reg EDI), Cmp (Reg EDI) (Reg EAX), Jge (show uuid ++ "inf"), Mov (Reg EAX) (Immediate 0), Jmp (show uuid ++ "supeqend"), Label (show uuid ++ "inf") (length (instructions ctx'') + 1), Mov (Reg EAX) (Immediate 1), Label (show uuid ++ "supeqend") (length (instructions ctx'') + 1)]})
   where
     (uuid, c) = nextUUID ctx
+putSuperiorEqInstruction _ _ = Invalid "Error"
 
 putSuperiorInstruction :: [ASTNode] -> ValidState Context -> ValidState Context
 putSuperiorInstruction _ (Invalid s) = Invalid s
@@ -200,6 +203,7 @@ putSuperiorInstruction [x, y] (Valid ctx) = do
   Prelude.return (ctx'' {instructions = instructions ctx'' ++ [Pop (Reg EDI), Cmp (Reg EDI) (Reg EAX), Jg (show uuid ++ "inf"), Mov (Reg EAX) (Immediate 0), Jmp (show uuid ++ "supend"), Label (show uuid ++ "inf") (length (instructions ctx'') + 1), Mov (Reg EAX) (Immediate 1), Label (show uuid ++ "supend") (length (instructions ctx'') + 1)]})
   where
     (uuid, c) = nextUUID ctx
+putSuperiorInstruction _ _ = Invalid "Error"
 
 putSubInstruction :: [ASTNode] -> ValidState Context -> ValidState Context
 putSubInstruction _ (Invalid s) = Invalid s
