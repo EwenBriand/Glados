@@ -44,6 +44,10 @@ jobs:
             exit 1  # Exit with a non-zero status code to indicate failure
           fi
 
+      - name: Integration Tests
+        run: |
+          ./scripts/run-it-bash.sh
+
       - name: Delete binary
         run: |
           make fclean

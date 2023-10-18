@@ -24,7 +24,9 @@ import ValidState
 
 instructionFromAST :: ASTNode -> ValidState Context -> ValidState Context
 instructionFromAST _ (Invalid s) = Invalid s
+instructionFromAST (ASTNodeIf (ASTNodeArray cond) thenBlock elseBlock) ctx = putIfInstruction ctx (ASTNodeIf (head cond) thenBlock elseBlock)
 instructionFromAST (ASTNodeIf cond thenBlock elseBlock) ctx = putIfInstruction ctx (ASTNodeIf cond thenBlock elseBlock)
+instructionFromAST (ASTNodeElif cond thenBlock elseBlock) ctx = putIfInstruction ctx (ASTNodeIf cond thenBlock elseBlock)
 instructionFromAST (ASTNodeDefine name params body) c = putDefineInstruction c name params body
 instructionFromAST (ASTNodeInteger i) ctx = putIntegerInstruction (fromIntegral i) ctx
 instructionFromAST (ASTNodeSymbol s) ctx = putSymbolInstruction s ctx
@@ -52,7 +54,7 @@ instructionFromAST (ASTNodeBreak [ASTNodeLambda _ param body, ASTNodeFunctionCal
     (uuid, ctx') = nextUUIDValid ctx
 instructionFromAST (ASTNodeBreak (a : b)) ctx = instructionFromAST (ASTNodeBreak b) (instructionFromAST a ctx)
 instructionFromAST (ASTNodeBreak []) ctx = ctx
-instructionFromAST _ _ = Invalid "Error"
+instructionFromAST _ _ = Invalid "Error!!!!"
 
 paramsRegisters = [EDI, ESI, EDX, ECX]
 

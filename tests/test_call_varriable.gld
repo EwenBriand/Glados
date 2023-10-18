@@ -1,2 +1,1 @@
-(mutable foo 1)
-(+ foo 2)
+(mutable foo 1)(+ foo 2)
