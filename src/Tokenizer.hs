@@ -63,10 +63,11 @@ data Token
   | TokCloseBrac -- The close bracket character
   | TokOpenCurrBrac -- The open curly bracket character
   | TokCloseCurrBrac -- The close curly bracket character
-  | TokenInt
+  -- | TokenInt
   | TokenEq -- The "=" operator
   | TokenPointComma -- The ";" operator
   | TokenElif -- The "elif" keyword
+  | TokenType -- int, bool, float, etc. keywords
   deriving (Eq, Show, Generic)
 
 instance Binary Token
@@ -120,7 +121,8 @@ wordToTok ">=" = TokenInfo {token = TokenSuperiorEq, value = ">="}
 wordToTok "#" = TokenInfo {token = TokenKeywordPartialExpression, value = "#"}
 wordToTok "lambda" = TokenInfo {token = TokLambda, value = "lambda"}
 wordToTok "print" = TokenInfo {token = TokenSymPrint, value = "print"}
-wordToTok "int" = TokenInfo {token = TokenInt, value = "int"}
+wordToTok "int" = TokenInfo {token = TokenType, value = "int"}
+wordToTok "bool" = TokenInfo {token = TokenType, value = "bool"}
 wordToTok "=" = TokenInfo {token = TokenEq, value = "="}
 wordToTok ";" = TokenInfo {token = TokenPointComma, value = ";"}
 wordToTok str

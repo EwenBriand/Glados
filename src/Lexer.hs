@@ -49,9 +49,9 @@ data ASTNode
   = ASTNodeError {astnerrToken :: TokenInfo}
   | ASTNodeInteger {astniValue :: Integer}
   | ASTNodeSymbol {astnsName :: String}
-  | ASTNodeMutable {astndName :: ASTNode, astndChildren :: ASTNode}
-  | --  The sum can have an arbitrary number of parameters
-    ASTNodeSum {astnsChildren :: [ASTNode]}
+  | ASTNodeMutable {astndType :: ASTNode, astndName :: ASTNode, astndChildren :: ASTNode}
+  --  The sum can have an arbitrary number of parameters
+  | ASTNodeSum {astnsChildren :: [ASTNode]}
   | ASTNodeSub {astnsChildren :: [ASTNode]}
   | ASTNodeMul {astnsChildren :: [ASTNode]}
   | ASTNodeDiv {astnsChildren :: [ASTNode]}
@@ -74,6 +74,7 @@ data ASTNode
   | ASTNodeLambda {astndName :: ASTNode, astndParams :: ValidState ASTNode, astndBody :: [ASTNode]}
   | ASTNodeFunctionCall {astnfName :: String, astfnParams :: [ASTNode]}
   | ASTNodeBreak {astneChildren :: [ASTNode]}
+  | ASTNodeType {astntName :: String}
   deriving (Eq, Generic)
 
 instance Binary ASTNode
@@ -82,8 +83,8 @@ instance Show ASTNode where
   show (ASTNodeError t) = "(Error: " ++ show t ++ ")"
   show (ASTNodeInteger i) = "(int: " ++ show i ++ ")"
   show (ASTNodeSymbol s) = "(sym: " ++ s ++ ")"
-  show (ASTNodeMutable n c) = "(mutable: " ++ show n ++ " \n\t" ++ show c ++ ")"
-  show (ASTNodeSum l) = "(sum: " ++ show l ++ ")"
+  show (ASTNodeMutable t n v) = "(mutable: \n\t(type)" ++ show t ++ " \n\t(name)" ++ show n ++ " \n\t(value)" ++ show v ++ ")"
+  show (ASTNodeSum l) = "(add: " ++ show l ++ ")"
   show (ASTNodeSub l) = "(sub: " ++ show l ++ ")"
   show (ASTNodeMul l) = "(mul: " ++ show l ++ ")"
   show (ASTNodeDiv l) = "(div: " ++ show l ++ ")"
@@ -103,6 +104,7 @@ instance Show ASTNode where
   show (ASTNodeBreak l) = "(break: " ++ show l ++ ")"
   show (ASTNodeEq l) = "(eq: " ++ show l ++ ")"
   show (ASTNodeInferior l) = "(inferior: " ++ show l ++ ")"
+  show (ASTNodeType n) = "(type: " ++ n ++ ")"
   show _ = "(unknown node)"
 
 isSymbolAndParamArray :: [ASTNode] -> Bool
@@ -136,7 +138,6 @@ tokOrExprToASTNode :: [TokorNode] -> ASTNode
 -- error: empty
 tokOrExprToASTNode [] = ASTNodeError (TokenInfo TokError "")
 -- NEW LANGUAGE
-tokOrExprToASTNode [T (TokenInfo TokenInt _), A (ASTNodeSymbol sym), T (TokenInfo TokenEq _), A n, T (TokenInfo TokenPointComma _)] = ASTNodeMutable (ASTNodeSymbol sym) (ASTNodeArray (expendParamList [n]))
 
 tokOrExprToASTNode [T (TokenInfo TokenKeywordElse _), T (TokenInfo TokOpenCurrBrac _), A body, T (TokenInfo TokCloseCurrBrac _)] = ASTNodeElse [body]
 tokOrExprToASTNode [T (TokenInfo TokenElif _), A (ASTNodeArray cond) , T (TokenInfo TokOpenCurrBrac _), A body, T (TokenInfo TokCloseCurrBrac _)] = ASTNodeElif (head cond) [body] (Invalid "2")
@@ -150,11 +151,6 @@ tokOrExprToASTNode [A (ASTNodeElif cond thenOps elseOps), A (ASTNodeElse elseOps
 tokOrExprToASTNode [A (ASTNodeElif cond thenOps elseOps), A (ASTNodeElif cond2 thenOps2 (Valid elseOps2))] = ASTNodeElif cond thenOps (Valid [ASTNodeElif cond2 thenOps2 (Valid elseOps2)])
 tokOrExprToASTNode [A (ASTNodeIf cond thenOps elseOps), A (ASTNodeElif cond2 thenOps2 (Valid elseOps2))] = ASTNodeIf cond thenOps (Valid [ASTNodeElif cond2 thenOps2 (Valid elseOps2)])
 tokOrExprToASTNode [A (ASTNodeIf cond thenOps elseOps), A (ASTNodeElse elseOps2)] = ASTNodeIf cond thenOps (Valid elseOps2)
-
-
-
-
-
 
 tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokOperatorMinus _), A (ASTNodeInteger i), T (TokenInfo TokCloseParen _)] = ASTNodeInteger (-i)
 -- call function with parameters. (no params is just handled by node symbol)
@@ -231,7 +227,9 @@ tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokenSuperiorEq _
 -- tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokOperatorMod _), A n1, A n2, T (TokenInfo TokCloseParen _)] = ASTNodeMod [n1, n2]
 tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokOperatorMod _), A (ASTNodeParamList [n1, n2]), T (TokenInfo TokCloseParen _)] = ASTNodeMod [n1, n2]
 -- declaration of a variable
-tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokKeywordMutable _), A (ASTNodeSymbol sym), A n, T (TokenInfo TokCloseParen _)] = ASTNodeMutable (ASTNodeSymbol sym) n
+-- tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokKeywordMutable _), A (ASTNodeSymbol sym), A n, T (TokenInfo TokCloseParen _)] = ASTNodeMutable (ASTNodeSymbol sym) n
+tokOrExprToASTNode [T (TokenInfo TokenType "int"), A (ASTNodeSymbol sym), T (TokenInfo TokenEq _), A n, T (TokenInfo TokenPointComma _)] = ASTNodeMutable (ASTNodeType "int") (ASTNodeSymbol sym) n
+tokOrExprToASTNode [T (TokenInfo TokenType "bool"), A (ASTNodeSymbol sym), T (TokenInfo TokenEq _), A n, T (TokenInfo TokenPointComma _)] = ASTNodeMutable (ASTNodeType "bool") (ASTNodeSymbol sym) n
 -- a boolean
 tokOrExprToASTNode [T (TokenInfo TokenBool val)] = ASTNodeBoolean (val == "true")
 -- param list
