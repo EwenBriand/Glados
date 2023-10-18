@@ -74,6 +74,8 @@ data ASTNode
   | ASTNodeLambda {astndName :: ASTNode, astndParams :: ValidState ASTNode, astndBody :: [ASTNode]}
   | ASTNodeFunctionCall {astnfName :: String, astfnParams :: [ASTNode]}
   | ASTNodeBreak {astneChildren :: [ASTNode]}
+  | ASTNodeWhile {astniCondition :: ASTNode, astniThen :: [ASTNode]}
+  | ASTNodeSet {astndName :: ASTNode, astndChildren :: ASTNode}
   | ASTNodeType {astntName :: String}
   deriving (Eq, Generic)
 
@@ -104,6 +106,7 @@ instance Show ASTNode where
   show (ASTNodeBreak l) = "(break: " ++ show l ++ ")"
   show (ASTNodeEq l) = "(eq: " ++ show l ++ ")"
   show (ASTNodeInferior l) = "(inferior: " ++ show l ++ ")"
+  show (ASTNodeWhile c t) = "(while: \n\t(condition) " ++ show c ++ "\n\t(then) " ++ show t ++ ")"
   show (ASTNodeType n) = "(type: " ++ n ++ ")"
   show _ = "(unknown node)"
 
@@ -151,6 +154,26 @@ tokOrExprToASTNode [A (ASTNodeElif cond thenOps elseOps), A (ASTNodeElse elseOps
 tokOrExprToASTNode [A (ASTNodeElif cond thenOps elseOps), A (ASTNodeElif cond2 thenOps2 (Valid elseOps2))] = ASTNodeElif cond thenOps (Valid [ASTNodeElif cond2 thenOps2 (Valid elseOps2)])
 tokOrExprToASTNode [A (ASTNodeIf cond thenOps elseOps), A (ASTNodeElif cond2 thenOps2 (Valid elseOps2))] = ASTNodeIf cond thenOps (Valid [ASTNodeElif cond2 thenOps2 (Valid elseOps2)])
 tokOrExprToASTNode [A (ASTNodeIf cond thenOps elseOps), A (ASTNodeElse elseOps2)] = ASTNodeIf cond thenOps (Valid elseOps2)
+
+tokOrExprToASTNode [T (TokenInfo TokenKeywordWhile _), A cond, T (TokenInfo TokOpenCurrBrac _), A thenOps, T (TokenInfo TokCloseCurrBrac _)] = ASTNodeWhile cond [thenOps]
+tokOrExprToASTNode [T (TokenInfo TokenKeywordWhile _), A (ASTNodeArray cond), T (TokenInfo TokOpenCurrBrac _), A thenOps, T (TokenInfo TokCloseCurrBrac _)] = ASTNodeWhile (head cond) [thenOps]
+
+tokOrExprToASTNode [T (TokenInfo TokenKeywordFor _), T (TokenInfo TokOpenParen _), A (ASTNodeMutable name value), T (TokenInfo TokenPointComma _), A cond, T (TokenInfo TokenPointComma _), A (ASTNodeSet name2 value2), T (TokenInfo TokCloseParen _), T (TokenInfo TokOpenCurrBrac _), A thenOps, T (TokenInfo TokCloseCurrBrac _)] = ASTNodeInstructionSequence [ASTNodeMutable name value, ASTNodeWhile cond [ASTNodeInstructionSequence [thenOps, ASTNodeSet name2 value2]]]
+
+tokOrExprToASTNode [A (ASTNodeSymbol name), T (TokenInfo TokenEq _), A n, T (TokenInfo TokenPointComma _)] = ASTNodeSet (ASTNodeSymbol name) n
+
+tokOrExprToASTNode [A (ASTNodeSymbol name), T (TokenInfo TokOperatorPlus _), T (TokenInfo TokOperatorPlus _), T (TokenInfo TokenPointComma _)] = ASTNodeSet (ASTNodeSymbol name) (ASTNodeSum [ASTNodeSymbol name, ASTNodeInteger 1])
+tokOrExprToASTNode [A (ASTNodeSymbol name), T (TokenInfo TokOperatorMinus _), T (TokenInfo TokOperatorMinus _), T (TokenInfo TokenPointComma _)] = ASTNodeSet (ASTNodeSymbol name) (ASTNodeSub [ASTNodeSymbol name, ASTNodeInteger 1])
+
+tokOrExprToASTNode [A n1, T (TokenInfo TokOperatorPlus _), A n2] = ASTNodeSum [n1, n2]
+tokOrExprToASTNode [A n1, T (TokenInfo TokOperatorMinus _), A n2] = ASTNodeSub [n1, n2]
+tokOrExprToASTNode [A n1, T (TokenInfo TokOperatorMul _), A n2] = ASTNodeMul [n1, n2]
+tokOrExprToASTNode [A n1, T (TokenInfo TokOperatorDiv _), A n2] = ASTNodeDiv [n1, n2]
+tokOrExprToASTNode [A n1, T (TokenInfo TokOperatorMod _), A n2] = ASTNodeMod [n1, n2]
+
+
+
+-- Old language
 
 tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokOperatorMinus _), A (ASTNodeInteger i), T (TokenInfo TokCloseParen _)] = ASTNodeInteger (-i)
 -- call function with parameters. (no params is just handled by node symbol)
