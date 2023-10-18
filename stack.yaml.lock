@@ -12,19 +12,58 @@ packages:
   original:
     hackage: Cabal-3.2.1.0
 - completed:
-    hackage: llvm-hs-9.0.0@sha256:ee6ec2eb8cba4daf2a43586388a87dbfd6a2ec6d81d1f9965896ac187acad286,8700
-    pantry-tree:
-      sha256: 537616dec1351bd9f7905182f82f132359cf3058ebbb059c03b4edcef04b2689
-      size: 13599
-  original:
-    hackage: llvm-hs-9.0.0
-- completed:
     hackage: containers-0.6.2.1@sha256:550b39286f70c39402a21e61f0f8a8b19e0f2b9270197d8524b8f3cbe4f43ee1,2561
     pantry-tree:
       sha256: 0463a6f54ce2fcddb0def77c78a013a982f84aa88c923ab1f6ffe3c51aaa0775
       size: 2823
   original:
     hackage: containers-0.6.2.1
+- completed:
+    hackage: prettyprinter-1.7.0@sha256:6a9569e21fa61163a7f066d23d701e23e917893e8f39733d6e617ec72787ae5f,6007
+    pantry-tree:
+      sha256: d22f820a1f63497f7fd7e1f04b7d356d92de35582258f6ad55428c88b09e63ff
+      size: 3194
+  original:
+    hackage: prettyprinter-1.7.0
+- completed:
+    name: melf
+    pantry-tree:
+      sha256: 5c70d3c5bf979c548bf5c7eb913d35bcab74fe3f31b47c89bd00da93f2ef94f6
+      size: 20604
+    sha256: e065b1c4e2934cf0bcf39e9d3d389961fa91d2a6b7d8a4593477377affb3a427
+    size: 2684517
+    url: https://github.com/aleksey-makarov/melf/archive/v1.3.0.tar.gz
+    version: 1.3.0
+  original:
+    url: https://github.com/aleksey-makarov/melf/archive/v1.3.0.tar.gz
+- completed:
+    hackage: data-flags-0.0.3.4@sha256:a133f2912e0e22f03419dc89a04b1e117ff6290f1777f5b7f037f683b80ed2cf,1097
+    pantry-tree:
+      sha256: fabce261d22601659cc3aeab1d5bb8f918dd3f8a8b01a8b9c483a08113a2535a
+      size: 383
+  original:
+    hackage: data-flags-0.0.3.4
+- completed:
+    hackage: data-sword-0.2.0.3@sha256:953cca4b4533a388df0ef17e06ac5530652d1d73decfe8b656242ccdf4b40999,1568
+    pantry-tree:
+      sha256: 60a104a3d3cbba2e099a9e7ce561322b2884f5323cf74fd876dfb59f265d803c
+      size: 439
+  original:
+    hackage: data-sword-0.2.0.3
+- completed:
+    hackage: exceptions-0.10.4@sha256:7ed09aed03683d5b4337088061106c2389d274b3472031a330ff1b220bad2b2d,2796
+    pantry-tree:
+      sha256: f1eb6efc7f747444de23771bef8ac4d4c2f0e2f99bb149d72a9441d8df022263
+      size: 908
+  original:
+    hackage: exceptions-0.10.4
+- completed:
+    hackage: lens-5.2.3@sha256:637287c76adff383063b3206a4213640de1a74839ec16008cc71b5b407f7d05e,15237
+    pantry-tree:
+      sha256: 2a69ee338ef79da9aaa0d406f8307b11e3b8f969aa8fc28e46ca250c1f6ef40d
+      size: 8351
+  original:
+    hackage: lens-5.2.3@sha256:637287c76adff383063b3206a4213640de1a74839ec16008cc71b5b407f7d05e,15237
 snapshots:
 - completed:
     sha256: 22d24d0dacad9c1450b9a174c28d203f9bb482a2a8da9710a2f2a9f4afee2887

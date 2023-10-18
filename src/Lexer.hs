@@ -82,7 +82,7 @@ instance Show ASTNode where
   show (ASTNodeError t) = "(Error: " ++ show t ++ ")"
   show (ASTNodeInteger i) = "(int: " ++ show i ++ ")"
   show (ASTNodeSymbol s) = "(sym: " ++ s ++ ")"
-  show (ASTNodeMutable n c) = "(define: " ++ show n ++ " \n\t" ++ show c ++ ")"
+  show (ASTNodeMutable n c) = "(mutable: " ++ show n ++ " \n\t" ++ show c ++ ")"
   show (ASTNodeSum l) = "(sum: " ++ show l ++ ")"
   show (ASTNodeSub l) = "(sub: " ++ show l ++ ")"
   show (ASTNodeMul l) = "(mul: " ++ show l ++ ")"
@@ -231,7 +231,7 @@ tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokenSuperiorEq _
 -- tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokOperatorMod _), A n1, A n2, T (TokenInfo TokCloseParen _)] = ASTNodeMod [n1, n2]
 tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokOperatorMod _), A (ASTNodeParamList [n1, n2]), T (TokenInfo TokCloseParen _)] = ASTNodeMod [n1, n2]
 -- declaration of a variable
-tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokKeywordMutable _), A (ASTNodeSymbol sym), A n, T (TokenInfo TokCloseParen _)] = ASTNodeMutable (ASTNodeSymbol sym) (ASTNodeArray (expendParamList [n]))
+tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokKeywordMutable _), A (ASTNodeSymbol sym), A n, T (TokenInfo TokCloseParen _)] = ASTNodeMutable (ASTNodeSymbol sym) n
 -- a boolean
 tokOrExprToASTNode [T (TokenInfo TokenBool val)] = ASTNodeBoolean (val == "true")
 -- param list

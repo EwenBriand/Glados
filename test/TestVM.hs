@@ -61,7 +61,6 @@ where
 
 import qualified Data.Map as Map
 import GHC.Generics (Fixity (Prefix), FixityI (PrefixI))
-import LLVM.AST (Parameter (Parameter))
 import Lexer (VarType (GBool, GInt))
 import Test.HUnit
 import VM
