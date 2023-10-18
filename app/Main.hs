@@ -72,7 +72,7 @@ execOnOps :: IO (ValidState Context) -> Options -> IO ()
 execOnOps ctx ops =
     if compileObject ops /= "" then
         debugLoadAndShowElf (compileObject ops)
-        
+
     else do
         c <- ctx
         if disassemble ops then
