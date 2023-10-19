@@ -1,2 +1,1 @@
-(define foo 1)
-(+ foo 2)
+(define foo 1)(+ foo 2)
