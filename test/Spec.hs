@@ -128,7 +128,10 @@ testFunctions =
     testAllTest,
     testMyTest,
     testEncodeMov,
-    testEncodeMovqRegImm
+    testEncodeMovqRegImm,
+    testmovOpcodeCombineRegReg,
+    testEncodeMovRegReg,
+    testEncodeMovMemImm
   ]
 
 -- Run all test functions and return the results as a list

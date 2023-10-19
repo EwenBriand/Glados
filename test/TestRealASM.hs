@@ -1,6 +1,10 @@
+{-# LANGUAGE DataKinds #-}
 module TestRealASM
   ( testEncodeMov,
     testEncodeMovqRegImm,
+    testmovOpcodeCombineRegReg,
+    testEncodeMovRegReg,
+    testEncodeMovMemImm,
   )
 where
 
@@ -30,6 +34,9 @@ import Test.HUnit
 import VM
 import ValidState
 import Prelude as P
+import Data.Elf
+import Data.List (isInfixOf)
+import System.Exit
 
 testEncodeMovqRegImm :: Test
 testEncodeMovqRegImm =
@@ -48,19 +55,53 @@ dummyProgramSimpleMov :: MonadCatch m => StateT CodeState m ()
 dummyProgramSimpleMov = do
   convertOneInstruction (Mov (Reg EAX) (Immediate 42))
 
--- let state = StateT (\s -> (codeReversed s, s))
+dummyProgramMovMemImm :: MonadCatch m => StateT CodeState m ()
+dummyProgramMovMemImm = do
+  convertOneInstruction (Mov (Memory 42) (Immediate 16))
 
--- -- Extract the codeReversed field from the state
--- let reversedCode = evalStateT (gets codeReversed) state
+testEncodeMovMemImmImpl :: IO ()
+testEncodeMovMemImmImpl = do
+  let elf = assemble dummyProgramMovMemImm
+  (elf P.>>= writeElf "ElfTestRes/testMovMemImm.o")
+
+testEncodeMovMemImm :: Test
+testEncodeMovMemImm =
+  TestCase $ do
+    testEncodeMovMemImmImpl
+    assertBool "mov is correctly encoded" True
 
 testEncodeMovImpl :: IO ()
 testEncodeMovImpl = do
-  -- let codestate = dummyProgramSimpleMov
-  --   let state = StateT (\s -> (codestate, s))
-  --   let reversedCode = evalStateT (gets codeReversed) state
-  --   print (reversedCode)
   let elf = assemble dummyProgramSimpleMov
   (elf P.>>= writeElf "ElfTestRes/testMovOpcode.o")
+
+dummyProgramMovRegReg :: MonadCatch m => StateT CodeState m ()
+dummyProgramMovRegReg = do
+  convertOneInstruction (Mov (Reg EAX) (Reg EAX))
+
+getElfMovRegReg :: MonadCatch m => StateT CodeState m ()
+getElfMovRegReg = do
+  let prog = dummyProgramMovRegReg
+  prog
+
+testMovRegRegEAXEAX :: IO ()
+testMovRegRegEAXEAX = do
+  let elf = assemble getElfMovRegReg
+  (elf P.>>= writeElf "ElfTestRes/testMovRegReg.o")
+
+testEncodeMovRegReg :: Test
+testEncodeMovRegReg =
+  TestCase $ do
+    testMovRegRegEAXEAX
+
+testmovOpcodeCombineRegReg ::Test
+testmovOpcodeCombineRegReg =
+    TestList [ movOpcodeCombineRegReg EAX EAX ~?= 0xc0,
+               movOpcodeCombineRegReg ECX EAX ~?= 0xc1,
+               movOpcodeCombineRegReg EDX EAX ~?= 0xc2,
+               movOpcodeCombineRegReg EDI EAX ~?= 0xc7,
+               movOpcodeCombineRegReg EAX ECX ~?= 0xc8,
+               movOpcodeCombineRegReg EAX EDI ~?= 0xf8 ]
 
 testEncodeMov :: Test
 testEncodeMov =

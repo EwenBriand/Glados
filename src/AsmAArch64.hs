@@ -22,6 +22,7 @@ module AsmAArch64
     encodeMovqRegImm,
     movqRegImmByteArray,
     byteStringToInteger,
+    movOpcodeCombineRegReg,
   )
 where
 
@@ -63,27 +64,6 @@ newtype RRegister (c :: RegisterWidth) = R Word32
 newtype CodeOffset = CodeOffset {getCodeOffset :: Int64} deriving (Eq, Show, Ord, Num, Enum, Real, Integral, Bits, FiniteBits)
 
 newtype RInstruction = RInstruction {getInstruction :: Integer} deriving (Eq, Show, Ord, Num) -- , Bits, FiniteBits, num, Real
-
--- instance Num ByteString where
---   (+) xs ys = BSL.pack (BSL.unpack xs ++ BSL.unpack ys)
---   (-) xs ys = BSL.pack (BSL.unpack xs ++ BSL.unpack ys)
---   (*) xs ys = BSL.pack (BSL.unpack xs ++ BSL.unpack ys)
---   negate xs = BSL.pack (BSL.unpack xs)
---   abs xs = BSL.pack (BSL.unpack xs)
---   signum xs = BSL.pack (BSL.unpack xs)
---   fromInteger n = BSL.pack (fromIntegral n :: [Word8])
-
--- byteStringToInteger :: ByteString -> Integer
--- byteStringToInteger xs = toInteger (BSL.foldr (\b acc -> acc * 256 + fromIntegral b) 0 xs)
-
--- instance Integral BS.ByteString where
---   toInteger xs = byteStringToInteger xs
---   quotRem xs ys = (BS.pack (fromIntegral q :: [Word8]), BS.pack (fromIntegral r :: [Word8]))
---     where
---       (q, r) = byteStringToInteger xs `quotRem` byteStringToInteger ys
-
--- instance Real ByteString where
---   toRational xs = toRational (BSL.foldr (\b acc -> acc * 256 + fromIntegral b) 0 (BSL.unpack xs))
 
 data Label
   = CodeRef !CodeOffset
@@ -208,22 +188,9 @@ assemble m = do
 
   code <- $eitherAddContext' $ mapM f $ P.zip (P.reverse codeReversed) (fmap (instructionSize *) [CodeOffset 0 ..])
 
-  --   let codeBuilder = mconcat $ fmap (word32LE . getInstruction) code
-  --       txt =
-  --         toLazyByteString $
-  --           codeBuilder
-  --             <> builderRepeatZero (fromIntegral $ poolOffsetAligned - poolOffset)
-  --             <> mconcat (P.reverse poolReversed)
-
-  --   let codeBuilder = mconcat $ fmap (makeCodeBuilder . getInstruction) code
-  --       txt =
-  --         toLazyByteString $
-  --           codeBuilder
-  -- <> builderRepeatZero (fromIntegral $ poolOffsetAligned - poolOffset)
-  -- <> mconcat (P.reverse poolReversed)
-  -- resolve symbolTable
-
   let txt = mconcat $ fmap (makeCodeBuilder . getInstruction) code
+   -- <> builderRepeatZero (fromIntegral $ poolOffsetAligned - poolOffset)
+  -- <> mconcat (P.reverse poolReversed)
 
   let ff :: (String, Label) -> ElfSymbolXX 'ELFCLASS64
       ff (s, r) =
@@ -239,7 +206,7 @@ assemble m = do
 
   (symbolTableData, stringTableData) <- serializeSymbolTable ELFDATA2LSB (zeroIndexStringItem : symbolTable)
 
-  trace ("text is: " ++ show txt) $
+  trace ("") $
     P.return $
       Elf SELFCLASS64 $
         ElfHeader
@@ -371,6 +338,17 @@ word8ArrayToByteString :: [Word8] -> ByteString
 word8ArrayToByteString [] = BSL.pack []
 word8ArrayToByteString (x : xs) = BSL.cons x (word8ArrayToByteString xs)
 
+registerCode :: Register -> Word8
+registerCode EAX = read "0x0" :: Word8
+registerCode ECX = read "0x1" :: Word8
+registerCode EDX = read "0x2" :: Word8
+registerCode EBX = read "0x3" :: Word8
+registerCode ESP = read "0x4" :: Word8
+registerCode EBP = read "0x5" :: Word8
+registerCode ESI = read "0x6" :: Word8
+registerCode EDI = read "0x7" :: Word8
+registerCode r = error ("unsupported register in mov instruction: " ++ show r)
+
 movqOpCodeFromReg :: Register -> Word8
 movqOpCodeFromReg EAX = read "0xb8" :: Word8
 movqOpCodeFromReg ECX = read "0xb9" :: Word8
@@ -380,17 +358,13 @@ movqOpCodeFromReg ESP = read "0xbc" :: Word8
 movqOpCodeFromReg EBP = read "0xbd" :: Word8
 movqOpCodeFromReg ESI = read "0xbe" :: Word8
 movqOpCodeFromReg EDI = read "0xbf" :: Word8
+movqOpCodeFromReg r = error ("unsupported register in mov instruction: " ++ show r)
 
 movqRegImmByteArray :: Register -> Int -> [Word8]
 movqRegImmByteArray r i =
   let opcode = movqOpCodeFromReg r
       immBytes = encodeImmediate i
    in [opcode] ++ immBytes
-
-encodeMovqRegImm :: Register -> Int -> Integer
-encodeMovqRegImm r i =
-  byteStringToInteger
-    (word8ArrayToByteString ((movqRegImmByteArray r i)))
 
 intToWord16 :: Int -> Word16
 intToWord16 i = fromIntegral i :: Word16
@@ -401,6 +375,18 @@ encodeImmediate n =
 
 convertOneInstruction :: MonadState CodeState m => Instruction -> m ()
 convertOneInstruction (Mov (Reg r) (Immediate i)) = mov r (intToWord16 i)
+convertOneInstruction (Mov (Reg r) (Memory i)) = encodeMovRegMem r i
+convertOneInstruction (Mov (Memory i) (Reg r)) = encodeMovMemReg i r
+convertOneInstruction (Mov (Reg r1) (Reg r2)) = encodeMovRegReg r1 r2
+convertOneInstruction (Mov (Memory i) (Immediate imm)) = encodeMovMemImm i imm
+
+convertOneInstruction (MovPtr (Memory i) (Immediate imm)) = encodeMovMemImm i imm
+convertOneInstruction (MovPtr (Memory i) (Reg imm)) = encodeMovMemReg i imm
+
+convertOneInstruction (MovStackAddr (Immediate ptr) (Immediate value)) = encodeMovStackAddrImm ptr value
+
+convertOneInstruction _ = error "unsupported instruction"
+
 
 hasmToAsm :: MonadState CodeState m => [Instruction] -> m [Int]
 hasmToAsm [] = P.return []
@@ -414,3 +400,68 @@ execAsm :: ValidState Context -> Elf
 execAsm (Invalid s) = error s
 
 -- execAsm (Valid c) = execState (assemble (Rinstructions c)) (CodeState 0 [] [] [])
+
+-------------------------------------------------------------------------------
+-- Instructions opcodes
+-------------------------------------------------------------------------------
+
+-------------------------------------------------------------------------------
+-- region MOV
+-------------------------------------------------------------------------------
+
+-- TODO mov
+-- mov <reg>,<reg>      [OK]
+-- mov <reg>,<mem>      [VERIFY]
+-- mov <mem>,<reg>      [VERIFY]
+-- mov <reg>,<const>    [OK]
+-- mov <mem>,<const>    [OK]
+
+encodeMovrmandmrBasis :: (MonadState CodeState m) => Word8 -> Register -> Int -> m ()
+encodeMovrmandmrBasis opcode r i =  emit $
+    RInstruction $ (byteStringToInteger (word8ArrayToByteString (
+    [opcode] ++ (rr r) ++ [0x25] ++ encodeImmediate i)))
+    where
+        rr :: Register -> [Word8]
+        rr EAX = [0x04]
+        rr ECX = [0x0c]
+        rr EDX = [0x14]
+        rr EBX = [0x1c]
+        rr ESP = [0x24]
+        rr EBP = [0x2c]
+        rr ESI = [0x34]
+        rr EDI = [0x3c]
+        rr _ = error ("unsupported register in mov instruction: " ++ show r)
+
+-- mov reg, mem
+encodeMovRegMem :: (MonadState CodeState m) => Register -> Int -> m ()
+encodeMovRegMem = encodeMovrmandmrBasis 0x8b
+
+encodeMovMemReg :: (MonadState CodeState m) => Int -> Register -> m ()
+encodeMovMemReg i r =  encodeMovrmandmrBasis 0x89 r i
+
+movOpcodeCombineRegReg :: Register -> Register -> Word8
+movOpcodeCombineRegReg to from = (registerCode to .|. (registerCode from `shiftL` 3)) + (0xc0 :: Word8)
+
+encodeMovRegReg :: (MonadState CodeState m) => Register -> Register -> m ()
+encodeMovRegReg rto rfrom = emit $
+    RInstruction $ byteStringToInteger (word8ArrayToByteString
+        [0x89, movOpcodeCombineRegReg rto rfrom])
+
+-- mov reg const
+encodeMovqRegImm :: Register -> Int -> Integer
+encodeMovqRegImm r i =
+  byteStringToInteger
+    (word8ArrayToByteString (movqRegImmByteArray r i))
+
+-- mov mem, reg
+-- ex: mov [42], dword 16
+encodeMovMemImm :: (MonadState CodeState m) => Int -> Int -> m ()
+encodeMovMemImm mem imm = emit $
+    RInstruction $ byteStringToInteger (word8ArrayToByteString (
+        [0xc7, 0x04, 0x25] ++ encodeImmediate mem ++ encodeImmediate imm))
+
+-- mov [rsp + x], dword y -> movstackaddr x, y
+encodeMovStackAddrImm :: (MonadState CodeState m) => Int -> Int -> m ()
+encodeMovStackAddrImm mem imm = emit $
+    RInstruction $ byteStringToInteger (word8ArrayToByteString (
+        [0xc7, 0x44, 0x24] ++ encodeImmediate mem ++ encodeImmediate imm))

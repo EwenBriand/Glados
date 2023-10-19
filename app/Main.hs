@@ -64,7 +64,6 @@ printInstructions (i:is) = do
 showDisassembly :: ValidState Context -> IO ()
 showDisassembly (Invalid s) = putStrLn ("Context invalidated: " ++ s) >> exitWith (ExitFailure 84)
 showDisassembly (Valid c) = do
-    -- print (instructions c)
     printInstructions (instructions c)
     printBlocks c (blocks c)
 
@@ -72,7 +71,6 @@ execOnOps :: IO (ValidState Context) -> Options -> IO ()
 execOnOps ctx ops =
     if compileObject ops /= "" then
         debugLoadAndShowElf (compileObject ops)
-
     else do
         c <- ctx
         if disassemble ops then

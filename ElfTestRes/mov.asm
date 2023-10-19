@@ -5,3 +5,4 @@ section .text
 
 _start:
     mov eax, 42
+    mov edi, 42
