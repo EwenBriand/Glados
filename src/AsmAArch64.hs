@@ -23,6 +23,7 @@ module AsmAArch64
     movqRegImmByteArray,
     byteStringToInteger,
     movOpcodeCombineRegReg,
+    removeNullPrefix
   )
 where
 
@@ -172,8 +173,6 @@ symtabSecN = 4
 makeCodeBuilder :: Integer -> ByteString
 makeCodeBuilder i = word8ArrayToByteString (reverseArray (integerToWord8Array i))
 
--- makeCodeBuilder i = BSL.reverse (integerToByteString i)
-
 assemble :: MonadCatch m => StateT CodeState m () -> m Elf
 assemble m = do
   CodeState {..} <- execStateT m (CodeState 0 [] [] [])
@@ -189,8 +188,6 @@ assemble m = do
   code <- $eitherAddContext' $ mapM f $ P.zip (P.reverse codeReversed) (fmap (instructionSize *) [CodeOffset 0 ..])
 
   let txt = mconcat $ fmap (makeCodeBuilder . getInstruction) code
-   -- <> builderRepeatZero (fromIntegral $ poolOffsetAligned - poolOffset)
-  -- <> mconcat (P.reverse poolReversed)
 
   let ff :: (String, Label) -> ElfSymbolXX 'ELFCLASS64
       ff (s, r) =
@@ -210,7 +207,8 @@ assemble m = do
     P.return $
       Elf SELFCLASS64 $
         ElfHeader
-          { ehData = ELFDATA2LSB,
+          { ehData = ELFDATA2LSB, -- little endian
+        -- {  ehData = ELFDATA2MSB, -- big endian
             ehOSABI = ELFOSABI_SYSV,
             ehABIVersion = 0,
             ehType = ET_REL,
@@ -384,8 +382,11 @@ convertOneInstruction (MovPtr (Memory i) (Immediate imm)) = encodeMovMemImm i im
 convertOneInstruction (MovPtr (Memory i) (Reg imm)) = encodeMovMemReg i imm
 
 convertOneInstruction (MovStackAddr (Immediate ptr) (Immediate value)) = encodeMovStackAddrImm ptr value
+convertOneInstruction (MovStackAddr (Immediate ptr) (Reg reg)) = encodeMovStackAddrReg ptr reg
 
-convertOneInstruction _ = error "unsupported instruction"
+convertOneInstruction (MovFromStackAddr (Reg reg) (Immediate ptr)) = encodeMovFromStackAddrReg reg ptr
+
+convertOneInstruction i = error ("unsupported instruction: " ++ show i)
 
 
 hasmToAsm :: MonadState CodeState m => [Instruction] -> m [Int]
@@ -465,3 +466,45 @@ encodeMovStackAddrImm :: (MonadState CodeState m) => Int -> Int -> m ()
 encodeMovStackAddrImm mem imm = emit $
     RInstruction $ byteStringToInteger (word8ArrayToByteString (
         [0xc7, 0x44, 0x24] ++ encodeImmediate mem ++ encodeImmediate imm))
+
+removeNullPrefix :: [Word8] -> [Word8]
+removeNullPrefix [] = []
+removeNullPrefix (x : xs) = if x == 0 then removeNullPrefix xs else x : xs
+
+encodeMovStackAddrReg :: (MonadState CodeState m) => Int -> Register -> m ()
+encodeMovStackAddrReg mem reg = emit $
+    RInstruction $ byteStringToInteger (word8ArrayToByteString (
+        [0x89, rr reg, 0x24] ++ removeNullPrefix (reverseArray (encodeImmediate mem))))
+    where
+        rr :: Register -> Word8
+        rr EAX = read "0x44" :: Word8
+        rr ECX = read "0x4c" :: Word8
+        rr EDX = read "0x54" :: Word8
+        rr EBX = read "0x5c" :: Word8
+        rr ESP = read "0x64" :: Word8
+        rr EBP = read "0x6c" :: Word8
+        rr ESI = read "0x74" :: Word8
+        rr EDI = read "0x7c" :: Word8
+        rr r = error ("unsupported register in mov instruction: " ++ show r)
+
+encodeMovFromStackAddrReg :: (MonadState CodeState m) => Register -> Int -> m ()
+encodeMovFromStackAddrReg reg mem = emit $
+    RInstruction $ byteStringToInteger (word8ArrayToByteString (
+        [0x8b, rr reg, 0x24] ++ removeNullPrefix (reverseArray (encodeImmediate mem))))
+    where
+        rr :: Register -> Word8
+        rr EAX = read "0x44" :: Word8
+        rr ECX = read "0x4c" :: Word8
+        rr EDX = read "0x54" :: Word8
+        rr EBX = read "0x5c" :: Word8
+        rr ESP = read "0x64" :: Word8
+        rr EBP = read "0x6c" :: Word8
+        rr ESI = read "0x74" :: Word8
+        rr EDI = read "0x7c" :: Word8
+        rr r = error ("unsupported register in mov instruction: " ++ show r)
+
+-------------------------------------------------------------------------------
+-- region Push
+-------------------------------------------------------------------------------
+
+

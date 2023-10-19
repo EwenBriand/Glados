@@ -131,8 +131,9 @@ testFunctions =
     testEncodeMovqRegImm,
     testmovOpcodeCombineRegReg,
     testEncodeMovRegReg,
-    testEncodeMovMemImm
-  ]
+    testEncodeMovMemImm,
+    testRemoveNullPrefix,
+    functionalASMTests]
 
 -- Run all test functions and return the results as a list
 runTests :: IO [Counts]

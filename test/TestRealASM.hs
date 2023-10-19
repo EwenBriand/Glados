@@ -5,6 +5,8 @@ module TestRealASM
     testmovOpcodeCombineRegReg,
     testEncodeMovRegReg,
     testEncodeMovMemImm,
+    testRemoveNullPrefix,
+    functionalASMTests,
   )
 where
 
@@ -37,6 +39,7 @@ import Prelude as P
 import Data.Elf
 import Data.List (isInfixOf)
 import System.Exit
+import System.Process
 
 testEncodeMovqRegImm :: Test
 testEncodeMovqRegImm =
@@ -62,7 +65,7 @@ dummyProgramMovMemImm = do
 testEncodeMovMemImmImpl :: IO ()
 testEncodeMovMemImmImpl = do
   let elf = assemble dummyProgramMovMemImm
-  (elf P.>>= writeElf "ElfTestRes/testMovMemImm.o")
+  (elf P.>>= writeElf ".tmp_test_output")
 
 testEncodeMovMemImm :: Test
 testEncodeMovMemImm =
@@ -103,8 +106,73 @@ testmovOpcodeCombineRegReg =
                movOpcodeCombineRegReg EAX ECX ~?= 0xc8,
                movOpcodeCombineRegReg EAX EDI ~?= 0xf8 ]
 
+dummyProgramMovStackAddr :: MonadCatch m => StateT CodeState m ()
+dummyProgramMovStackAddr = do
+  convertOneInstruction (MovStackAddr (Immediate 42) (Reg EDI))
+  convertOneInstruction (MovStackAddr (Immediate 100) (Reg ESI)) --  89 b4 24 dc 51 0b 00
+
+testEncodeMovStackAddrImpl :: IO ()
+testEncodeMovStackAddrImpl = do
+  let elf = assemble dummyProgramMovStackAddr
+  (elf P.>>= writeElf ".tmp_test_output")
+
+testRemoveNullPrefix :: Test
+testRemoveNullPrefix = TestList [
+    removeNullPrefix [0x00, 0x00, 0x2a] ~?= [0x2a],
+    removeNullPrefix [0x00, 0x00, 0x00] ~?= []]
+
 testEncodeMov :: Test
 testEncodeMov =
   TestCase $ do
     testEncodeMovImpl
+    testEncodeMovStackAddrImpl
     assertBool "mov is correctly encoded" True
+
+testEncodeMovFromStackAddr :: IO ()
+testEncodeMovFromStackAddr = do
+  let elf = assemble p
+  (elf P.>>= writeElf ".tmp_test_output")
+  where
+    p :: MonadCatch m => StateT CodeState m ()
+    p = do
+        convertOneInstruction (MovFromStackAddr (Reg EAX) (Immediate 42))
+        convertOneInstruction (MovFromStackAddr (Reg ECX) (Immediate 42))
+        convertOneInstruction (MovFromStackAddr (Reg EDX) (Immediate 42))
+        convertOneInstruction (MovFromStackAddr (Reg EBX) (Immediate 42))
+        convertOneInstruction (MovFromStackAddr (Reg ESP) (Immediate 42))
+        convertOneInstruction (MovFromStackAddr (Reg EBP) (Immediate 42))
+        convertOneInstruction (MovFromStackAddr (Reg ESI) (Immediate 42))
+        convertOneInstruction (MovFromStackAddr (Reg EDI) (Immediate 42))
+
+
+runRunctionalTest :: IO () -> String -> Test
+runRunctionalTest func path = TestCase $ do
+    func
+    expected <- P.readFile path
+    output <- readProcess "objdump" ["-d", ".tmp_test_output"] ""
+    let expected' = P.unlines $ P.drop 7 $ P.lines expected
+    let output' = P.unlines $ P.drop 7 $ P.lines output
+    if expected' == output' then
+        P.putStr ""
+    else do
+        P.putStrLn "expected:"
+        P.putStrLn expected'
+        P.putStrLn "output:"
+        P.putStrLn output'
+    assertBool "functional test ok" $ expected' == output'
+
+testRunStackAddr :: Test
+testRunStackAddr = runRunctionalTest testEncodeMovStackAddrImpl "ElfTestRes/movStackAddr_expected.txt"
+
+testRunMovRegReg :: Test
+testRunMovRegReg = runRunctionalTest testEncodeMovMemImmImpl "ElfTestRes/movRegReg_expected.txt"
+
+testRunMovFromStackAddr :: Test
+testRunMovFromStackAddr = runRunctionalTest testEncodeMovFromStackAddr "ElfTestRes/movfromstackaddr_expected.txt"
+
+functionalASMTests :: Test
+functionalASMTests =
+  TestList
+    [ testRunStackAddr,
+      testRunMovRegReg,
+      testRunMovFromStackAddr]
