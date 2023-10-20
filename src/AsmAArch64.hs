@@ -431,6 +431,11 @@ convertOneInstruction (Div (Reg r)) = encodeDivReg r
 convertOneInstruction (Mult (Reg r) (Reg r2)) = encodeMultReg r
 convertOneInstruction (Ret) = encodeRetReg
 convertOneInstruction (Interrupt) = encodeInterrupt
+convertOneInstruction (Or (Reg r1) (Reg r2)) = encodeOrRegReg r1 r2
+convertOneInstruction (Or (Reg r1) (Immediate i)) = encodeOrRegImm r1 i
+convertOneInstruction (And (Reg r1) (Reg r2)) = encodeAndRegReg r1 r2
+convertOneInstruction (And (Reg r1) (Immediate i)) = encodeAndRegImm r1 i
+convertOneInstruction (Not (Reg r)) = encodeNotReg r
 convertOneInstruction i = error ("unsupported instruction: " ++ show i)
 
 -- execAsm (Valid c) = execState (assemble (Rinstructions c)) (CodeState 0 [] [] [])
@@ -656,8 +661,13 @@ encodeLabel name = do
 -- Mult ok
 -- jmp
 -- Call
--- Interrupt
+-- Int ok
+-- Ret ok
 -- Alloc
+-- xor ok
+-- or  reg -> im ok and reg -> reg ok
+-- and reg -> im ok and reg -> reg ok
+-- not reg -> im ok and reg -> reg ok
 
 -------------------------------------------------------------------------------
 -- region Add
@@ -792,6 +802,63 @@ encodeInterrupt =
       byteStringToInteger
         ( word8ArrayToByteString
             [0xcd, 0x80]
+        )
+
+-------------------------------------------------------------------------------
+-- region Or
+-------------------------------------------------------------------------------
+
+encodeOrRegReg :: (MonadState CodeState m) => Register -> Register -> m ()
+encodeOrRegReg r1 r2 =
+  emit $
+    RInstruction $
+      byteStringToInteger
+        ( word8ArrayToByteString
+            [0x09, movOpcodeCombineRegReg r1 r2]
+        )
+
+encodeOrRegImm :: (MonadState CodeState m) => Register -> Int -> m ()
+encodeOrRegImm r imm =
+  emit $
+    RInstruction $
+      byteStringToInteger
+        ( word8ArrayToByteString
+            ([0x83, 0xc8 + registerCode r] ++ removeNullPrefix (reverseArray (encodeImmediate imm)))
+        )
+
+-------------------------------------------------------------------------------
+-- region And
+-------------------------------------------------------------------------------
+
+encodeAndRegReg :: (MonadState CodeState m) => Register -> Register -> m ()
+encodeAndRegReg r1 r2 =
+  emit $
+    RInstruction $
+      byteStringToInteger
+        ( word8ArrayToByteString
+            [0x21, movOpcodeCombineRegReg r1 r2]
+        )
+
+encodeAndRegImm :: (MonadState CodeState m) => Register -> Int -> m ()
+encodeAndRegImm r imm =
+  emit $
+    RInstruction $
+      byteStringToInteger
+        ( word8ArrayToByteString
+            ([0x83, 0xe0 + registerCode r] ++ removeNullPrefix (reverseArray (encodeImmediate imm)))
+        )
+
+-------------------------------------------------------------------------------
+-- region Not
+-------------------------------------------------------------------------------
+
+encodeNotReg :: (MonadState CodeState m) => Register -> m ()
+encodeNotReg r =
+  emit $
+    RInstruction $
+      byteStringToInteger
+        ( word8ArrayToByteString
+            [0xf7, 0xd0 + registerCode r]
         )
 
 -------------------------------------------------------------------------------

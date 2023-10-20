@@ -202,8 +202,10 @@ testPushImm = runRunctionalTest testPushImmImpl "ElfTestRes/pushImm_expected.txt
       elf P.>>= writeElf ".tmp_test_output"
       where
         p :: MonadCatch m => StateT CodeState m ()
-        p =
+        p = do
+          convertOneInstruction (Push (Immediate 1))
           convertOneInstruction (Push (Immediate 42))
+          convertOneInstruction (Push (Immediate (-10)))
 
 testPushMem :: Test
 testPushMem = runRunctionalTest testPushMemImpl "ElfTestRes/pushMem_expected.txt"
@@ -496,6 +498,56 @@ testIntInASM = runRunctionalTest impl "ElfTestRes/int_expected.txt"
         p = do
           convertOneInstruction (Interrupt)
 
+testOrInASM :: Test
+testOrInASM = runRunctionalTest impl "ElfTestRes/or_expected.txt"
+  where
+    impl :: IO ()
+    impl = do
+      let elf = assemble p
+      elf P.>>= writeElf ".tmp_test_output"
+      where
+        p :: MonadCatch m => StateT CodeState m ()
+        p = do
+          convertOneInstruction (Or (Reg EAX) (Reg EBX))
+          convertOneInstruction (Or (Reg ECX) (Reg EDX))
+          convertOneInstruction (Or (Reg ESI) (Reg EDI))
+          convertOneInstruction (VM.Label "_imm" 42)
+          convertOneInstruction (Or (Reg EAX) (Immediate 1))
+          convertOneInstruction (Or (Reg EBX) (Immediate 42))
+          convertOneInstruction (Or (Reg ECX) (Immediate (-10)))
+
+testAndInASM :: Test
+testAndInASM = runRunctionalTest impl "ElfTestRes/and_expected.txt"
+  where
+    impl :: IO ()
+    impl = do
+      let elf = assemble p
+      elf P.>>= writeElf ".tmp_test_output"
+      where
+        p :: MonadCatch m => StateT CodeState m ()
+        p = do
+          convertOneInstruction (And (Reg EAX) (Reg EBX))
+          convertOneInstruction (And (Reg ECX) (Reg EDX))
+          convertOneInstruction (And (Reg ESI) (Reg EDI))
+          convertOneInstruction (VM.Label "_imm" 42)
+          convertOneInstruction (And (Reg EAX) (Immediate 1))
+          convertOneInstruction (And (Reg EBX) (Immediate 42))
+          convertOneInstruction (And (Reg ECX) (Immediate (-10)))
+
+testNotInASM :: Test
+testNotInASM = runRunctionalTest impl "ElfTestRes/not_expected.txt"
+  where
+    impl :: IO ()
+    impl = do
+      let elf = assemble p
+      elf P.>>= writeElf ".tmp_test_output"
+      where
+        p :: MonadCatch m => StateT CodeState m ()
+        p = do
+          convertOneInstruction (Not (Reg EAX))
+          convertOneInstruction (Not (Reg ECX))
+          convertOneInstruction (Not (Reg ESI))
+
 functionalASMTests :: Test
 functionalASMTests =
   TestList
@@ -518,5 +570,8 @@ functionalASMTests =
       testDivInASM,
       testMulInASM,
       testRetInASM,
-      testIntInASM
+      testIntInASM,
+      testOrInASM,
+      testAndInASM,
+      testNotInASM
     ]

@@ -4,4 +4,6 @@ section .text
     global _start
 
 _start:
-    int 0x80
+    push 1
+    push 42
+    push -10
