@@ -534,7 +534,7 @@ data Instruction
   | Nop
   | Push Param
   | Pop Param
-  | IMul Param Param
+  | IMul Param Param -- noop
   | Xor Param Param
   | Or Param Param
   | And Param Param

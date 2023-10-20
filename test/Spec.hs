@@ -133,7 +133,8 @@ testFunctions =
     testEncodeMovRegReg,
     testEncodeMovMemImm,
     testRemoveNullPrefix,
-    functionalASMTests]
+    functionalASMTests,
+    testGetBinLengthFromRInstruction]
 
 -- Run all test functions and return the results as a list
 runTests :: IO [Counts]

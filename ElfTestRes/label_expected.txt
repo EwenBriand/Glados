@@ -1,0 +1,14 @@
+
+mov.o:     file format elf64-x86-64
+
+
+Disassembly of section .text:
+
+0000000000000000 <_start>:
+   0:	31 c0                	xor    %eax,%eax
+
+0000000000000002 <_labelFoo>:
+   2:	31 f8                	xor    %edi,%eax
+
+0000000000000004 <_labelBar>:
+   4:	31 f0                	xor    %esi,%eax

@@ -7,6 +7,7 @@ module TestRealASM
     testEncodeMovMemImm,
     testRemoveNullPrefix,
     functionalASMTests,
+    testGetBinLengthFromRInstruction,
   )
 where
 
@@ -170,9 +171,209 @@ testRunMovRegReg = runRunctionalTest testEncodeMovMemImmImpl "ElfTestRes/movRegR
 testRunMovFromStackAddr :: Test
 testRunMovFromStackAddr = runRunctionalTest testEncodeMovFromStackAddr "ElfTestRes/movfromstackaddr_expected.txt"
 
+testPushReg :: Test
+testPushReg = runRunctionalTest testPushRegImpl "ElfTestRes/pushReg_expected.txt"
+    where
+        testPushRegImpl :: IO ()
+        testPushRegImpl = do
+            let elf = assemble p
+            (elf P.>>= writeElf ".tmp_test_output")
+            where
+                p :: MonadCatch m => StateT CodeState m ()
+                p = do
+                    convertOneInstruction (Push (Reg EAX))
+                    convertOneInstruction (Push (Reg ECX))
+                    convertOneInstruction (Push (Reg EDX))
+                    convertOneInstruction (Push (Reg EBX))
+                    convertOneInstruction (Push (Reg ESP))
+                    convertOneInstruction (Push (Reg EBP))
+                    convertOneInstruction (Push (Reg ESI))
+                    convertOneInstruction (Push (Reg EDI))
+
+testPushImm :: Test
+testPushImm = runRunctionalTest testPushImmImpl "ElfTestRes/pushImm_expected.txt"
+    where
+        testPushImmImpl :: IO ()
+        testPushImmImpl = do
+            let elf = assemble p
+            (elf P.>>= writeElf ".tmp_test_output")
+            where
+                p :: MonadCatch m => StateT CodeState m ()
+                p = do
+                    convertOneInstruction (Push (Immediate 42))
+
+testPushMem :: Test
+testPushMem = runRunctionalTest testPushMemImpl "ElfTestRes/pushMem_expected.txt"
+    where
+        testPushMemImpl :: IO ()
+        testPushMemImpl = do
+            let elf = assemble p
+            (elf P.>>= writeElf ".tmp_test_output")
+            where
+                p :: MonadCatch m => StateT CodeState m ()
+                p = do
+                    convertOneInstruction (Push (Memory 42))
+
+testPopReg :: Test
+testPopReg = runRunctionalTest testPopRegImpl "ElfTestRes/popReg_expected.txt"
+    where
+        testPopRegImpl :: IO ()
+        testPopRegImpl = do
+            let elf = assemble p
+            (elf P.>>= writeElf ".tmp_test_output")
+            where
+                p :: MonadCatch m => StateT CodeState m ()
+                p = do
+                    convertOneInstruction (Pop (Reg EAX))
+                    convertOneInstruction (Pop (Reg ECX))
+                    convertOneInstruction (Pop (Reg EDX))
+                    convertOneInstruction (Pop (Reg EBX))
+                    convertOneInstruction (Pop (Reg ESP))
+                    convertOneInstruction (Pop (Reg EBP))
+                    convertOneInstruction (Pop (Reg ESI))
+                    convertOneInstruction (Pop (Reg EDI))
+
+testPopMem :: Test
+testPopMem = runRunctionalTest testPopMemImpl "ElfTestRes/popMem_expected.txt"
+    where
+        testPopMemImpl :: IO ()
+        testPopMemImpl = do
+            let elf = assemble p
+            (elf P.>>= writeElf ".tmp_test_output")
+            where
+                p :: MonadCatch m => StateT CodeState m ()
+                p = do
+                    convertOneInstruction (Pop (Memory 42))
+
+testXorRegReg :: Test
+testXorRegReg = runRunctionalTest testXorRegRegImpl "ElfTestRes/xorRegReg_expected.txt"
+    where
+        testXorRegRegImpl :: IO ()
+        testXorRegRegImpl = do
+            let elf = assemble p
+            (elf P.>>= writeElf ".tmp_test_output")
+            where
+                p :: MonadCatch m => StateT CodeState m ()
+                p = do
+                    convertOneInstruction (Xor (Reg EAX) (Reg EAX))
+                    convertOneInstruction (Xor (Reg EAX) (Reg ECX))
+                    convertOneInstruction (Xor (Reg EAX) (Reg EDX))
+                    convertOneInstruction (Xor (Reg EAX) (Reg EBX))
+                    convertOneInstruction (Xor (Reg EAX) (Reg ESP))
+                    convertOneInstruction (Xor (Reg EAX) (Reg EBP))
+                    convertOneInstruction (Xor (Reg EAX) (Reg ESI))
+                    convertOneInstruction (Xor (Reg EAX) (Reg EDI))
+                    convertOneInstruction (Xor (Reg ECX) (Reg EAX))
+                    convertOneInstruction (Xor (Reg ECX) (Reg ECX))
+                    convertOneInstruction (Xor (Reg ECX) (Reg EDX))
+                    convertOneInstruction (Xor (Reg ECX) (Reg EBX))
+                    convertOneInstruction (Xor (Reg ECX) (Reg ESP))
+                    convertOneInstruction (Xor (Reg ECX) (Reg EBP))
+                    convertOneInstruction (Xor (Reg ECX) (Reg ESI))
+                    convertOneInstruction (Xor (Reg ECX) (Reg EDI))
+                    convertOneInstruction (Xor (Reg EDX) (Reg EAX))
+                    convertOneInstruction (Xor (Reg EDX) (Reg ECX))
+                    convertOneInstruction (Xor (Reg EDX) (Reg EDX))
+                    convertOneInstruction (Xor (Reg EDX) (Reg EBX))
+                    convertOneInstruction (Xor (Reg EDX) (Reg ESP))
+                    convertOneInstruction (Xor (Reg EDX) (Reg EBP))
+                    convertOneInstruction (Xor (Reg EDX) (Reg ESI))
+                    convertOneInstruction (Xor (Reg EDX) (Reg EDI))
+                    convertOneInstruction (Xor (Reg EBX) (Reg EAX))
+                    convertOneInstruction (Xor (Reg EBX) (Reg ECX))
+                    convertOneInstruction (Xor (Reg EBX) (Reg EDX))
+                    convertOneInstruction (Xor (Reg EBX) (Reg EBX))
+                    convertOneInstruction (Xor (Reg EBX) (Reg ESP))
+                    convertOneInstruction (Xor (Reg EBX) (Reg EBP))
+                    convertOneInstruction (Xor (Reg EBX) (Reg ESI))
+                    convertOneInstruction (Xor (Reg EBX) (Reg EDI))
+                    convertOneInstruction (Xor (Reg ESP) (Reg EAX))
+                    convertOneInstruction (Xor (Reg ESP) (Reg ECX))
+                    convertOneInstruction (Xor (Reg ESP) (Reg EDX))
+                    convertOneInstruction (Xor (Reg ESP) (Reg EBX))
+                    convertOneInstruction (Xor (Reg ESP) (Reg ESP))
+                    convertOneInstruction (Xor (Reg ESP) (Reg EBP))
+                    convertOneInstruction (Xor (Reg ESP) (Reg ESI))
+                    convertOneInstruction (Xor (Reg ESP) (Reg EDI))
+                    convertOneInstruction (Xor (Reg EBP) (Reg EAX))
+                    convertOneInstruction (Xor (Reg EBP) (Reg ECX))
+                    convertOneInstruction (Xor (Reg EBP) (Reg EDX))
+                    convertOneInstruction (Xor (Reg EBP) (Reg EBX))
+                    convertOneInstruction (Xor (Reg EBP) (Reg ESP))
+                    convertOneInstruction (Xor (Reg EBP) (Reg EBP))
+                    convertOneInstruction (Xor (Reg EBP) (Reg ESI))
+                    convertOneInstruction (Xor (Reg EBP) (Reg EDI))
+                    convertOneInstruction (Xor (Reg ESI) (Reg EAX))
+                    convertOneInstruction (Xor (Reg ESI) (Reg ECX))
+                    convertOneInstruction (Xor (Reg ESI) (Reg EDX))
+                    convertOneInstruction (Xor (Reg ESI) (Reg EBX))
+                    convertOneInstruction (Xor (Reg ESI) (Reg ESP))
+                    convertOneInstruction (Xor (Reg ESI) (Reg EBP))
+                    convertOneInstruction (Xor (Reg ESI) (Reg ESI))
+                    convertOneInstruction (Xor (Reg ESI) (Reg EDI))
+                    convertOneInstruction (Xor (Reg EDI) (Reg EAX))
+                    convertOneInstruction (Xor (Reg EDI) (Reg ECX))
+                    convertOneInstruction (Xor (Reg EDI) (Reg EDX))
+                    convertOneInstruction (Xor (Reg EDI) (Reg EBX))
+                    convertOneInstruction (Xor (Reg EDI) (Reg ESP))
+                    convertOneInstruction (Xor (Reg EDI) (Reg EBP))
+                    convertOneInstruction (Xor (Reg EDI) (Reg ESI))
+                    convertOneInstruction (Xor (Reg EDI) (Reg EDI))
+
+testXorRegImm :: Test
+testXorRegImm = runRunctionalTest testXorRegImmImpl "ElfTestRes/xorRegImm_expected.txt"
+    where
+        testXorRegImmImpl :: IO ()
+        testXorRegImmImpl = do
+            let elf = assemble p
+            (elf P.>>= writeElf ".tmp_test_output")
+            where
+                p :: MonadCatch m => StateT CodeState m ()
+                p = do
+                    convertOneInstruction (Xor (Reg EAX) (Immediate 42))
+                    convertOneInstruction (Xor (Reg ECX) (Immediate 42))
+                    convertOneInstruction (Xor (Reg EDX) (Immediate 42))
+                    convertOneInstruction (Xor (Reg EBX) (Immediate 42))
+                    convertOneInstruction (Xor (Reg ESP) (Immediate 42))
+                    convertOneInstruction (Xor (Reg EBP) (Immediate 42))
+                    convertOneInstruction (Xor (Reg ESI) (Immediate 42))
+                    convertOneInstruction (Xor (Reg EDI) (Immediate 42))
+
+testLabelInASM :: Test
+testLabelInASM = runRunctionalTest impl "ElfTestRes/label_expected.txt"
+    where
+        impl :: IO ()
+        impl = do
+            let elf = assemble p
+            (elf P.>>= writeElf ".tmp_test_output")
+            where
+                p :: MonadCatch m => StateT CodeState m ()
+                p = do
+                    convertOneInstruction (Xor (Reg EAX) (Reg EAX))
+                    convertOneInstruction (VM.Label "_labelFoo" 42)
+                    convertOneInstruction (Xor (Reg EAX) (Reg EDI))
+                    convertOneInstruction (VM.Label "_labelBar" 42)
+                    convertOneInstruction (Xor (Reg EAX) (Reg ESI))
+
+
+testGetBinLengthFromRInstruction :: Test
+testGetBinLengthFromRInstruction = TestList [
+    binLengthFromRInstruction ((\_ _ -> Right (RInstruction 0x12345678))) ~?= 4,
+    binLengthFromRInstruction ((\_ _ -> Right (RInstruction 0x123456))) ~?= 3,
+    binLengthFromRInstruction ((\_ _ -> Right (RInstruction 0x1234))) ~?= 2]
+
+
 functionalASMTests :: Test
 functionalASMTests =
   TestList
     [ testRunStackAddr,
       testRunMovRegReg,
-      testRunMovFromStackAddr]
+      testRunMovFromStackAddr,
+      testPushReg,
+      testPushImm,
+      testPushMem,
+      testPopReg,
+      testPopMem,
+      testXorRegReg,
+      testXorRegImm,
+      testLabelInASM]

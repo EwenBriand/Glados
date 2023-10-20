@@ -13,6 +13,9 @@ module AsmAArch64
   ( CodeState (..),
     Register,
     Label,
+    RInstructionGen,
+    RInstruction (..),
+    emit,
     mov,
     ascii,
     label,
@@ -23,7 +26,8 @@ module AsmAArch64
     movqRegImmByteArray,
     byteStringToInteger,
     movOpcodeCombineRegReg,
-    removeNullPrefix
+    removeNullPrefix,
+    binLengthFromRInstruction
   )
 where
 
@@ -79,8 +83,15 @@ data CodeState = CodeState
   { offsetInPool :: CodeOffset,
     poolReversed :: [Builder],
     codeReversed :: [RInstructionGen],
-    symbolsRefersed :: [(String, Label)]
+    symbolsRefersed :: [(String, Label)],
+    codeBinLength :: Int
   }
+
+binLengthFromInteger :: Integer -> Int
+binLengthFromInteger i = P.length $ integerToWord8Array i
+
+binLengthFromRInstruction :: RInstructionGen -> Int
+binLengthFromRInstruction g = binLengthFromInteger $ getInstruction $ either error id $ g 0 0
 
 emit' :: MonadState CodeState m => RInstructionGen -> m ()
 emit' g = modify f
@@ -88,6 +99,7 @@ emit' g = modify f
     f CodeState {..} =
       CodeState
         { codeReversed = g : codeReversed,
+            codeBinLength = codeBinLength + binLengthFromRInstruction g,
           ..
         }
 
@@ -108,8 +120,25 @@ emitPool a bs = state f
               }
           )
 
-label :: MonadState CodeState m => m Label
-label = gets (CodeRef . (* instructionSize) . fromIntegral . P.length . codeReversed)
+computeCodeBinaryLength ::  MonadCatch m => StateT CodeState m () -> m Int
+computeCodeBinaryLength m = do
+    CodeState {..} <- execStateT m (CodeState 0 [] [] [] 0)
+    let poolOffset = instructionSize * fromIntegral (P.length codeReversed)
+        poolOffsetAligned = align 8 poolOffset
+
+        f :: (RInstructionGen, CodeOffset) -> Either String RInstruction
+        f (ff, n) = ff n poolOffsetAligned
+
+    code <- $eitherAddContext' $ mapM f $ P.zip (P.reverse codeReversed) (fmap (instructionSize *) [CodeOffset 0 ..])
+
+    let txt = mconcat $ fmap (makeCodeBuilder . getInstruction) code
+    P.return $ fromIntegral $ BSL.length txt
+
+-- label :: MonadState CodeState m => m Label
+-- label = gets (CodeRef . (* instructionSize) . fromIntegral . P.length . codeReversed)
+
+label :: (MonadState CodeState m) => m Label
+label = gets (CodeRef . fromIntegral . codeBinLength)
 
 isPower2 :: (Bits i, Num i) => i -> Bool
 isPower2 n = n .&. (n - 1) == 0
@@ -175,7 +204,7 @@ makeCodeBuilder i = word8ArrayToByteString (reverseArray (integerToWord8Array i)
 
 assemble :: MonadCatch m => StateT CodeState m () -> m Elf
 assemble m = do
-  CodeState {..} <- execStateT m (CodeState 0 [] [] [])
+  CodeState {..} <- execStateT m (CodeState 0 [] [] [] 0)
 
   -- resolve txt
 
@@ -386,19 +415,20 @@ convertOneInstruction (MovStackAddr (Immediate ptr) (Reg reg)) = encodeMovStackA
 
 convertOneInstruction (MovFromStackAddr (Reg reg) (Immediate ptr)) = encodeMovFromStackAddrReg reg ptr
 
+convertOneInstruction (Push (Reg r)) = encodePushReg r
+convertOneInstruction (Push (Immediate i)) = encodePushImm i
+convertOneInstruction (Push (Memory i)) = encodePushMem i
+
+convertOneInstruction (Pop (Reg r)) = encodePopReg r
+convertOneInstruction (Pop (Memory i)) = encodePopMem i
+
+convertOneInstruction (Xor (Reg r1) (Reg r2)) = encodeXorRegReg r1 r2
+convertOneInstruction (Xor (Reg r1) (Immediate i)) = encodeXorRegImm r1 i
+
+convertOneInstruction (Label name _) = encodeLabel name
+
 convertOneInstruction i = error ("unsupported instruction: " ++ show i)
 
-
-hasmToAsm :: MonadState CodeState m => [Instruction] -> m [Int]
-hasmToAsm [] = P.return []
-hasmToAsm (i : is) =
-  let op = convertOneInstruction i
-   in do
-        op
-        hasmToAsm is
-
-execAsm :: ValidState Context -> Elf
-execAsm (Invalid s) = error s
 
 -- execAsm (Valid c) = execState (assemble (Rinstructions c)) (CodeState 0 [] [] [])
 
@@ -507,4 +537,58 @@ encodeMovFromStackAddrReg reg mem = emit $
 -- region Push
 -------------------------------------------------------------------------------
 
+encodePushReg :: (MonadState CodeState m) => Register -> m ()
+encodePushReg r = emit $
+    RInstruction $ byteStringToInteger (word8ArrayToByteString
+        [0x50 + registerCode r])
 
+encodePushImm :: (MonadState CodeState m) => Int -> m ()
+encodePushImm imm = emit $
+    RInstruction $ byteStringToInteger (word8ArrayToByteString
+        (0x6a : removeNullPrefix (reverseArray (encodeImmediate imm))))
+
+-- push [42]
+-- push [register] is not used by our compiler
+encodePushMem :: (MonadState CodeState m) => Int -> m ()
+encodePushMem mem = emit $
+    RInstruction $ byteStringToInteger (word8ArrayToByteString
+        ([0xff, 0x34, 0x25] ++ encodeImmediate mem))
+
+-------------------------------------------------------------------------------
+-- region Pop
+-------------------------------------------------------------------------------
+
+encodePopReg :: (MonadState CodeState m) => Register -> m ()
+encodePopReg r = emit $
+    RInstruction $ byteStringToInteger (word8ArrayToByteString
+        [0x58 + registerCode r])
+
+encodePopMem :: (MonadState CodeState m) => Int -> m ()
+encodePopMem mem = emit $
+    RInstruction $ byteStringToInteger (word8ArrayToByteString
+        ([0x8f, 0x04, 0x25] ++ encodeImmediate mem))
+
+-------------------------------------------------------------------------------
+-- region xor
+-------------------------------------------------------------------------------
+
+encodeXorRegReg :: (MonadState CodeState m) => Register -> Register -> m ()
+encodeXorRegReg r1 r2 = emit $
+    RInstruction $ byteStringToInteger (word8ArrayToByteString
+        [0x31, movOpcodeCombineRegReg r1 r2])
+
+encodeXorRegImm :: (MonadState CodeState m) => Register -> Int -> m ()
+encodeXorRegImm r imm = emit $
+    RInstruction $ byteStringToInteger (word8ArrayToByteString
+        ([0x83, 0xf0 + registerCode r] ++ (removeNullPrefix (reverseArray (encodeImmediate imm)))))
+
+-- we do not use other xor variants in the compiler
+
+-------------------------------------------------------------------------------
+-- region Label
+-------------------------------------------------------------------------------
+
+encodeLabel :: (MonadState CodeState m) => String -> m ()
+encodeLabel name = do
+    labelName <- label
+    exportSymbol name labelName
