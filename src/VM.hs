@@ -401,6 +401,12 @@ symGet (Valid c) name = case getSymAddress (symTable (symbolTable c)) name of
   -1 -> Invalid "Symbol not found"
   address -> Valid address
 
+symGetType :: ValidState Context -> String -> ValidState VarType
+symGetType (Invalid s) _ = Invalid s
+symGetType (Valid c) name = case getSymAddress (symTable (symbolTable c)) name of
+  -1 -> Invalid "Symbol not found"
+  address -> Valid (snd ((symTable (symbolTable c)) !! address))
+
 symGetFull :: ValidState Context -> String -> ValidState (String, VarType)
 symGetFull (Invalid s) _ = Invalid s
 symGetFull (Valid c) name = case getSymAddress (symTable (symbolTable c)) name of

@@ -41,7 +41,7 @@ instructionFromAST (ASTNodeInferiorEq x) ctx = putInferiorEqInstruction x ctx
 instructionFromAST (ASTNodeSuperior x) ctx = putSuperiorInstruction x ctx
 instructionFromAST (ASTNodeSuperiorEq x) ctx = putSuperiorEqInstruction x ctx
 instructionFromAST (ASTNodeNotEqual x) ctx = putNotEqualInstruction x ctx
-instructionFromAST (ASTNodeMutable name x) ctx = putMutableInstruction name x ctx
+instructionFromAST (ASTNodeMutable (ASTNodeType symtyp) name (ASTNodeType symval) x) ctx = putMutableInstruction symtyp name symval x ctx
 instructionFromAST (ASTNodeParamList _) ctx = ctx -- not an actual instruction, does (Invalid "Error")
 instructionFromAST (ASTNodeArray n) ctx = astNodeArrayToHASM ctx (ASTNodeArray n)
 instructionFromAST (ASTNodeInstructionSequence n) ctx = putInstructionSequence n ctx
@@ -333,21 +333,22 @@ inferTypeFromNode c (ASTNodeDiv (x : _)) = inferTypeFromNode c x
 inferTypeFromNode c (ASTNodeMod (x : _)) = inferTypeFromNode c x
 inferTypeFromNode _ _ = GUndefinedType
 
-putMutableNoErrCheck :: ASTNode -> ASTNode -> ValidState Context -> ValidState Context
-putMutableNoErrCheck _ _ (Invalid s) = Invalid s
-putMutableNoErrCheck name node c =
+putMutableNoErrCheck :: VarType -> ASTNode -> ASTNode -> ValidState Context -> ValidState Context
+putMutableNoErrCheck _ _ _ (Invalid s) = Invalid s
+putMutableNoErrCheck symtyp name node c =
   let c' = symSet c (astnsName name) (inferTypeFromNode c node)
    in case instructionFromAST node c' of
         Invalid s -> Invalid s
         Valid c'' -> Valid c'' {instructions = instructions c'' ++ [MovStackAddr (Immediate (length (symTable (symbolTable c'')) - 1)) (Reg EAX)]}
 
-putMutableInstruction :: ASTNode -> ASTNode -> ValidState Context -> ValidState Context
-putMutableInstruction _ _ (Invalid s) = Invalid s
-putMutableInstruction name node ctx =
+putMutableInstruction :: VarType -> ASTNode -> VarType -> ASTNode -> ValidState Context -> ValidState Context
+putMutableInstruction _ _ _ _ (Invalid s) = Invalid s
+putMutableInstruction symtyp name valtyp node ctx =
   let newCtx = instructionFromAST name ctx
    in case newCtx of
         Valid _ -> Invalid "Error: Variable already exists" -- error, the variable already exists!
-        Invalid _ -> putMutableNoErrCheck name node ctx
+        -- Invalid _ -> putMutableNoErrCheck symtyp name vartyp node ctx
+        Invalid _ -> if symtyp == valtyp then putMutableNoErrCheck symtyp name node ctx else Invalid "Error: type mismatch"
 
 putSetNoErrCheck :: ValidState Context -> ASTNode -> ASTNode -> ValidState Context
 putSetNoErrCheck (Invalid s) _ _ = Invalid s
