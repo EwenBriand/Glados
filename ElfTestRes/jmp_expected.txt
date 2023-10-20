@@ -1,5 +1,5 @@
 
-ElfTestRes/mov.o:     file format elf64-x86-64
+mov.o:     file format elf64-x86-64
 
 
 Disassembly of section .text:
@@ -13,3 +13,5 @@ Disassembly of section .text:
 
 000000000000000c <_test2>:
    c:	bb 01 00 00 00       	mov    $0x1,%ebx
+  11:	b9 02 00 00 00       	mov    $0x2,%ecx
+  16:	eb ef                	jmp    7 <_test>

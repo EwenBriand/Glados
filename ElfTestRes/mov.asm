@@ -10,3 +10,5 @@ _test:
     mov rax, 3
 _test2:
     mov ebx, 1
+    mov ecx, 2
+    jmp _test
