@@ -16,6 +16,7 @@ module Lexer
     tryBuildInstructionList,
     typeToInt,
     intToType,
+    expendParamList,
   )
 where
 
@@ -93,7 +94,7 @@ instance Show ASTNode where
   show (ASTNodeDiv l) = "(div: " ++ show l ++ ")"
   show (ASTNodeMod l) = "(mod: " ++ show l ++ ")"
   show (ASTNodeDebug l) = "(debug: " ++ show l ++ ")"
-  show (ASTNodeParamList l) = "(paramlist: \n\t" ++ show l ++ ")"
+  show (ASTNodeParamList l) = "(paramlist: \n\t" ++ show l ++ ")\n"
   show (ASTNodeArray l) = "(array: {\n\t" ++ show l ++ "\n})"
   show (ASTNodeInstructionSequence l) = "(instructionsequence: \n\t" ++ show l ++ ")"
   show (ASTNodeBoolean b) = "(bool: " ++ show b ++ ")"
@@ -108,6 +109,7 @@ instance Show ASTNode where
   show (ASTNodeEq l) = "(eq: " ++ show l ++ ")"
   show (ASTNodeInferior l) = "(inferior: " ++ show l ++ ")"
   show (ASTNodeWhile c t) = "(while: \n\t(condition) " ++ show c ++ "\n\t(then) " ++ show t ++ ")"
+  show (ASTNodeSet n c) = "(set: \n\t(name) " ++ show n ++ "\n\t(children) " ++ show c ++ ")"
   show (ASTNodeType n) = "(type: " ++ show n ++ ")"
   show _ = "(unknown node)"
 
@@ -171,7 +173,9 @@ tokOrExprToASTNode [A (ASTNodeIf cond thenOps elseOps), A (ASTNodeElse elseOps2)
 tokOrExprToASTNode [T (TokenInfo TokenKeywordWhile _), A cond, T (TokenInfo TokOpenCurrBrac _), A thenOps, T (TokenInfo TokCloseCurrBrac _)] = ASTNodeWhile cond [thenOps]
 tokOrExprToASTNode [T (TokenInfo TokenKeywordWhile _), A (ASTNodeArray cond), T (TokenInfo TokOpenCurrBrac _), A thenOps, T (TokenInfo TokCloseCurrBrac _)] = ASTNodeWhile (head cond) [thenOps]
 
-tokOrExprToASTNode [T (TokenInfo TokenKeywordFor _), T (TokenInfo TokOpenParen _), A (ASTNodeMutable symtyp name valtyp value), T (TokenInfo TokenPointComma _), A cond, T (TokenInfo TokenPointComma _), A (ASTNodeSet name2 value2), T (TokenInfo TokCloseParen _), T (TokenInfo TokOpenCurrBrac _), A thenOps, T (TokenInfo TokCloseCurrBrac _)] = ASTNodeInstructionSequence [ASTNodeMutable symtyp name valtyp value, ASTNodeWhile cond [ASTNodeInstructionSequence [thenOps, ASTNodeSet name2 value2]]]
+tokOrExprToASTNode [T (TokenInfo TokenKeywordFor _), T (TokenInfo TokOpenParen _), A (ASTNodeMutable symtyp name valtyp value), A cond, T (TokenInfo TokenPointComma _), A (ASTNodeSet name2 value2), T (TokenInfo TokCloseParen _), T (TokenInfo TokOpenCurrBrac _), A thenOps, T (TokenInfo TokCloseCurrBrac _)] = ASTNodeInstructionSequence [ASTNodeMutable symtyp name valtyp value, ASTNodeWhile cond [ASTNodeInstructionSequence [thenOps, ASTNodeSet name2 value2]]]
+tokOrExprToASTNode [T (TokenInfo TokenKeywordFor _), T (TokenInfo TokOpenParen _), A (ASTNodeParamList [ASTNodeMutable symtyp name valtyp value, cond]), T (TokenInfo TokenPointComma _), A (ASTNodeSet name2 value2), T (TokenInfo TokCloseParen _), T (TokenInfo TokOpenCurrBrac _), A thenOps, T (TokenInfo TokCloseCurrBrac _)] = ASTNodeInstructionSequence [ASTNodeMutable symtyp name valtyp value, ASTNodeWhile cond [ASTNodeInstructionSequence [thenOps, ASTNodeSet name2 value2]]]
+
 
 tokOrExprToASTNode [A (ASTNodeSymbol name), T (TokenInfo TokenEq _), A n, T (TokenInfo TokenPointComma _)] = ASTNodeSet (ASTNodeSymbol name) n
 
@@ -280,6 +284,7 @@ tokOrExprToASTNode [T (TokenInfo TokenBool val)] = ASTNodeBoolean (val == "true"
 tokOrExprToASTNode [A (ASTNodeParamList l), A n] = ASTNodeParamList (l ++ [n])
 tokOrExprToASTNode [A (ASTNodeIf _ _ _), A (ASTNodeElif _ _ _)] = ASTNodeError (TokenInfo TokError "cannot resolve input")
 tokOrExprToASTNode [A (ASTNodeElif _ _ _), A (ASTNodeElif _ _ _)] = ASTNodeError (TokenInfo TokError "cannot resolve input")
+tokOrExprToASTNode [A (ASTNodeSet _ _), A (ASTNodeSymbol _)] = ASTNodeError (TokenInfo TokError "cannot resolve input")
 tokOrExprToASTNode [A n1, A n2] = ASTNodeParamList [n1, n2]
 
 -- error

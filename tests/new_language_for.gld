@@ -1,5 +1,7 @@
-(mutable f 2)
-for((mutable i 0); (< i 11); i++;) {
-    f = f * 2;
+int f = 2;
+for(int i = 0; (i != 11); i++;) {
+    f++;
+    f++;
+    f++;
 }
-(print f)
+print (f)

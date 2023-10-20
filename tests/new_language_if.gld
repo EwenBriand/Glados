@@ -1,8 +1,10 @@
+int i = 0;
 if (true) {
     if (false) {
         (add 1 2)
     } else {
-        (print 5)
+        i++;
+        i++;
     }
 } elif(false) {
     (add 8 9)
@@ -11,3 +13,4 @@ if (true) {
 } else {
     (add 2 2)
 }
+print (i)

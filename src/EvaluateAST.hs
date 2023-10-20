@@ -25,7 +25,13 @@ import ValidState
 instructionFromAST :: ASTNode -> ValidState Context -> ValidState Context
 instructionFromAST _ (Invalid s) = Invalid s
 instructionFromAST (ASTNodeIf (ASTNodeArray cond) thenBlock elseBlock) ctx = putIfInstruction ctx (ASTNodeIf (head cond) thenBlock elseBlock)
+instructionFromAST (ASTNodeIf cond [ASTNodeParamList thenBlock] (Valid [ASTNodeParamList elseBlock])) ctx = putIfInstruction ctx (ASTNodeIf cond (expendParamList thenBlock) (Valid (expendParamList elseBlock)))
+instructionFromAST (ASTNodeIf cond [ASTNodeParamList thenBlock] elseBlock) ctx = putIfInstruction ctx (ASTNodeIf cond (expendParamList thenBlock) elseBlock)
+instructionFromAST (ASTNodeIf cond thenBlock (Valid [ASTNodeParamList elseBlock])) ctx = putIfInstruction ctx (ASTNodeIf cond thenBlock (Valid (expendParamList elseBlock)))
 instructionFromAST (ASTNodeIf cond thenBlock elseBlock) ctx = putIfInstruction ctx (ASTNodeIf cond thenBlock elseBlock)
+instructionFromAST (ASTNodeElif cond [ASTNodeParamList thenBlock] (Valid [ASTNodeParamList elseBlock])) ctx = putIfInstruction ctx (ASTNodeIf cond (expendParamList thenBlock) (Valid (expendParamList elseBlock)))
+instructionFromAST (ASTNodeElif cond [ASTNodeParamList thenBlock] elseBlock) ctx = putIfInstruction ctx (ASTNodeIf cond (expendParamList thenBlock) elseBlock)
+instructionFromAST (ASTNodeElif cond thenBlock (Valid [ASTNodeParamList elseBlock])) ctx = putIfInstruction ctx (ASTNodeIf cond thenBlock (Valid (expendParamList elseBlock)))
 instructionFromAST (ASTNodeElif cond thenBlock elseBlock) ctx = putIfInstruction ctx (ASTNodeIf cond thenBlock elseBlock)
 instructionFromAST (ASTNodeDefine name params body) c = putDefineInstruction c name params body
 instructionFromAST (ASTNodeInteger i) ctx = putIntegerInstruction (fromIntegral i) ctx
@@ -49,6 +55,7 @@ instructionFromAST (ASTNodePrint n) ctx = putPrintInstruction ctx n
 instructionFromAST (ASTNodeBoolean b) ctx = putBoolInstruction (if b then 1 else 0) ctx
 instructionFromAST (ASTNodeFunctionCall name params) ctx = putFunctionCall ctx name params
 instructionFromAST (ASTNodeLambda name params body) ctx = putDefineInstruction ctx name params body
+instructionFromAST (ASTNodeWhile cond [(ASTNodeInstructionSequence [(ASTNodeParamList body), next])]) ctx = putWhileInstruction ctx cond ((expendParamList body) ++ [next])
 instructionFromAST (ASTNodeWhile cond body) ctx = putWhileInstruction ctx cond body
 instructionFromAST (ASTNodeSet name value) ctx = putSetInstruction ctx name value
 instructionFromAST (ASTNodeBreak [ASTNodeLambda _ param body, ASTNodeFunctionCall _ params]) ctx = instructionFromAST (ASTNodeBreak [(ASTNodeFunctionCall u_name params)]) (instructionFromAST (ASTNodeLambda (ASTNodeSymbol u_name) param body) (Valid ctx'))
