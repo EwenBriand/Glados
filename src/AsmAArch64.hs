@@ -170,7 +170,7 @@ mov r imm =
 -- | The number can be represented with bitN bits
 isBitN :: (Num b, Bits b, Ord b) => Int -> b -> Bool
 isBitN bitN w =
-  let m = complement $ (1 `shift` bitN) - 1
+  let m = complement $ 1 `shift` bitN - 1
       h = w .&. m
    in if w >= 0 then h == 0 else h == m
 
@@ -184,7 +184,7 @@ ascii s = emitPool 1 $ BSLC.pack s
 exportSymbol :: MonadState CodeState m => String -> Label -> m ()
 exportSymbol s r = modify f
   where
-    f (CodeState {..}) =
+    f CodeState {..} =
       CodeState
         { symbolsRefersed = (s, r) : symbolsRefersed,
           ..
@@ -235,7 +235,7 @@ assemble m = do
 
   (symbolTableData, stringTableData) <- serializeSymbolTable ELFDATA2LSB (zeroIndexStringItem : symbolTable)
 
-  trace ("") $
+  trace "" $
     P.return $
       Elf SELFCLASS64 $
         ElfHeader
@@ -330,11 +330,10 @@ inverseEndiannessW8 :: Word8 -> Word8
 inverseEndiannessW8 w =
   let w1 = w `shiftR` 4
       w2 = w .&. 0x0f
-   in (w2 `shiftL` 4) .|. w1
+   in w2 `shiftL` 4 .|. w1
 
 inverseEndiannessW8Array :: [Word8] -> [Word8]
-inverseEndiannessW8Array [] = []
-inverseEndiannessW8Array (x : xs) = inverseEndiannessW8 x : inverseEndiannessW8Array xs
+inverseEndiannessW8Array xs = P.map inverseEndiannessW8 xs
 
 reverseArray :: [a] -> [a]
 reverseArray [] = []
@@ -349,7 +348,7 @@ greatestPowerOf256 n = go n 0
 integerToByteString :: Integer -> ByteString
 integerToByteString n =
   BSL.pack
-    ( [fromIntegral ((n `shiftR` (8 * i)) .&. 0xff) | i <- [0 .. greatestPowerOf256 n]]
+    ( [fromIntegral (n `shiftR` (8 * i) .&. 0xff) | i <- [0 .. greatestPowerOf256 n]]
     )
 
 byteStringToInteger :: ByteString -> Integer
@@ -358,15 +357,13 @@ byteStringToInteger xs =
    in P.foldr (\b acc -> acc * 256 + fromIntegral b) 0 w8array
 
 byteListToStr :: [Int] -> String
-byteListToStr [] = ""
-byteListToStr (x : xs) = show x ++ byteListToStr xs
+byteListToStr xs = P.foldr ((++) . show) "" xs
 
 word32FromByteList :: [Int] -> Word32
 word32FromByteList l = read (byteListToStr l) :: Word32
 
 word8ArrayToByteString :: [Word8] -> ByteString
-word8ArrayToByteString [] = BSL.pack []
-word8ArrayToByteString (x : xs) = BSL.cons x (word8ArrayToByteString xs)
+word8ArrayToByteString xs = P.foldr BSL.cons (BSL.pack []) xs
 
 registerCode :: Register -> Word8
 registerCode EAX = 0x00
@@ -394,14 +391,14 @@ movqRegImmByteArray :: Register -> Int -> [Word8]
 movqRegImmByteArray r i =
   let opcode = movqOpCodeFromReg r
       immBytes = encodeImmediate i
-   in [opcode] ++ immBytes
+   in opcode : immBytes
 
 intToWord16 :: Int -> Word16
 intToWord16 i = fromIntegral i :: Word16
 
 encodeImmediate :: Int -> [Word8] -- Word32
 encodeImmediate n
-  | n >= 0 = [fromIntegral ((n `shiftR` (8 * i)) .&. 0xff) | i <- [0 .. 3]]
+  | n >= 0 = [fromIntegral (n `shiftR` (8 * i) .&. 0xff) | i <- [0 .. 3]]
   | otherwise = [fromIntegral n]
 
 convertOneInstruction :: MonadState CodeState m => Instruction -> m ()
@@ -432,6 +429,8 @@ convertOneInstruction (Dec r) = encodeDecReg r
 convertOneInstruction (Neg r) = encodeNegReg r
 convertOneInstruction (Div (Reg r)) = encodeDivReg r
 convertOneInstruction (Mult (Reg r) (Reg r2)) = encodeMultReg r
+convertOneInstruction (Ret) = encodeRetReg
+convertOneInstruction (Interrupt) = encodeInterrupt
 convertOneInstruction i = error ("unsupported instruction: " ++ show i)
 
 -- execAsm (Valid c) = execState (assemble (Rinstructions c)) (CodeState 0 [] [] [])
@@ -474,7 +473,7 @@ encodeMovMemReg :: (MonadState CodeState m) => Int -> Register -> m ()
 encodeMovMemReg i r = encodeMovrmandmrBasis 0x89 r i
 
 movOpcodeCombineRegReg :: Register -> Register -> Word8
-movOpcodeCombineRegReg to from = (registerCode to .|. (registerCode from `shiftL` 3)) + (0xc0 :: Word8)
+movOpcodeCombineRegReg to from = (registerCode to .|. registerCode from `shiftL` 3) + (0xc0 :: Word8)
 
 encodeMovRegReg :: (MonadState CodeState m) => Register -> Register -> m ()
 encodeMovRegReg rto rfrom =
@@ -634,7 +633,7 @@ encodeXorRegImm r imm =
     RInstruction $
       byteStringToInteger
         ( word8ArrayToByteString
-            ([0x83, 0xf0 + registerCode r] ++ (removeNullPrefix (reverseArray (encodeImmediate imm))))
+            ([0x83, 0xf0 + registerCode r] ++ removeNullPrefix (reverseArray (encodeImmediate imm)))
         )
 
 -- we do not use other xor variants in the compiler
@@ -770,6 +769,32 @@ encodeMultReg r =
         )
 
 -------------------------------------------------------------------------------
+-- region Ret
+-------------------------------------------------------------------------------
+
+encodeRetReg :: (MonadState CodeState m) => m ()
+encodeRetReg =
+  emit $
+    RInstruction $
+      byteStringToInteger
+        ( word8ArrayToByteString
+            [0xc3]
+        )
+
+-------------------------------------------------------------------------------
+-- region Interrupt
+-------------------------------------------------------------------------------
+
+encodeInterrupt :: (MonadState CodeState m) => m ()
+encodeInterrupt =
+  emit $
+    RInstruction $
+      byteStringToInteger
+        ( word8ArrayToByteString
+            [0xcd, 0x80]
+        )
+
+-------------------------------------------------------------------------------
 -- region Jmp
 -------------------------------------------------------------------------------
 
@@ -797,7 +822,7 @@ encodeMultReg r =
 --   | str == s = getCodeOffset label
 --   | otherwise = parseLabel s []
 -- parseLabel s [(str, label) : xs]
---   | str == s = getCodeOffset label
+--   | str == s = getCodeOffset (CodeRef label)
 --   | otherwise = parseLabel s xs
 -- parseLabel _ _ = 0
 

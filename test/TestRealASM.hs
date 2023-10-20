@@ -472,6 +472,30 @@ testMulInASM = runRunctionalTest impl "ElfTestRes/mul_expected.txt"
           convertOneInstruction (Mult (Reg ECX) (Reg ECX))
           convertOneInstruction (Mult (Reg ESI) (Reg ESI))
 
+testRetInASM :: Test
+testRetInASM = runRunctionalTest impl "ElfTestRes/ret_expected.txt"
+  where
+    impl :: IO ()
+    impl = do
+      let elf = assemble p
+      elf P.>>= writeElf ".tmp_test_output"
+      where
+        p :: MonadCatch m => StateT CodeState m ()
+        p = do
+          convertOneInstruction (Ret)
+
+testIntInASM :: Test
+testIntInASM = runRunctionalTest impl "ElfTestRes/int_expected.txt"
+  where
+    impl :: IO ()
+    impl = do
+      let elf = assemble p
+      elf P.>>= writeElf ".tmp_test_output"
+      where
+        p :: MonadCatch m => StateT CodeState m ()
+        p = do
+          convertOneInstruction (Interrupt)
+
 functionalASMTests :: Test
 functionalASMTests =
   TestList
@@ -492,5 +516,7 @@ functionalASMTests =
       testDecInASM,
       testNegInASM,
       testDivInASM,
-      testMulInASM
+      testMulInASM,
+      testRetInASM,
+      testIntInASM
     ]
