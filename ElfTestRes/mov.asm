@@ -4,8 +4,9 @@ section .text
     global _start
 
 _start:
-    xor eax, eax
-_labelFoo:
-    xor eax, edi
-_labelBar:
-    xor eax, esi
+    mov rax, 1
+    jmp _test2
+_test:
+    mov rax, 3
+_test2:
+    mov ebx, 1
