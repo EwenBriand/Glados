@@ -28,6 +28,7 @@ module AsmAArch64
     movOpcodeCombineRegReg,
     removeNullPrefix,
     binLengthFromRInstruction,
+    word16Update2ndByte
   )
 where
 
@@ -51,6 +52,7 @@ import GHC.IO.Encoding (BufferCodec (encode))
 import VM
 import ValidState
 import Prelude as P
+import Data.Map
 
 data RegisterWidth = X | W
 
@@ -87,8 +89,34 @@ data CodeState = CodeState
     poolReversed :: [Builder],
     codeReversed :: [RInstructionGen],
     symbolsRefersed :: [(String, Label)],
-    codeBinLength :: Int
+    codeBinLength :: Int,
+    unresolvedJmps :: Data.Map.Map String [(CodeOffset, Int)] -- Binary offset and index of the corresponding instruction
   }
+
+emptyUnresolvedJmps :: Data.Map.Map String [(CodeOffset, Int)]
+emptyUnresolvedJmps = Data.Map.empty
+
+addUnresolvedJmp :: MonadState CodeState m => String -> CodeOffset -> m ()
+addUnresolvedJmp name offset = do
+  CodeState {..} <- get
+--   let code = codeReversed
+  let codelen = P.length codeReversed
+  let newMap = Data.Map.insertWith (++) name [(offset, codelen)] unresolvedJmps
+  put $ CodeState offsetInPool poolReversed codeReversed symbolsRefersed codeBinLength newMap
+
+getUnresolvedJmps :: MonadState CodeState m => String -> m [(CodeOffset, Int)]
+getUnresolvedJmps name = do
+  CodeState {..} <- get
+  let maybeList = Data.Map.lookup name unresolvedJmps
+  case maybeList of
+    Just l -> P.return l
+    Nothing -> P.return []
+
+clearUnresolvedJmps :: MonadState CodeState m => String -> m ()
+clearUnresolvedJmps name = do
+  CodeState {..} <- get
+  let newMap = Data.Map.delete name unresolvedJmps
+  put $ CodeState offsetInPool poolReversed codeReversed symbolsRefersed codeBinLength newMap
 
 binLengthFromInteger :: Integer -> Int
 binLengthFromInteger i = P.length $ integerToWord8Array i
@@ -125,7 +153,7 @@ emitPool a bs = state f
 
 computeCodeBinaryLength :: MonadCatch m => StateT CodeState m () -> m Int
 computeCodeBinaryLength m = do
-  CodeState {..} <- execStateT m (CodeState 0 [] [] [] 0)
+  CodeState {..} <- execStateT m (CodeState 0 [] [] [] 0 emptyUnresolvedJmps)
   let poolOffset = instructionSize * fromIntegral (P.length codeReversed)
       poolOffsetAligned = align 8 poolOffset
 
@@ -207,7 +235,7 @@ makeCodeBuilder i = word8ArrayToByteString (reverseArray (integerToWord8Array i)
 
 assemble :: MonadCatch m => StateT CodeState m () -> m Elf
 assemble m = do
-  CodeState {..} <- execStateT m (CodeState 0 [] [] [] 0)
+  CodeState {..} <- execStateT m (CodeState 0 [] [] [] 0 emptyUnresolvedJmps)
 
   -- resolve txt
 
@@ -432,6 +460,7 @@ convertOneInstruction (Dec r) = encodeDecReg r
 convertOneInstruction (Neg r) = encodeNegReg r
 convertOneInstruction (Div (Reg r)) = encodeDivReg r
 convertOneInstruction (Mult (Reg r) (Reg r2)) = encodeMultReg r
+convertOneInstruction (Jmp name) = encodeJmp name
 convertOneInstruction i = error ("unsupported instruction: " ++ show i)
 
 -- execAsm (Valid c) = execState (assemble (Rinstructions c)) (CodeState 0 [] [] [])
@@ -643,10 +672,57 @@ encodeXorRegImm r imm =
 -- region Label
 -------------------------------------------------------------------------------
 
+setElt :: Int -> a -> [a] -> [a]
+setElt _ _ [] = []
+setElt 0 x (_ : xs) = x : xs
+setElt n x (y : xs) = y : setElt (n - 1) x xs
+
+word16Update2ndByte :: Integer -> Word8 -> Integer -- the integer is assumed to be encoded on two bytes
+word16Update2ndByte i w = (i .&. 0xff00) .|. (fromIntegral w :: Integer)
+
+updateJmpInstr :: (MonadState CodeState m) => Int -> Int -> RInstructionGen -> m ()
+updateJmpInstr  instrIndex jmpDelta instrGen = do
+    case instrGen 0 0 of
+        Left err -> error err
+        Right instr -> do
+            let instrBin = getInstruction instr
+            -- update the instruction with the offset of the jump
+            let instrBin' = word16Update2ndByte instrBin (fromIntegral jmpDelta)
+            let instr' = (\_ _ -> Right (RInstruction instrBin'))
+            modify (\s -> s {codeReversed = setElt instrIndex instr' (codeReversed s)})
+
+resolveJmps :: (MonadState CodeState m) => CodeOffset -> [(CodeOffset, Int)] -> m ()
+resolveJmps labelAddr [] = P.return ()
+resolveJmps labelAddr (x : xs) = do
+    impl x
+    resolveJmps labelAddr xs
+
+    where
+        impl :: (MonadState CodeState m) => (CodeOffset, Int) -> m ()
+        impl (jmpOffset, jmpInstrIndex) = do
+            let delta = labelAddr - (jmpOffset + 2)
+            code <- gets codeReversed
+            let instrGen = code !! jmpInstrIndex
+            let deltaAsInt = fromIntegral delta :: Int
+            updateJmpInstr jmpInstrIndex deltaAsInt instrGen
+
+resolveJmpsArray :: (MonadState CodeState m) => CodeOffset -> [[(CodeOffset, Int)]] -> m ()
+resolveJmpsArray _ [] = P.return ()
+resolveJmpsArray labelAddr (x : xs) = do
+    resolveJmps labelAddr x
+    resolveJmpsArray labelAddr xs
+
 encodeLabel :: (MonadState CodeState m) => String -> m ()
 encodeLabel name = do
-  labelName <- label
-  exportSymbol name labelName
+  l <- label
+  let labelAddr = case l of
+        CodeRef offset -> offset
+        PoolRef offset -> offset
+  exportSymbol name l
+  unresolved <- getUnresolvedJmps name
+  resolveJmps labelAddr unresolved
+  clearUnresolvedJmps name
+
 
 -- add reg -> im ok and reg -> reg ok
 -- Inc ok
@@ -773,48 +849,34 @@ encodeMultReg r =
 -- region Jmp
 -------------------------------------------------------------------------------
 
--- findLabelForString :: String -> CodeState -> Maybe Label
--- findLabelForString s codeState =
---   case symbolsRefersed codeState of
---     [] -> Nothing
---     ((symbol, label) : rest) ->
---       if symbol == s
---         then Just label
---         else findLabelForString s (codeState {symbolsRefersed = rest})
+delayResolution :: (MonadState CodeState m) => String -> m Int
+delayResolution name = do
+    binLen <- gets codeBinLength
+    addUnresolvedJmp name (CodeOffset . fromIntegral $ binLen)
+    P.return 42
 
--- -- Usage example:
--- -- Assuming 'codeState' is your CodeState
--- -- and 'symbol' is the string you want to look up
--- -- let labelForSymbol = findLabelForString symbol codeState
+findAddrFromLabel :: (MonadState CodeState m) => String -> [(String, Label)] -> m Int
+findAddrFromLabel name [] = delayResolution name
+findAddrFromLabel name ((str, lbl) : xs)
+  | str == name = case lbl of
+    CodeRef offset -> P.return $ fromIntegral offset
+    PoolRef offset -> P.return $ fromIntegral offset
+  | otherwise = findAddrFromLabel name xs
 
--- getPoolRef :: Maybe Label -> Maybe CodeOffset
--- getPoolRef maybeLabel = case maybeLabel of
---   Just (PoolRef offset) -> Just offset
---   _ -> Nothing
+getSymbols :: MonadState CodeState m => m [(String, Label)]
+getSymbols = gets symbolsRefersed
 
--- parseLabel :: MonadState CodeState m => String -> m [(String, Label)] -> Int64
--- parseLabel s [(str, label)]
---   | str == s = getCodeOffset label
---   | otherwise = parseLabel s []
--- parseLabel s [(str, label) : xs]
---   | str == s = getCodeOffset label
---   | otherwise = parseLabel s xs
--- parseLabel _ _ = 0
+labelNameToAddr :: MonadState CodeState m => String -> m Int
+labelNameToAddr name = do
+    symbols <- getSymbols
+    findAddrFromLabel name symbols
 
--- importSymbol :: MonadState CodeState m => String -> m CodeOffset
--- importSymbol s = res
---   where
---     f = gets (symbolsRefersed)
---     res = parseLabel s f
-
--- encodeJmp :: (MonadState CodeState m) => String -> m ()
--- encodeJmp name = do
---   labelName <- importSymbol name
---   case labelName of
---     Just label -> emit $ RInstruction $ byteStringToInteger (word8ArrayToByteString (0xe9 : encodeImmediate (fromIntegral label)))
---     Nothing -> error ("label not found: " ++ name)
-
--- emit $
---   RInstruction $
---     byteStringToInteger
---       ([0xeb] ++ [fromIntegral (findLabelForString labelName)])
+encodeJmp :: (MonadState CodeState m) => String -> m ()
+encodeJmp name = do
+    addr <- labelNameToAddr name
+    binLen <- gets codeBinLength
+    let delta = addr - (binLen + 2)
+    emit $
+      RInstruction $
+        byteStringToInteger . word8ArrayToByteString $
+          0xeb : (removeNullPrefix . reverseArray . encodeImmediate $ delta)

@@ -9,6 +9,7 @@ module TestRealASM
     testRemoveNullPrefix,
     functionalASMTests,
     testGetBinLengthFromRInstruction,
+    testWord16Update2ndByte
   )
 where
 
@@ -472,6 +473,33 @@ testMulInASM = runRunctionalTest impl "ElfTestRes/mul_expected.txt"
           convertOneInstruction (Mult (Reg ECX) (Reg ECX))
           convertOneInstruction (Mult (Reg ESI) (Reg ESI))
 
+testJmpInASM :: Test
+testJmpInASM = runRunctionalTest impl "ElfTestRes/jmp_expected.txt"
+    where
+        impl :: IO ()
+        impl = do
+            let elf = assemble p
+            elf P.>>= writeElf ".tmp_test_output"
+            where
+                p :: MonadCatch m => StateT CodeState m ()
+                p = do
+                    convertOneInstruction (Mov (Reg EAX) (Immediate 1))
+                    convertOneInstruction (Jmp "_test2")
+                    convertOneInstruction (VM.Label "_test" 42)
+                    convertOneInstruction (Mov (Reg EAX) (Immediate 3))
+                    convertOneInstruction (VM.Label "_test2" 42)
+                    convertOneInstruction (Mov (Reg EBX) (Immediate 1))
+                    convertOneInstruction (Mov (Reg ECX) (Immediate 2))
+                    convertOneInstruction (Jmp "_test")
+
+testWord16Update2ndByte :: Test
+testWord16Update2ndByte =
+  TestList
+    [ word16Update2ndByte 0x1234 0x56 ~?= 0x1256,
+      word16Update2ndByte 0x1234 0x00 ~?= 0x1200,
+      word16Update2ndByte 0x1234 0xff ~?= 0x12ff
+    ]
+
 functionalASMTests :: Test
 functionalASMTests =
   TestList
@@ -492,5 +520,5 @@ functionalASMTests =
       testDecInASM,
       testNegInASM,
       testDivInASM,
-      testMulInASM
-    ]
+      testMulInASM,
+      testJmpInASM]
