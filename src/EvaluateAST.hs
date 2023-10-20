@@ -40,6 +40,7 @@ instructionFromAST (ASTNodeInferior x) ctx = putInferiorInstruction x ctx
 instructionFromAST (ASTNodeInferiorEq x) ctx = putInferiorEqInstruction x ctx
 instructionFromAST (ASTNodeSuperior x) ctx = putSuperiorInstruction x ctx
 instructionFromAST (ASTNodeSuperiorEq x) ctx = putSuperiorEqInstruction x ctx
+instructionFromAST (ASTNodeNotEqual x) ctx = putNotEqualInstruction x ctx
 instructionFromAST (ASTNodeMutable name x) ctx = putMutableInstruction name x ctx
 instructionFromAST (ASTNodeParamList _) ctx = ctx -- not an actual instruction, does (Invalid "Error")
 instructionFromAST (ASTNodeArray n) ctx = astNodeArrayToHASM ctx (ASTNodeArray n)
@@ -165,6 +166,15 @@ putEqInstruction [x, y] (Valid ctx) = do
   where
     (uuid, c) = nextUUID ctx
 putEqInstruction _ _ = Invalid "Error"
+
+putNotEqualInstruction :: [ASTNode] -> ValidState Context -> ValidState Context
+putNotEqualInstruction _ (Invalid s) = Invalid s
+putNotEqualInstruction [x, y] (Valid ctx) = do
+  ctx' <- instructionFromAST x (Valid c)
+  ctx'' <- instructionFromAST y (Valid ctx' {instructions = instructions ctx' ++ [Push (Reg EAX)]})
+  Prelude.return (ctx'' {instructions = instructions ctx'' ++ [Pop (Reg EDI), Cmp (Reg EDI) (Reg EAX), Jne (show uuid ++ "neq"), Mov (Reg EAX) (Immediate 0), Jmp (show uuid ++ "neqend"), Label (show uuid ++ "neq") (length (instructions ctx'') + 1), Mov (Reg EAX) (Immediate 1), Label (show uuid ++ "neqend") (length (instructions ctx'') + 1)]})
+  where
+    (uuid, c) = nextUUID ctx
 
 putInferiorInstruction :: [ASTNode] -> ValidState Context -> ValidState Context
 putInferiorInstruction _ (Invalid s) = Invalid s

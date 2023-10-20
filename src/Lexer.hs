@@ -66,6 +66,7 @@ data ASTNode
   | ASTNodeInferiorEq {astniChildren :: [ASTNode]}
   | ASTNodeSuperior {astniChildren :: [ASTNode]}
   | ASTNodeSuperiorEq {astniChildren :: [ASTNode]}
+  | ASTNodeNotEqual {astneChildren :: [ASTNode]}
   | ASTNodeIf {astniCondition :: ASTNode, astniThen :: [ASTNode], astniElse :: ValidState [ASTNode]}
   | ASTNodeElif {astniCondition :: ASTNode, astniThen :: [ASTNode], astniElse :: ValidState [ASTNode]}
   | ASTNodeElse {astniThen :: [ASTNode]}
@@ -170,7 +171,14 @@ tokOrExprToASTNode [A n1, T (TokenInfo TokOperatorMul _), A n2] = ASTNodeMul [n1
 tokOrExprToASTNode [A n1, T (TokenInfo TokOperatorDiv _), A n2] = ASTNodeDiv [n1, n2]
 tokOrExprToASTNode [A n1, T (TokenInfo TokOperatorMod _), A n2] = ASTNodeMod [n1, n2]
 
+tokOrExprToASTNode [T (TokenInfo TokenSymPrint _), T (TokenInfo TokOpenParen _), A n, T (TokenInfo TokCloseParen _)] = ASTNodePrint n
 
+tokOrExprToASTNode [T (TokenInfo TokOpenParen _), A n1, T (TokenInfo TokenInferior _), A n2, T (TokenInfo TokCloseParen _)] = ASTNodeInferior [n1, n2]
+tokOrExprToASTNode [T (TokenInfo TokOpenParen _), A n1, T (TokenInfo TokenInferiorEq _), A n2, T (TokenInfo TokCloseParen _)] = ASTNodeInferiorEq [n1, n2]
+tokOrExprToASTNode [T (TokenInfo TokOpenParen _), A n1, T (TokenInfo TokenSuperior _), A n2, T (TokenInfo TokCloseParen _)] = ASTNodeSuperior [n1, n2]
+tokOrExprToASTNode [T (TokenInfo TokOpenParen _), A n1, T (TokenInfo TokenSuperiorEq _), A n2, T (TokenInfo TokCloseParen _)] = ASTNodeSuperiorEq [n1, n2]
+tokOrExprToASTNode [T (TokenInfo TokOpenParen _), A n1, T (TokenInfo TokenEqual _), A n2, T (TokenInfo TokCloseParen _)] = ASTNodeEq [n1, n2]
+tokOrExprToASTNode [T (TokenInfo TokOpenParen _), A n1, T (TokenInfo TokenNotEqual _), A n2, T (TokenInfo TokCloseParen _)] = ASTNodeNotEqual [n1, n2]
 
 -- Old language
 
