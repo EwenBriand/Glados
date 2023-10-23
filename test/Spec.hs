@@ -146,7 +146,14 @@ testFunctions =
     testIps,
     testHasmNStackPush,
     testLabels,
-    testSetupfunctionStack
+    testSetupfunctionStack,
+    testParamsRegister,
+    testInvalidFuncs,
+    testInferTypeFromNode,
+    testPutSetNoErrCheck,
+    testArraysFuncs,
+    testExecInstructionsIO,
+    testInvalidInstructions
   ]
 
 -- Run all test functions and return the results as a list

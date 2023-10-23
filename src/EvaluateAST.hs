@@ -3,6 +3,48 @@ module EvaluateAST
     astNodeArrayToHASM,
     strToHASM,
     putEqInstruction,
+    putInferiorInstruction,
+    putInferiorEqInstruction,
+    putSuperiorInstruction,
+    putSuperiorEqInstruction,
+    putNotEqualInstruction,
+    putMutableInstruction,
+    putPrintInstruction,
+    putBoolInstruction,
+    putDefineInstruction,
+    putWhileInstruction,
+    putSetInstruction,
+    paramsRegisters,
+    evalParamsToReg,
+    putFunctionCall,
+    pushParamTypeToBlock,
+    evaluateBlock,
+    evaluateBlockOneInstr,
+    copyParentBlocks,
+    declSymbolBlock,
+    setupBlockParams,
+    putSumInstruction,
+    putSubInstruction,
+    putMulInstruction,
+    putDivInstruction,
+    putModInstruction,
+    tryPutFunctionCall,
+    putSymbolInstruction,
+    putWhileCondition,
+    inferTypeFromNode,
+    putMutableNoErrCheck,
+    putSetNoErrCheck,
+    putIfInstruction,
+    ifPutCondition,
+    astNodeArrayToHASMLoopBody,
+    hasmBackupRegisters,
+    hasmRestoreRegisters,
+    labelImpl,
+    hASMPointerAlloc,
+    aSTNodeArrayToHASMPreLoop,
+    astNodeArrayToHASMEnd,
+    putIntegerInstruction,
+    putInstructionSequence
   )
 where
 
@@ -68,6 +110,7 @@ instructionFromAST (ASTNodeBreak (a : b)) ctx = instructionFromAST (ASTNodeBreak
 instructionFromAST (ASTNodeBreak []) ctx = ctx
 instructionFromAST _ _ = Invalid "Error!!!!"
 
+paramsRegisters :: [Register]
 paramsRegisters = [EDI, ESI, EDX, ECX]
 
 evalParamsToReg :: ValidState Context -> [ASTNode] -> [Register] -> ValidState Context
