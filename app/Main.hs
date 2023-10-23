@@ -77,13 +77,13 @@ execOnOps ctx ops =
         c <- ctx
         case c of
             Invalid s -> putStrLn ("Context invalidated: " ++ s) >> exitWith (ExitFailure 84)
-            Valid ct -> compileInExec (instructions ct) (compileObject ops)
+            Valid ct -> compileInFile (instructions ct) (compileObject ops) True
     else if compileObject ops /= "" then
         do 
         c <- ctx
         case c of
             Invalid s -> putStrLn ("Context invalidated: " ++ s) >> exitWith (ExitFailure 84)
-            Valid ct -> compileInOFile (instructions ct) (compileObject ops)
+            Valid ct -> compileInFile (instructions ct) (compileObject ops) False
     else do
         c <- ctx
         if disassemble ops then

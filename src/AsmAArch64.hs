@@ -29,8 +29,9 @@ module AsmAArch64
     removeNullPrefix,
     binLengthFromRInstruction,
     word16Update2ndByte,
-    compileInExec,
-    compileInOFile
+    -- compileInExec,
+    -- compileInOFile
+    compileInFile
   )
 where
 
@@ -447,11 +448,11 @@ elfExe i = assemble (createElf i) P.>>= dummyLd
 elfOFile :: MonadCatch m => [Instruction] -> m Elf
 elfOFile i = assemble (createElf i)
 
-compileInOFile :: [Instruction] -> String -> IO ()
-compileInOFile instructions name = elfOFile instructions P.>>=  writeElf name
-
-compileInExec :: [Instruction] -> String -> IO ()
-compileInExec instructions name = elfExe instructions P.>>=  writeElf name 
+compileInFile :: [Instruction] -> String -> Bool -> IO ()
+compileInFile instructions name exec=
+  if exec 
+    then elfExe instructions P.>>=  writeElf name 
+    else elfOFile instructions P.>>=  writeElf name
 
 convertOneInstruction :: MonadState CodeState m => Instruction -> m ()
 convertOneInstruction (Mov (Reg r) (Immediate i)) = mov r (intToWord16 i)
