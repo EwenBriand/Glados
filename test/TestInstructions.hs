@@ -67,7 +67,9 @@ module TestInstructions
     testMyJae,
     testMyJb,
     testMyJbe,
-    testSetupfunctionStack
+    testSetupfunctionStack,
+    testExecInstructionsIO,
+    testInvalidInstructions
   )
 where
 
@@ -77,11 +79,12 @@ import EvaluateAST
 import Instructions
 import Lexer
   ( ASTNode (ASTNodeBoolean, ASTNodeIf, ASTNodeInteger),
-    strToAST,
+    strToAST, VarType (GUndefinedType)
   )
 import Test.HUnit
 import VM
 import ValidState
+import VM (Block(Block))
 
 testMovImpl :: Bool
 testMovImpl =
@@ -624,7 +627,22 @@ testInstructionTable :: Test
 testInstructionTable =
   TestList
     [ "instruction table invalid" ~: testInstructionTableInvalid ~?= True,
-      "instruction table nop" ~: testInstructionTableNop ~?= True
+      "instruction table nop" ~: testInstructionTableNop ~?= True,
+      "instruction table test" ~: instructionTable (Valid newContext) (Test (Reg EAX) (Reg EAX)) ~?= allTest (Valid newContext) (Reg EAX) (Reg EAX),
+      "instruction table jle" ~: instructionTable (Valid newContext) (Jle "test") ~?= myJle (Valid newContext) "test",
+      "instruction table ja" ~: instructionTable (Valid newContext) (Ja "test") ~?= myJa (Valid newContext) "test",
+      "instruction table jae" ~: instructionTable (Valid newContext) (Jae "test") ~?= myJae (Valid newContext) "test",
+      "instruction table jb" ~: instructionTable (Valid newContext) (Jb "test") ~?= myJb (Valid newContext) "test",
+      "instruction table jbe" ~: instructionTable (Valid newContext) (Jbe "test") ~?= myJbe (Valid newContext) "test",
+      "instruction table Mov Ptr" ~: instructionTable (Valid newContext) (MovPtr (Reg EAX) (Reg EAX)) ~?= movPtrImpl (Valid newContext) (Reg EAX) (Reg EAX),
+      "instruction table Imul" ~: instructionTable (Valid newContext) (IMul (Reg EAX) (Reg EAX)) ~?= Valid newContext,
+      "instruction table Enter" ~: instructionTable (Valid newContext) Enter ~?= enterImpl (fromValidState newContext (Valid newContext)),
+      "instruction table Leave" ~: instructionTable (Valid newContext) Leave ~?= leaveImpl (Valid newContext),
+      "instruction table Label" ~: instructionTable (Valid newContext) (VM.Label "test" 4) ~?= Valid newContext,
+      "instruction table MovAddr Stack" ~: instructionTable (Valid newContext) (MovStackAddr (Reg EAX) (Reg EBX)) ~?= movStackAddrImpl (Valid newContext) (Reg EAX) (Reg EBX),
+      -- "instruction table MovFromStackAddr" ~: instructionTable (Valid newContext) (MovFromStackAddr (Reg EAX) (Reg EBX)) ~?= movFromStackAddrImpl (Valid newContext) (Reg EAX) (Reg EBX),
+      "instruction table Alloc" ~: instructionTable (Valid newContext) (Alloc 4) ~?= allocHeap (Valid newContext) 4,
+      "instruction cornercase" ~: instructionTable (Valid newContext) Interrupt ~?= Valid newContext
     ]
 
 -- testAllTestsInvalid :: Bool
@@ -695,6 +713,8 @@ testInstructionTableIO =
         ~: case instructionTableIO (Invalid "ok") (VM.Label "test" 0) of
           (Invalid s, io) -> assertEqual "Error message" s "ok"
           _ -> assertFailure "Expected an invalid state"
+      -- "instructionTableIO Call"
+      --   ~: instructionTableIO (Valid newContext) (Call "str") ~?= callImpl (Valid newContext) "str"
     ]
 
 testEvalOneInstructionIO :: Test
@@ -843,14 +863,60 @@ testSetupfunctionStack = TestList
     "Invalid setupfunctionStack 2"
       ~: setupfunctionStack (Valid newContext) (Invalid "Error") [] [] ~?= Invalid "Error",
     "Valid setupfunctionStack"
-      ~: setupfunctionStack (Valid newContext) (Valid newContext) [] [] ~?= Valid newContext
+      ~: setupfunctionStack (Valid newContext) (Valid newContext) [] [] ~?= Valid newContext,
+    "Invalid setupfunctionStack"
+      ~: setupfunctionStack (Valid newContext) (Valid newContext) [GUndefinedType] [] ~?= Invalid "Invalid function call"
   ]
 
--- testBlkSetupCtx :: Test
--- testBlkSetupCtx = TestList
---   [
---     "Invalid blkSetupCtx"
---       ~:
---       let block1 = Block "foo" (Valid newContext) []
---       in blkSetupCtx (Invalid "Error") block1  ~?= Invalid "Error"
---   ]
+testExecInstructionsIO :: Test
+testExecInstructionsIO = TestList
+  [
+    "Invalid execInstructionsIO" ~: case execInstructionsIO (Invalid "Error", putStr "") of
+      (Invalid s, io) -> assertEqual "Error message" s "Error"
+      _ -> assertFailure "Expected an invalid state",
+    "Valid execInstructionsIO" ~: case execInstructionsIO (Valid newContext, putStr "") of
+      (Valid context, io) -> assertEqual "Context" context newContext
+      _ -> assertFailure "Expected a valid state"
+  ]
+
+giveMeBlock :: Block
+giveMeBlock = Block "foo" (Valid newContext) []
+
+testInvalidInstructions :: Test
+testInvalidInstructions = TestList
+  [
+    "Invalid executeBlock" ~: case executeBlock (Invalid "Error") giveMeBlock of
+      (Invalid s, io) -> assertEqual "Error message" s "Error"
+      _ -> assertFailure "Expected an invalid state",
+    "Invalid callImpl" ~: case callImpl (Valid newContext) "Error" of
+      (Invalid s, io) -> assertEqual "Error message" s "Block not found: Error"
+      _ -> assertFailure "Expected an invalid state",
+    "Invalid callImpl" ~: case callImpl (Invalid "Error") "Error" of
+      (Invalid s, io) -> assertEqual "Error message" s "Error"
+      _ -> assertFailure "Expected an invalid state",
+    "Invalid execInstructions" ~: execInstructions (Invalid "Error") ~?= Invalid "Error",
+    "Invalid getInsIndex" ~: getInsIndex (Invalid "Error") 0 ~?= Nop,
+    "Invalid pushImpl" ~: pushImpl (Invalid "Error") (Reg EAX) ~?= Invalid "Error",
+    "Invalid pushImpl" ~: pushImpl (Valid newContext) (Symbol "sds") ~?= Invalid "Symbol not found",
+    "Invalid getInsIndex" ~: getInsIndex (Valid newContext) 74 ~?= Nop,
+    "Invalid popImpl" ~: popImpl (Invalid "Error") (Reg EAX) ~?= Invalid "Error",
+    "Invalid popImpl" ~: popImpl (Valid newContext) (Immediate 4) ~?= Invalid "Cannot pop into an immediate",
+    "Invalid movPtrImpl" ~: movPtrImpl (Invalid "Error") (Reg EAX) (Reg EAX) ~?= Invalid ("While assigning to pointer " ++ show (Reg EAX) ++ ": " ++ "Error"),
+    "Invalid movPtrImpl" ~: movPtrImpl (Valid newContext) (Immediate 4) (Reg EAX) ~?= Invalid "Cannot move into an immediate",
+    "Invalid movPtrImpl" ~: movPtrImpl (Valid newContext) (Reg EAX) (Symbol "sds") ~?= Invalid "Symbol not found",
+    "Invalid movPtrImpl" ~: movPtrImpl (Valid newContext) (Memory 4) (Symbol "sds") ~?= Invalid "Symbol not found",
+    "Invalid movPtrImpl" ~: movPtrImpl (Valid newContext) (Symbol "sds") (Reg EAX) ~?= Invalid "Invalid move",
+    "Invalid setStackIndex" ~: setStackIndex (Invalid "Error") 0 0 ~?= Invalid "Error",
+    "Invalid movStackAddrImpl" ~: movStackAddrImpl (Invalid "Error") (Reg EAX) (Reg EAX) ~?= Invalid "Error",
+    "Invalid movStackAddrImpl" ~: movStackAddrImpl (Valid newContext) (Symbol "sds") (Reg EAX)  ~?= Invalid "Symbol not found",
+    "Invalid movStackAddrImpl" ~: movStackAddrImpl (Valid newContext) (Symbol "sds") (Immediate 4) ~?= Invalid "Symbol not found",
+    "Invalid movFromStackAddrImpl" ~: movFromStackAddrImpl (Invalid "Error") (Reg EAX) (Reg EAX) ~?= Invalid "Error",
+    "Invalid movFromStackAddrImpl" ~: movFromStackAddrImpl (Valid newContext) (Reg EAX) (Symbol "sds") ~?= Invalid "Symbol not found",
+    "Invalid movImpl" ~: movImpl (Invalid "Error") (Reg EAX) (Reg EAX) ~?= Invalid "Error",
+    "Invalid movImpl" ~: movImpl (Valid newContext) (Immediate 4) (Reg EAX) ~?= Invalid "Cannot move into an immediate",
+    "Invalid movImpl" ~: movImpl (Valid newContext) (Reg EAX) (Symbol "sds") ~?= Invalid "Invalid move",
+    "Invalid allCmp" ~: allCmp (Invalid "Error") (Reg EAX) (Reg EAX) ~?= Invalid "During comparison: Error",
+    "Valid allCmp" ~: allCmp (Valid newContext) (Reg EAX) (Memory 2) ~?= myCmp (Valid newContext) (regGet (Valid newContext) EAX) (heapGet (Valid newContext) 2),
+    "Valid allCmp" ~: allCmp (Valid newContext) (Reg EAX) (Symbol "sds") ~?= Invalid "Symbol not found",
+    "Invalid allCmp" ~: allCmp (Valid newContext) (Immediate 4) (Reg EAX) ~?= Invalid "Invalid cmp"
+  ]
