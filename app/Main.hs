@@ -14,6 +14,7 @@ import REPL
 import qualified Data.Map as Map
 import Control.Monad (mapM_)
 import MakeELF
+import AsmAArch64
 
 data Options = Options {
     binary :: String,
@@ -21,7 +22,8 @@ data Options = Options {
     outputFile :: String,
     disassemble :: Bool,
     execute :: Bool,
-    compileObject :: String
+    compileObject :: String,
+    fileExecutable :: String
 } deriving (Show, Data, Typeable)
 
 options :: Options
@@ -31,8 +33,9 @@ options = Options {
     outputFile = def &= help "The output file to write the compiled binary to" &= typFile,
     disassemble = def &= help "Prints the disassembled binary",
     execute = def &= help "Execute the binary loaded / created",
-    compileObject = def &= help "The path to the object file to produce" &= typFile
-} &= summary "Very SAD GladOs Compiler & Interpreter V1.0" -- SAD: Simple And Dumb, Splendid And Direct, or maybe just sad ;)
+    compileObject = def &= help "The path to the object file to produce" &= typFile,
+    fileExecutable = def &= help "The path to the executable file to produce" &= typFile
+} &= summary "Very SAD GladOs Compiler & Interpreter V1.0" -- SAD: Simple And Dumb, Splendid And Direct, Service After Death, or maybe just sad ;)
 
 getContextOnOps :: Options -> IO (ValidState Context)
 getContextOnOps ops = do
@@ -69,8 +72,18 @@ showDisassembly (Valid c) = do
 
 execOnOps :: IO (ValidState Context) -> Options -> IO ()
 execOnOps ctx ops =
-    if compileObject ops /= "" then
-        debugLoadAndShowElf (compileObject ops)
+    if fileExecutable ops /= "" then
+        do 
+        c <- ctx
+        case c of
+            Invalid s -> putStrLn ("Context invalidated: " ++ s) >> exitWith (ExitFailure 84)
+            Valid ct -> compileInExec (instructions ct) (compileObject ops)
+    else if compileObject ops /= "" then
+        do 
+        c <- ctx
+        case c of
+            Invalid s -> putStrLn ("Context invalidated: " ++ s) >> exitWith (ExitFailure 84)
+            Valid ct -> compileInOFile (instructions ct) (compileObject ops)
     else do
         c <- ctx
         if disassemble ops then

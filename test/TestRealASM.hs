@@ -594,7 +594,6 @@ testCmpInASM = runRunctionalTest impl "ElfTestRes/cmp_expected.txt"
           convertOneInstruction (Cmp (Reg ECX) (Immediate 42))
           convertOneInstruction (Cmp (Reg EDX) (Immediate (-10)))
 
-
 testJeInASM :: Test
 testJeInASM = runRunctionalTest impl "ElfTestRes/je_expected.txt"
   where
@@ -632,7 +631,18 @@ testJeInASM = runRunctionalTest impl "ElfTestRes/je_expected.txt"
           convertOneInstruction (Jb "_start")
           convertOneInstruction (Jbe "_start")
 
-
+testELInASM :: Test
+testELInASM = runRunctionalTest impl "ElfTestRes/enter_leave_expected.txt"
+  where
+    impl :: IO ()
+    impl = do
+      let elf = assemble p
+      elf P.>>= writeElf ".tmp_test_output"
+      where
+        p :: MonadCatch m => StateT CodeState m ()
+        p = do
+          convertOneInstruction (Enter)
+          convertOneInstruction (Leave)
 
 functionalASMTests :: Test
 functionalASMTests =
@@ -662,5 +672,6 @@ functionalASMTests =
       testAndInASM,
       testNotInASM,
       testCmpInASM,
-      testJeInASM
+      testJeInASM,
+      testELInASM
       ]

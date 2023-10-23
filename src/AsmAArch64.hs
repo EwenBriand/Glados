@@ -29,8 +29,8 @@ module AsmAArch64
     removeNullPrefix,
     binLengthFromRInstruction,
     word16Update2ndByte,
-    -- compileInExec,
-    -- compileInOFile
+    compileInExec,
+    compileInOFile
   )
 where
 
@@ -432,28 +432,28 @@ encodeImmediate n
   | n >= 0 = [fromIntegral (n `shiftR` (8 * i) .&. 0xff) | i <- [0 .. 3]]
   | otherwise = [fromIntegral n]
 
--- writeElf :: FilePath -> Elf -> IO ()
--- writeElf path elf = do
---     e <- serializeElf elf
---     BSL.writeFile path e
+writeElf :: FilePath -> Elf -> IO ()
+writeElf path elf = do
+    e <- serializeElf elf
+    BSL.writeFile path e
 
--- createElf :: MonadState CodeState m => [Instruction] -> StateT CodeState m ()
--- createElf [i] =  convertOneInstruction i
--- createElf (i : is) = do
---   convertOneInstruction i
---   createElf is
+createElf :: MonadCatch m => [Instruction] -> StateT CodeState m ()
+createElf [i] =  convertOneInstruction i
+createElf (i : is) = do
+  convertOneInstruction i
+  createElf is
 
--- elfExe :: MonadCatch m => [Instruction] -> m Elf
--- elfExe i = assemble (createElf i) P.>>= dummyLd
+elfExe :: MonadCatch m => [Instruction] -> m Elf
+elfExe i = assemble (createElf i) P.>>= dummyLd
 
--- elfOFile :: MonadCatch m => [Instruction] -> m Elf
--- elfOFile i = assemble (createElf i)
+elfOFile :: MonadCatch m => [Instruction] -> m Elf
+elfOFile i = assemble (createElf i)
 
--- compileInOFile :: [Instruction] -> String -> IO ()
--- compileInOFile instructions name = elfOFile instructions P.>>= writeElf name
+compileInOFile :: [Instruction] -> String -> IO ()
+compileInOFile instructions name = elfOFile instructions P.>>=  writeElf name
 
--- compileInExec :: [Instruction] -> String -> IO ()
--- compileInExec instructions name = elfExe instructions P.>>= writeElf name
+compileInExec :: [Instruction] -> String -> IO ()
+compileInExec instructions name = elfExe instructions P.>>=  writeElf name 
 
 convertOneInstruction :: MonadState CodeState m => Instruction -> m ()
 convertOneInstruction (Mov (Reg r) (Immediate i)) = mov r (intToWord16 i)
@@ -496,8 +496,9 @@ convertOneInstruction (Cmp (Reg r1) (Immediate i)) = encodeCmpRegImm r1 i
 convertOneInstruction (Cmp (Reg r1) (Memory i)) = encodeCmpRegMem r1 i
 convertOneInstruction (Cmp (Memory i) (Reg r1)) = encodeCmpMemReg i r1
 convertOneInstruction (Cmp (Memory i) (Immediate imm)) = encodeCmpMemImm i imm
+convertOneInstruction (Enter) = encodeEnter
+convertOneInstruction (Leave) = encodeLeave
 convertOneInstruction i = allJmps i
-convertOneInstruction i = error ("unsupported instruction: " ++ show i)
 
 -- execAsm (Valid c) = execState (assemble (Rinstructions c)) (CodeState 0 [] [] [])
 
@@ -787,6 +788,8 @@ encodeLabel name = do
 -- jae
 -- jb
 -- jbe
+-- Enter
+-- Leave
 
 -------------------------------------------------------------------------------
 -- region Add
@@ -1029,6 +1032,29 @@ encodeCmpRegMem reg mem =
             ([0x3b, 0x3c, 0x25] ++ encodeImmediate mem ++ [0xc0 + registerCode reg])
         )
 
+
+-------------------------------------------------------------------------------
+-- region Enter leave
+-------------------------------------------------------------------------------
+
+encodeEnter :: (MonadState CodeState m) => m ()
+encodeEnter =
+  emit $
+    RInstruction $
+      byteStringToInteger
+        ( word8ArrayToByteString
+            ([0xc8, 0x00, 0x00, 0x00])
+        )
+
+encodeLeave :: (MonadState CodeState m) => m ()
+encodeLeave =
+  emit $
+    RInstruction $
+      byteStringToInteger
+        ( word8ArrayToByteString
+            ([0xc9])
+        )
+
 -------------------------------------------------------------------------------
 -- region Je
 -------------------------------------------------------------------------------
@@ -1056,6 +1082,9 @@ allJmps (Ja name) = emptyJmp name 0x77
 allJmps (Jae name) = emptyJmp name 0x73
 allJmps (Jb name) = emptyJmp name 0x72
 allJmps (Jbe name) = emptyJmp name 0x76
+allJmps i = error ("unsupported instruction: " ++ show i)
+
+
 
 -------------------------------------------------------------------------------
 -- region Jmp
