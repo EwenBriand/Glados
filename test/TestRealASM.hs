@@ -561,6 +561,7 @@ testAndInASM = runRunctionalTest impl "ElfTestRes/and_expected.txt"
           convertOneInstruction (And (Reg EBX) (Immediate 42))
           convertOneInstruction (And (Reg ECX) (Immediate (-10)))
 
+
 testNotInASM :: Test
 testNotInASM = runRunctionalTest impl "ElfTestRes/not_expected.txt"
   where
@@ -574,6 +575,64 @@ testNotInASM = runRunctionalTest impl "ElfTestRes/not_expected.txt"
           convertOneInstruction (Not (Reg EAX))
           convertOneInstruction (Not (Reg ECX))
           convertOneInstruction (Not (Reg ESI))
+
+testCmpInASM :: Test
+testCmpInASM = runRunctionalTest impl "ElfTestRes/cmp_expected.txt"
+  where
+    impl :: IO ()
+    impl = do
+      let elf = assemble p
+      elf P.>>= writeElf ".tmp_test_output"
+      where
+        p :: MonadCatch m => StateT CodeState m ()
+        p = do
+          convertOneInstruction (Cmp (Reg EAX) (Reg EBX))
+          convertOneInstruction (Cmp (Reg ECX) (Reg EDX))
+          convertOneInstruction (Cmp (Reg ESI) (Reg EDI))
+          convertOneInstruction (VM.Label "_imm" 42)
+          convertOneInstruction (Cmp (Reg EAX) (Immediate 1))
+          convertOneInstruction (Cmp (Reg ECX) (Immediate 42))
+          convertOneInstruction (Cmp (Reg EDX) (Immediate (-10)))
+
+
+testJeInASM :: Test
+testJeInASM = runRunctionalTest impl "ElfTestRes/je_expected.txt"
+  where
+    impl :: IO ()
+    impl = do
+      let elf = assemble p
+      elf P.>>= writeElf ".tmp_test_output"
+      where
+        p :: MonadCatch m => StateT CodeState m ()
+        p = do
+          convertOneInstruction (VM.Label "_start" 42)
+          convertOneInstruction (Je "_test")
+          convertOneInstruction (Jne "_test")
+          convertOneInstruction (Js "_test")
+          convertOneInstruction (Jns "_test")
+          convertOneInstruction (Jg "_test")
+          convertOneInstruction (Jge "_test")
+          convertOneInstruction (Jl "_test")
+          convertOneInstruction (Jle "_test")
+          convertOneInstruction (Ja "_test")
+          convertOneInstruction (Jae "_test")
+          convertOneInstruction (Jb "_test")
+          convertOneInstruction (Jbe "_test")
+          convertOneInstruction (VM.Label "_test" 42)
+          convertOneInstruction (Je "_start")
+          convertOneInstruction (Jne "_start")
+          convertOneInstruction (Js "_start")
+          convertOneInstruction (Jns "_start")
+          convertOneInstruction (Jg "_start")
+          convertOneInstruction (Jge "_start")
+          convertOneInstruction (Jl "_start")
+          convertOneInstruction (Jle "_start")
+          convertOneInstruction (Ja "_start")
+          convertOneInstruction (Jae "_start")
+          convertOneInstruction (Jb "_start")
+          convertOneInstruction (Jbe "_start")
+
+
 
 functionalASMTests :: Test
 functionalASMTests =
@@ -601,4 +660,7 @@ functionalASMTests =
       testIntInASM,
       testOrInASM,
       testAndInASM,
-      testNotInASM]
+      testNotInASM,
+      testCmpInASM,
+      testJeInASM
+      ]

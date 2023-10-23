@@ -28,7 +28,9 @@ module AsmAArch64
     movOpcodeCombineRegReg,
     removeNullPrefix,
     binLengthFromRInstruction,
-    word16Update2ndByte
+    word16Update2ndByte,
+    -- compileInExec,
+    -- compileInOFile
   )
 where
 
@@ -53,6 +55,7 @@ import VM
 import ValidState
 import Prelude as P
 import Data.Map
+import DummyLd
 
 data RegisterWidth = X | W
 
@@ -429,6 +432,29 @@ encodeImmediate n
   | n >= 0 = [fromIntegral (n `shiftR` (8 * i) .&. 0xff) | i <- [0 .. 3]]
   | otherwise = [fromIntegral n]
 
+-- writeElf :: FilePath -> Elf -> IO ()
+-- writeElf path elf = do
+--     e <- serializeElf elf
+--     BSL.writeFile path e
+
+-- createElf :: MonadState CodeState m => [Instruction] -> StateT CodeState m ()
+-- createElf [i] =  convertOneInstruction i
+-- createElf (i : is) = do
+--   convertOneInstruction i
+--   createElf is
+
+-- elfExe :: MonadCatch m => [Instruction] -> m Elf
+-- elfExe i = assemble (createElf i) P.>>= dummyLd
+
+-- elfOFile :: MonadCatch m => [Instruction] -> m Elf
+-- elfOFile i = assemble (createElf i)
+
+-- compileInOFile :: [Instruction] -> String -> IO ()
+-- compileInOFile instructions name = elfOFile instructions P.>>= writeElf name
+
+-- compileInExec :: [Instruction] -> String -> IO ()
+-- compileInExec instructions name = elfExe instructions P.>>= writeElf name
+
 convertOneInstruction :: MonadState CodeState m => Instruction -> m ()
 convertOneInstruction (Mov (Reg r) (Immediate i)) = mov r (intToWord16 i)
 convertOneInstruction (Mov (Reg r) (Memory i)) = encodeMovRegMem r i
@@ -465,6 +491,12 @@ convertOneInstruction (Or (Reg r1) (Immediate i)) = encodeOrRegImm r1 i
 convertOneInstruction (And (Reg r1) (Reg r2)) = encodeAndRegReg r1 r2
 convertOneInstruction (And (Reg r1) (Immediate i)) = encodeAndRegImm r1 i
 convertOneInstruction (Not (Reg r)) = encodeNotReg r
+convertOneInstruction (Cmp (Reg r1) (Reg r2)) = encodeCmpRegReg r1 r2
+convertOneInstruction (Cmp (Reg r1) (Immediate i)) = encodeCmpRegImm r1 i
+convertOneInstruction (Cmp (Reg r1) (Memory i)) = encodeCmpRegMem r1 i
+convertOneInstruction (Cmp (Memory i) (Reg r1)) = encodeCmpMemReg i r1
+convertOneInstruction (Cmp (Memory i) (Immediate imm)) = encodeCmpMemImm i imm
+convertOneInstruction i = allJmps i
 convertOneInstruction i = error ("unsupported instruction: " ++ show i)
 
 -- execAsm (Valid c) = execState (assemble (Rinstructions c)) (CodeState 0 [] [] [])
@@ -735,7 +767,7 @@ encodeLabel name = do
 -- Sub reg -> im ok and reg -> reg ok
 -- Div  ok
 -- Mult ok
--- jmp
+-- jmp  ok
 -- Call
 -- Int ok
 -- Ret ok
@@ -744,6 +776,17 @@ encodeLabel name = do
 -- or  reg -> im ok and reg -> reg ok
 -- and reg -> im ok and reg -> reg ok
 -- not reg -> im ok and reg -> reg ok
+-- cmp reg -> im ok and reg -> reg ok
+-- je
+-- jne
+-- jg
+-- jge
+-- jl
+-- jle
+-- ja
+-- jae
+-- jb
+-- jbe
 
 -------------------------------------------------------------------------------
 -- region Add
@@ -938,8 +981,86 @@ encodeNotReg r =
         )
 
 -------------------------------------------------------------------------------
+-- region Cmp
+-------------------------------------------------------------------------------
+
+encodeCmpRegReg :: (MonadState CodeState m) => Register -> Register -> m ()
+encodeCmpRegReg r1 r2 =
+  emit $
+    RInstruction $
+      byteStringToInteger
+        ( word8ArrayToByteString
+            [0x39, movOpcodeCombineRegReg r1 r2]
+        )
+
+encodeCmpRegImm :: (MonadState CodeState m) => Register -> Int -> m ()
+encodeCmpRegImm r imm =
+  emit $
+    RInstruction $
+      byteStringToInteger
+        ( word8ArrayToByteString
+            ([0x83, 0xf8 + registerCode r] ++ removeNullPrefix (reverseArray (encodeImmediate imm)))
+        )
+
+encodeCmpMemImm :: (MonadState CodeState m) => Int -> Int -> m ()
+encodeCmpMemImm mem imm =
+  emit $
+    RInstruction $
+      byteStringToInteger
+        ( word8ArrayToByteString
+            ([0x83, 0x3c, 0x25] ++ encodeImmediate mem ++ encodeImmediate imm)
+        )
+
+encodeCmpMemReg :: (MonadState CodeState m) => Int -> Register -> m ()
+encodeCmpMemReg mem reg =
+  emit $
+    RInstruction $
+      byteStringToInteger
+        ( word8ArrayToByteString
+            ([0x39, 0x3c, 0x25] ++ encodeImmediate mem ++ [0xc0 + registerCode reg])
+        )
+
+encodeCmpRegMem :: (MonadState CodeState m) => Register -> Int -> m ()
+encodeCmpRegMem reg mem =
+  emit $
+    RInstruction $
+      byteStringToInteger
+        ( word8ArrayToByteString
+            ([0x3b, 0x3c, 0x25] ++ encodeImmediate mem ++ [0xc0 + registerCode reg])
+        )
+
+-------------------------------------------------------------------------------
+-- region Je
+-------------------------------------------------------------------------------
+
+emptyJmp :: (MonadState CodeState m) => String -> Word8 -> m ()
+emptyJmp name opcode = do
+  addr <- labelNameToAddr name
+  binLen <- gets codeBinLength
+  let delta = addr - (binLen + 2)
+  emit $
+    RInstruction $
+        byteStringToInteger . word8ArrayToByteString $
+             [opcode] ++ (removeNullPrefix . reverseArray . encodeImmediate $ delta)
+
+allJmps :: (MonadState CodeState m) => Instruction -> m ()
+allJmps (Je name) = emptyJmp name 0x74
+allJmps (Jne name) = emptyJmp name 0x75
+allJmps (Js name) = emptyJmp name 0x78
+allJmps (Jns name) = emptyJmp name 0x79
+allJmps (Jg name) = emptyJmp name 0x7f
+allJmps (Jge name) = emptyJmp name 0x7d
+allJmps (Jl name) = emptyJmp name 0x7c
+allJmps (Jle name) = emptyJmp name 0x7e
+allJmps (Ja name) = emptyJmp name 0x77
+allJmps (Jae name) = emptyJmp name 0x73
+allJmps (Jb name) = emptyJmp name 0x72
+allJmps (Jbe name) = emptyJmp name 0x76
+
+-------------------------------------------------------------------------------
 -- region Jmp
 -------------------------------------------------------------------------------
+
 
 delayResolution :: (MonadState CodeState m) => String -> m Int
 delayResolution name = do
