@@ -57,6 +57,7 @@ instructionFromAST (ASTNodeBoolean b) ctx = putBoolInstruction (if b then 1 else
 instructionFromAST (ASTNodeFunctionCall name params) ctx = putFunctionCall ctx name params
 instructionFromAST (ASTNodeLambda name params body) ctx = putDefineInstruction ctx name params body
 instructionFromAST (ASTNodeWhile cond [(ASTNodeInstructionSequence [(ASTNodeParamList body), next])]) ctx = putWhileInstruction ctx cond ((expendParamList body) ++ [next])
+instructionFromAST (ASTNodeWhile cond [(ASTNodeParamList body)]) ctx = putWhileInstruction ctx cond (expendParamList body)
 instructionFromAST (ASTNodeWhile cond body) ctx = putWhileInstruction ctx cond body
 instructionFromAST (ASTNodeSet name value) ctx = putSetInstruction ctx name value
 instructionFromAST (ASTNodeBreak [ASTNodeLambda _ param body, ASTNodeFunctionCall _ params]) ctx = instructionFromAST (ASTNodeBreak [(ASTNodeFunctionCall u_name params)]) (instructionFromAST (ASTNodeLambda (ASTNodeSymbol u_name) param body) (Valid ctx'))

@@ -199,6 +199,9 @@ tokOrExprToASTNode [T (TokenInfo TokOpenParen _), A n1, T (TokenInfo TokenNotEqu
 
 tokOrExprToASTNode [T (TokenInfo TokenType typ), A (ASTNodeSymbol sym), T (TokenInfo TokenEq _), A n, T (TokenInfo TokenPointComma _)] = ASTNodeMutable (ASTNodeType (getTypeFromToken (TokenInfo TokenType typ))) (ASTNodeSymbol sym) (ASTNodeType (getTypeFromNodeValue n)) n
 
+tokOrExprToASTNode [A (ASTNodeSymbol sym), T (TokenInfo TokOpenParen _), A n, T (TokenInfo TokCloseParen _), T (TokenInfo TokenPointComma _)] = ASTNodeFunctionCall sym [n]
+
+tokOrExprToASTNode [T (TokenInfo TokenType typ), A (ASTNodeSymbol sym), T (TokenInfo TokOpenParen _), A n, T (TokenInfo TokCloseParen _), T (TokenInfo TokOpenCurrBrac _), A body, T (TokenInfo TokCloseCurrBrac _)] = ASTNodeDefine (ASTNodeSymbol sym) (Valid (ASTNodeParamList [ASTNodeType (getTypeFromToken (TokenInfo TokenType typ)), ASTNodeSymbol sym])) [body]
 
 -- Old language
 

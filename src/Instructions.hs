@@ -124,7 +124,7 @@ execInstructionsIO :: (ValidState Context, IO ()) -> (ValidState Context, IO ())
 execInstructionsIO (context, prevIO) =
   case c of
     (Invalid s, io) -> (Invalid s, prevIO >> io)
-    (ct, io) -> if fromValidState (-1) (ipGet ct) + 1 > nbInstructions ct then (ct, prevIO >> io) else execInstructionsIO (ipInc ct, prevIO >> io)
+    (ct, io) -> if fromValidState (-1) (ipGet ct) + 1 > nbInstructions ct then (ct, prevIO) else execInstructionsIO (ipInc ct, prevIO >> io)
   where
     c =
       if fromValidState (-1) (ipGet context) + 1 > nbInstructions context
