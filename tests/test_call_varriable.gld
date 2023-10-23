@@ -1,1 +1,1 @@
-(mutable foo 1)(+ foo 2)
+int foo = 1; print((+ foo 2))

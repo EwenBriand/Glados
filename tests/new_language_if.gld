@@ -3,8 +3,7 @@ if (true) {
     if (false) {
         (add 1 2)
     } else {
-        i++;
-        i++;
+        i = i + 7;
     }
 } elif(false) {
     (add 8 9)

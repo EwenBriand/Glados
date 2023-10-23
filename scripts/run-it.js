@@ -46,7 +46,7 @@ const testsOutput = {
   './tests/tests_from_pdf/if3.gld': '21',
   './tests/tests_from_pdf/lambda1.gld': '3',
   './tests/tests_from_pdf/lambda2.gld': '7',
-  './tests/tests_from_pdf/superior.gld': '1',
+  './tests/tests_from_pdf/superior.gld': 'true',
   './tests/new_language_if.gld': '7',
 };
 

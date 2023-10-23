@@ -1,1 +1,1 @@
-(define foo (a) ((if (a) then ((print a)(foo (- a 1))) else (404))))(foo 1)
+(define foo (a) ((if (a) then ((print (a))(foo (- a 1))) else (404)))) (if (eq? (foo 1) 404) (print (404)) (print (false)))

@@ -1,1 +1,1 @@
-((lambda (a b) (+ a b)) 1 2)
+(if (eq? ((lambda (a b) (+ a b)) 1 2) 3) print(3) print(false))

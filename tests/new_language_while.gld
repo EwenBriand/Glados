@@ -1,5 +1,8 @@
-(mutable foo 2)
-while(< foo 11) {
-    foo = (add foo 1);
+int foo = 0;
+int i = 0;
+while(i != 11) {
+    foo++;
+    foo++;
+    i++;
 }
-(print foo)
+print (foo)

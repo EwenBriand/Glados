@@ -1,1 +1,1 @@
-((lambda (a b) (+ a b)) 12 12)
+(if (eq? ((lambda (a b) (+ a b)) 12 12) 24) (print (24)) (print (12)))

@@ -1,1 +1,1 @@
-(define foo 1)(+ foo 2)
+(define foo 1)(if (eq? 3 (+ foo 2)) (print (3)) (print(false)))

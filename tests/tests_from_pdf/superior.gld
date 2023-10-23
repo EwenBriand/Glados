@@ -1,1 +1,1 @@
-(define (sup a b)(if (eq? a b) #f(if (< a b) #f #t)))(sup 10 2)
+(define (sup a b)(if (eq? a b) #f(if (< a b) #f #t))) (if (sup 10 2) (print(true)) (print(false)))

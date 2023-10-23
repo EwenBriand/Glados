@@ -1,1 +1,1 @@
-(define ok (lambda (a b) (+ a b)))(ok 12 12)
+(if (eq? (define ok (lambda (a b) (+ a b)))(ok 12 12) 24) (print 24) (print 0))
