@@ -104,6 +104,7 @@ addUnresolvedJmp name offset = do
   CodeState {..} <- get
 --   let code = codeReversed
   let codelen = P.length codeReversed
+  -- inserting (binary index of jmp, index of jmp in the instruction list)
   let newMap = Data.Map.insertWith (++) name [(offset, codelen)] unresolvedJmps
   put $ CodeState offsetInPool poolReversed codeReversed symbolsRefersed codeBinLength newMap
 
@@ -167,9 +168,6 @@ computeCodeBinaryLength m = do
 
   let txt = mconcat $ fmap (makeCodeBuilder . getInstruction) code
   P.return $ fromIntegral $ BSL.length txt
-
--- label :: MonadState CodeState m => m Label
--- label = gets (CodeRef . (* instructionSize) . fromIntegral . P.length . codeReversed)
 
 label :: (MonadState CodeState m) => m Label
 label = gets (CodeRef . fromIntegral . codeBinLength)
@@ -737,17 +735,12 @@ resolveJmps labelAddr (x : xs) = do
     where
         impl :: (MonadState CodeState m) => (CodeOffset, Int) -> m ()
         impl (jmpOffset, jmpInstrIndex) = do
-            let delta = labelAddr - (jmpOffset + 2)
+            let delta = jmpOffset
+            -- let delta = labelAddr - (jmpOffset + 2)
             code <- gets codeReversed
             let instrGen = code !! jmpInstrIndex
             let deltaAsInt = fromIntegral delta :: Int
             updateJmpInstr jmpInstrIndex deltaAsInt instrGen
-
-resolveJmpsArray :: (MonadState CodeState m) => CodeOffset -> [[(CodeOffset, Int)]] -> m ()
-resolveJmpsArray _ [] = P.return ()
-resolveJmpsArray labelAddr (x : xs) = do
-    resolveJmps labelAddr x
-    resolveJmpsArray labelAddr xs
 
 encodeLabel :: (MonadState CodeState m) => String -> m ()
 encodeLabel name = do
@@ -1067,7 +1060,7 @@ emptyJmp name opcode = do
   emit $
     RInstruction $
         byteStringToInteger . word8ArrayToByteString $
-             [opcode] ++ (removeNullPrefix . reverseArray . encodeImmediate $ delta)
+             opcode : (removeNullPrefix . reverseArray . encodeImmediate $ delta)
 
 allJmps :: (MonadState CodeState m) => Instruction -> m ()
 allJmps (Je name) = emptyJmp name 0x74
@@ -1089,7 +1082,6 @@ allJmps i = error ("unsupported instruction: " ++ show i)
 -------------------------------------------------------------------------------
 -- region Jmp
 -------------------------------------------------------------------------------
-
 
 delayResolution :: (MonadState CodeState m) => String -> m Int
 delayResolution name = do
