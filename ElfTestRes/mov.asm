@@ -17,7 +17,6 @@ call_2:
     leave
     ret
 
-
 _start:
     enter 0, 0
     call call_1

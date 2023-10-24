@@ -70,13 +70,6 @@ showDisassembly (Valid c) = do
     printInstructions (instructions c)
     printBlocks c (blocks c)
 
-addAutoExit :: Context -> Context
-addAutoExit c = c { instructions = instructions c ++ [
-    Xor (Reg EBX) (Reg EBX),
-    Mov (Reg EBX) (Reg EAX),
-    Mov (Reg EAX) (Immediate 1),
-    Interrupt]}
-
 execOnOps :: IO (ValidState Context) -> Options -> IO ()
 execOnOps ctx ops =
     if fileExecutable ops /= "" then
@@ -84,13 +77,13 @@ execOnOps ctx ops =
         c <- ctx
         case c of
             Invalid s -> putStrLn ("Context invalidated: " ++ s) >> exitWith (ExitFailure 84)
-            Valid ct -> compileInFile (addAutoExit ct) (fileExecutable ops) True
+            Valid ct -> compileInFile ct (fileExecutable ops) True
     else if compileObject ops /= "" then
         do
         c <- ctx
         case c of
             Invalid s -> putStrLn ("Context invalidated: " ++ s) >> exitWith (ExitFailure 84)
-            Valid ct -> compileInFile (ct) (compileObject ops) False
+            Valid ct -> compileInFile ct (compileObject ops) False
     else do
         c <- ctx
         if disassemble ops then

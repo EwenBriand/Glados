@@ -60,6 +60,7 @@ import Prelude as P
 import Data.Map
 import DummyLd
 import Control.Monad
+import Data.Elf.PrettyPrint (printElf, printElf_, readFileLazy)
 
 data RegisterWidth = X | W
 
@@ -276,7 +277,8 @@ assemble m = do
           -- {  ehData = ELFDATA2MSB, -- big endian
             ehOSABI = ELFOSABI_SYSV,
             ehABIVersion = 0,
-            ehType = ET_REL,
+            -- ehType = ET_REL,
+            ehType = ET_EXEC,
             ehMachine = EM_X86_64,
             ehEntry = 0,
             ehFlags = 0
@@ -429,14 +431,20 @@ movqRegImmByteArray r i =
 intToWord16 :: Int -> Word16
 intToWord16 i = fromIntegral i :: Word16
 
-encodeImmediate :: Int -> [Word8] -- Word32
+encodeImmediate :: Int -> [Word8]
 encodeImmediate n
   | n >= 0 = [fromIntegral (n `shiftR` (8 * i) .&. 0xff) | i <- [0 .. 3]]
   | otherwise = [fromIntegral n]
 
+easyPrintElf :: Elf -> IO ()
+easyPrintElf elf = do
+  doc <- printElf_ False elf
+  print doc
+
 writeElf :: FilePath -> Elf -> IO ()
 writeElf path elf = do
     e <- serializeElf elf
+    easyPrintElf elf
     BSL.writeFile path e
 
 blockToElf :: MonadCatch m => Block -> StateT CodeState m ()
@@ -447,7 +455,7 @@ blockToElf (Block name ctx _) =
             lbl <- label
             exportSymbol name lbl
             encodeEnter
-            contextToElf c False
+            contextToElfNoSelfRec c name
             encodeLeave
             encodeRetReg
 
@@ -457,28 +465,107 @@ blocksToElf bm = mapM_ (blockToElf . snd) (Data.Map.toList (blockMap bm))
 declareStart :: MonadState CodeState m => m ()
 declareStart = do
     lbl <- label
-    exportSymbol "start" lbl
+    exportSymbol "_start" lbl
+
+filterBlocksNoSelfRec :: BlockMap -> String -> BlockMap
+filterBlocksNoSelfRec bm name = BlockMap { blockMap = Data.Map.filterWithKey (\k _ -> k /= name) (blockMap bm) }
+
+contextToElfNoSelfRec :: MonadCatch m => Context -> String -> StateT CodeState m ()
+contextToElfNoSelfRec c name = do
+    blocksToElf (filterBlocksNoSelfRec (blocks c) name)
+    createElf (instructions c)
+
+getStartAddrImpl :: MonadCatch m => StateT CodeState m () -> m Int
+getStartAddrImpl st = do
+        CodeState {..} <- execStateT st (CodeState 0 [] [] [] 0 emptyUnresolvedJmps)
+        let labels = symbolsRefersed
+        let maybeStart = Data.List.find (\(s, _) -> s == "_start") labels
+        case maybeStart of
+            Just (_, l) -> case l of
+                CodeRef offset -> P.return (fromIntegral offset)
+                PoolRef _ -> error "start symbol is in the pool"
+            Nothing -> error "no start symbol found"
+
+
+getStartAddr :: MonadCatch m => StateT CodeState m () -> Bool -> m Int
+getStartAddr st isExec =
+    if isExec then do
+        getStartAddrImpl st
+    else P.return 0
+
+extractStartAddr :: [(String, Label)] -> Int
+extractStartAddr labels =
+    let maybeStart = Data.List.find (\(s, _) -> s == "_start") labels
+    in case maybeStart of
+        Just (_, l) -> case l of
+            CodeRef offset -> fromIntegral offset
+            PoolRef _ -> 0
+        Nothing -> 0
 
 contextToElf :: MonadCatch m => Context -> Bool -> StateT CodeState m ()
 contextToElf c isExec = do
     blocksToElf (blocks c)
     when isExec declareStart
     createElf (instructions c)
+    when isExec appendAutoExit
+
+    -- stAddr
+    -- where
+    --     (impl, stAddr) = do
+    --         symbols <- getSymbols
+    --         let startAddr = extractStartAddr symbols
+    --         let lsdjf = do
+    --                 blocksToElf (blocks c)
+    --                 when isExec declareStart
+    --                 createElf (instructions c)
+    --                 when isExec appendAutoExit
+    --         P.return (lsdjf, startAddr)
+
 
 createElf :: MonadCatch m => [Instruction] -> StateT CodeState m ()
 createElf = mapM_ convertOneInstruction
 
-elfExe :: MonadCatch m => Context -> m Elf
-elfExe c = assemble (contextToElf c True) P.>>= dummyLd
+appendAutoExit :: MonadState CodeState m => m ()
+appendAutoExit = mapM_ convertOneInstruction [
+    Xor (Reg EBX) (Reg EBX),
+    Mov (Reg EBX) (Reg EAX),
+    Mov (Reg EAX) (Immediate 1),
+    Interrupt]
 
-elfOFile :: MonadCatch m => [Instruction] -> m Elf
-elfOFile i = assemble (createElf i)
+-- getStartSymbolOffset :: Elf -> Int
+-- getStartSymbolOffset elf =
+
+extractEntryAddress :: MonadCatch m => StateT CodeState m () -> m Int
+extractEntryAddress st = do
+    CodeState {..} <- execStateT st (CodeState 0 [] [] [] 0 emptyUnresolvedJmps)
+    let labels = symbolsRefersed
+    let maybeStart = Data.List.find (\(s, _) -> s == "_start") labels
+    case maybeStart of
+        Just (_, l) -> case l of
+            CodeRef offset -> P.return (fromIntegral (getCodeOffset offset) :: Int)
+            PoolRef _ -> error "start symbol is in the pool"
+        Nothing -> error "no start symbol found"
+
+
+elfExe :: MonadCatch m => Context -> m Elf
+elfExe c = let
+    elf = contextToElf c True
+    in do
+        stAddr <- extractEntryAddress elf
+        assemble elf P.>>= dummyLd stAddr
+
+elfOFile :: MonadCatch m => Context -> m Elf
+elfOFile c = let
+    elf = contextToElf c False
+    in do
+        assemble elf
+
 
 compileInFile :: Context -> String -> Bool -> IO ()
 compileInFile c name exec =
   if exec
     then elfExe c P.>>=  writeElf name
-    else elfOFile (instructions c) P.>>=  writeElf name
+    else elfOFile c P.>>=  writeElf name
 
 convertOneInstruction :: MonadState CodeState m => Instruction -> m ()
 convertOneInstruction (Mov (Reg r) (Immediate i)) = mov r (intToWord16 i)
@@ -523,6 +610,7 @@ convertOneInstruction (Cmp (Memory i) (Reg r1)) = encodeCmpMemReg i r1
 convertOneInstruction (Cmp (Memory i) (Immediate imm)) = encodeCmpMemImm i imm
 convertOneInstruction (Enter) = encodeEnter
 convertOneInstruction (Leave) = encodeLeave
+convertOneInstruction (Call name) = encodeCall name
 convertOneInstruction i = allJmps i
 
 -- execAsm (Valid c) = execState (assemble (Rinstructions c)) (CodeState 0 [] [] [])
@@ -530,6 +618,20 @@ convertOneInstruction i = allJmps i
 -------------------------------------------------------------------------------
 -- Instructions opcodes
 -------------------------------------------------------------------------------
+
+-------------------------------------------------------------------------------
+
+rightFill0xff :: [Word8] -> [Word8]
+rightFill0xff xs = xs ++ P.replicate (5 - P.length xs) 0xff
+
+-- region Call
+encodeCall :: MonadState CodeState m => String -> m ()
+encodeCall name = do
+    addr <- labelNameToAddr name
+    binLen <- gets codeBinLength
+    let delta = addr - (binLen + 5)
+    emit $ RInstruction $ byteStringToInteger . word8ArrayToByteString $
+        rightFill0xff (0xe8 : (removeNullPrefix . reverseArray . encodeImmediate $ delta))
 
 -------------------------------------------------------------------------------
 -- region MOV
@@ -758,7 +860,6 @@ resolveJmps labelAddr [] = P.return ()
 resolveJmps labelAddr (x : xs) = do
     impl x
     resolveJmps labelAddr xs
-
     where
         impl :: (MonadState CodeState m) => (CodeOffset, Int) -> m ()
         impl (jmpOffset, jmpInstrIndex) = do

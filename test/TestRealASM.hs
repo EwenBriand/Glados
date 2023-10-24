@@ -42,6 +42,7 @@ import Test.HUnit
 import VM
 import ValidState
 import Prelude as P
+import System.Console.CmdArgs.GetOpt (convert)
 
 testEncodeMovqRegImm :: Test
 testEncodeMovqRegImm =
@@ -644,6 +645,36 @@ testELInASM = runRunctionalTest impl "ElfTestRes/enter_leave_expected.txt"
           convertOneInstruction (Enter)
           convertOneInstruction (Leave)
 
+testCallInASM :: Test
+testCallInASM = runRunctionalTest impl "ElfTestRes/funcCall_expected.txt"
+    where
+        impl :: IO ()
+        impl = do
+            let elf = assemble p
+            elf P.>>= writeElf ".tmp_test_output"
+            where
+                p :: MonadCatch m => StateT CodeState m ()
+                p = do
+                    convertOneInstruction (VM.Label "call_1" 0)
+                    convertOneInstruction Enter
+                    convertOneInstruction (Mov (Reg EAX) (Immediate 1))
+                    convertOneInstruction Leave
+                    convertOneInstruction Ret
+                    convertOneInstruction (VM.Label "call_2" 0)
+                    convertOneInstruction Enter
+                    convertOneInstruction (Mov (Reg EAX) (Immediate 2))
+                    convertOneInstruction Leave
+                    convertOneInstruction Ret
+                    convertOneInstruction (VM.Label "_start" 0)
+                    convertOneInstruction Enter
+                    convertOneInstruction (Call "call_1")
+                    convertOneInstruction (Call "call_2")
+                    convertOneInstruction (Xor (Reg EBX) (Reg EBX))
+                    convertOneInstruction (Mov (Reg EBX) (Reg EAX))
+                    convertOneInstruction (Mov (Reg EAX) (Immediate 1))
+                    convertOneInstruction Interrupt
+
+
 functionalASMTests :: Test
 functionalASMTests =
   TestList
@@ -672,6 +703,7 @@ functionalASMTests =
       testAndInASM,
       testNotInASM,
       testCmpInASM,
-      testJeInASM]
+      testJeInASM,
+      testCallInASM]
     --   testELInASM        -- machine dependent
     --   ]
