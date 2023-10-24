@@ -30,8 +30,6 @@ module AsmAArch64
     removeNullPrefix,
     binLengthFromRInstruction,
     word16Update2ndByte,
-    -- compileInExec,
-    -- compileInOFile
     compileInFile,
     elfOFile
   )
@@ -71,12 +69,6 @@ data SingRegisterWidth :: RegisterWidth -> Type where
 class SingRegisterWidthI (c :: RegisterWidth) where
   singRegisterWidth :: SingRegisterWidth c
 
-instance SingRegisterWidthI 'X where
-  singRegisterWidth = SX
-
-instance SingRegisterWidthI 'W where
-  singRegisterWidth = SW
-
 newtype RRegister (c :: RegisterWidth) = R Word32
 
 newtype CodeOffset = CodeOffset {getCodeOffset :: Int64} deriving (Eq, Show, Ord, Num, Enum, Real, Integral, Bits, FiniteBits)
@@ -98,7 +90,8 @@ data CodeState = CodeState
     codeReversed :: [RInstructionGen],
     symbolsRefersed :: [(String, Label)],
     codeBinLength :: Int,
-    unresolvedJmps :: Data.Map.Map String [(CodeOffset, Int)] -- Binary offset and index of the corresponding instruction
+    unresolvedJmps :: Data.Map.Map String [(CodeOffset, Int)], -- Binary offset and index of the corresponding instruction
+    unresolvedCall :: Data.Map.Map String [(CodeOffset, Int)] -- Binary offset and index of the corresponding instruction
   }
 
 emptyUnresolvedJmps :: Data.Map.Map String [(CodeOffset, Int)]
@@ -111,7 +104,7 @@ addUnresolvedJmp name offset = do
   let codelen = P.length codeReversed
   -- inserting (binary index of jmp, index of jmp in the instruction list)
   let newMap = Data.Map.insertWith (++) name [(offset, codelen)] unresolvedJmps
-  put $ CodeState offsetInPool poolReversed codeReversed symbolsRefersed codeBinLength newMap
+  put $ CodeState offsetInPool poolReversed codeReversed symbolsRefersed codeBinLength newMap unresolvedCall
 
 getUnresolvedJmps :: MonadState CodeState m => String -> m [(CodeOffset, Int)]
 getUnresolvedJmps name = do
@@ -125,7 +118,33 @@ clearUnresolvedJmps :: MonadState CodeState m => String -> m ()
 clearUnresolvedJmps name = do
   CodeState {..} <- get
   let newMap = Data.Map.delete name unresolvedJmps
-  put $ CodeState offsetInPool poolReversed codeReversed symbolsRefersed codeBinLength newMap
+  put $ CodeState offsetInPool poolReversed codeReversed symbolsRefersed codeBinLength newMap unresolvedCall
+
+emptyUnresolvedCall :: Data.Map.Map String [(CodeOffset, Int)]
+emptyUnresolvedCall = Data.Map.empty
+
+addUnresolveCall :: MonadState CodeState m => String -> CodeOffset -> m ()
+addUnresolveCall name offset = do
+  CodeState {..} <- get
+--   let code = codeReversed
+  let codelen = P.length codeReversed
+  -- inserting (binary index of jmp, index of jmp in the instruction list)
+  let newMap = Data.Map.insertWith (++) name [(offset, codelen)] unresolvedCall
+  put $ CodeState offsetInPool poolReversed codeReversed symbolsRefersed codeBinLength unresolvedJmps newMap
+
+getUnresolvedCall :: MonadState CodeState m => String -> m [(CodeOffset, Int)]
+getUnresolvedCall name = do
+  CodeState {..} <- get
+  let maybeList = Data.Map.lookup name unresolvedCall
+  case maybeList of
+    Just l -> P.return l
+    Nothing -> P.return []
+
+clearUnresolvedCall :: MonadState CodeState m => String -> m ()
+clearUnresolvedCall name = do
+  CodeState {..} <- get
+  let newMap = Data.Map.delete name unresolvedCall
+  put $ CodeState offsetInPool poolReversed codeReversed symbolsRefersed codeBinLength unresolvedJmps newMap
 
 binLengthFromInteger :: Integer -> Int
 binLengthFromInteger i = P.length $ integerToWord8Array i
@@ -160,20 +179,6 @@ emitPool a bs = state f
               }
           )
 
-computeCodeBinaryLength :: MonadCatch m => StateT CodeState m () -> m Int
-computeCodeBinaryLength m = do
-  CodeState {..} <- execStateT m (CodeState 0 [] [] [] 0 emptyUnresolvedJmps)
-  let poolOffset = instructionSize * fromIntegral (P.length codeReversed)
-      poolOffsetAligned = align 8 poolOffset
-
-      f :: (RInstructionGen, CodeOffset) -> Either String RInstruction
-      f (ff, n) = ff n poolOffsetAligned
-
-  code <- $eitherAddContext' $ mapM f $ P.zip (P.reverse codeReversed) (fmap (instructionSize *) [CodeOffset 0 ..])
-
-  let txt = mconcat $ fmap (makeCodeBuilder . getInstruction) code
-  P.return $ fromIntegral $ BSL.length txt
-
 label :: (MonadState CodeState m) => m Label
 label = gets (CodeRef . fromIntegral . codeBinLength)
 
@@ -190,23 +195,11 @@ align a n = (n + a' - 1) .&. complement (a' - 1)
 builderRepeatZero :: Int -> Builder
 builderRepeatZero n = mconcat $ P.replicate n (word8 0)
 
-b64 :: forall w. SingRegisterWidthI w => RRegister w -> Word32
-b64 _ = case singRegisterWidth @w of
-  SX -> 1
-  SW -> 0
-
 -- | C6.2.187 MOV (wide immediate)
 mov :: (MonadState CodeState m) => Register -> Word16 -> m ()
 mov r imm =
   emit $
     RInstruction $ (encodeMovqRegImm r (fromIntegral imm)) -- updated for x64
-
--- | The number can be represented with bitN bits
-isBitN :: (Num b, Bits b, Ord b) => Int -> b -> Bool
-isBitN bitN w =
-  let m = complement $ 1 `shift` bitN - 1
-      h = w .&. m
-   in if w >= 0 then h == 0 else h == m
 
 findOffset :: CodeOffset -> Label -> CodeOffset
 findOffset _poolOffset (CodeRef codeOffset) = codeOffset
@@ -241,12 +234,12 @@ makeCodeBuilder i = word8ArrayToByteString (reverseArray (integerToWord8Array i)
 
 assemble :: MonadCatch m => StateT CodeState m () -> m Elf
 assemble m = do
-  CodeState {..} <- execStateT m (CodeState 0 [] [] [] 0 emptyUnresolvedJmps)
+  CodeState {..} <- execStateT m (CodeState 0 [] [] [] 0 emptyUnresolvedJmps emptyUnresolvedCall)
 
   -- resolve txt
 
-  let poolOffset = instructionSize * fromIntegral (P.length codeReversed)
-      poolOffsetAligned = align 8 poolOffset
+  let poolOffset = instructionSize * fromIntegral (P.length codeReversed)     -- not tested
+      poolOffsetAligned = align 8 poolOffset                                  -- not tested
 
       f :: (RInstructionGen, CodeOffset) -> Either String RInstruction
       f (ff, n) = ff n poolOffsetAligned
@@ -261,7 +254,7 @@ assemble m = do
             steBind = STB_Global
             steType = STT_NoType
             steShNdx = textSecN
-            steValue = fromIntegral $ findOffset poolOffset r
+            steValue = fromIntegral $ findOffset poolOffset r        -- not tested
             steSize = 0 :: Word64
          in ElfSymbolXX {..}
 
@@ -349,53 +342,14 @@ integerToWord8Array n = reverseArray $ go n []
     go 0 acc = acc
     go m acc = go (m `shiftR` 8) (fromIntegral m : acc)
 
-inverseEndiannessInteger :: Integer -> Integer
-inverseEndiannessInteger i =
-  let bs = integerToByteString i
-      bs' = inverseEndiannessByteString bs
-   in byteStringToInteger bs'
-
-inverseEndiannessByteString :: ByteString -> ByteString
-inverseEndiannessByteString bs =
-  let w8array = BSL.unpack bs
-      w8array' = inverseEndiannessW8Array w8array
-   in BSL.pack w8array'
-
-inverseEndiannessW8 :: Word8 -> Word8
-inverseEndiannessW8 w =
-  let w1 = w `shiftR` 4
-      w2 = w .&. 0x0f
-   in w2 `shiftL` 4 .|. w1
-
-inverseEndiannessW8Array :: [Word8] -> [Word8]
-inverseEndiannessW8Array xs = P.map inverseEndiannessW8 xs
-
 reverseArray :: [a] -> [a]
 reverseArray [] = []
 reverseArray (x : xs) = reverseArray xs ++ [x]
-
-greatestPowerOf256 :: Integer -> Int
-greatestPowerOf256 n = go n 0
-  where
-    go 0 acc = acc
-    go m acc = go (m `shiftR` 8) (acc + 1)
-
-integerToByteString :: Integer -> ByteString
-integerToByteString n =
-  BSL.pack
-    ( [fromIntegral (n `shiftR` (8 * i) .&. 0xff) | i <- [0 .. greatestPowerOf256 n]]
-    )
 
 byteStringToInteger :: ByteString -> Integer
 byteStringToInteger xs =
   let w8array = reverseArray (BSL.unpack xs)
    in P.foldr (\b acc -> acc * 256 + fromIntegral b) 0 w8array
-
-byteListToStr :: [Int] -> String
-byteListToStr xs = P.foldr ((++) . show) "" xs
-
-word32FromByteList :: [Int] -> Word32
-word32FromByteList l = read (byteListToStr l) :: Word32
 
 word8ArrayToByteString :: [Word8] -> ByteString
 word8ArrayToByteString xs = P.foldr BSL.cons (BSL.pack []) xs
@@ -477,7 +431,7 @@ contextToElfNoSelfRec c name = do
 
 getStartAddrImpl :: MonadCatch m => StateT CodeState m () -> m Int
 getStartAddrImpl st = do
-        CodeState {..} <- execStateT st (CodeState 0 [] [] [] 0 emptyUnresolvedJmps)
+        CodeState {..} <- execStateT st (CodeState 0 [] [] [] 0 emptyUnresolvedJmps emptyUnresolvedCall)
         let labels = symbolsRefersed
         let maybeStart = Data.List.find (\(s, _) -> s == "_start") labels
         case maybeStart of
@@ -509,19 +463,6 @@ contextToElf c isExec = do
     createElf (instructions c)
     when isExec appendAutoExit
 
-    -- stAddr
-    -- where
-    --     (impl, stAddr) = do
-    --         symbols <- getSymbols
-    --         let startAddr = extractStartAddr symbols
-    --         let lsdjf = do
-    --                 blocksToElf (blocks c)
-    --                 when isExec declareStart
-    --                 createElf (instructions c)
-    --                 when isExec appendAutoExit
-    --         P.return (lsdjf, startAddr)
-
-
 createElf :: MonadCatch m => [Instruction] -> StateT CodeState m ()
 createElf = mapM_ convertOneInstruction
 
@@ -532,12 +473,9 @@ appendAutoExit = mapM_ convertOneInstruction [
     Mov (Reg EAX) (Immediate 1),
     Interrupt]
 
--- getStartSymbolOffset :: Elf -> Int
--- getStartSymbolOffset elf =
-
 extractEntryAddress :: MonadCatch m => StateT CodeState m () -> m Int
 extractEntryAddress st = do
-    CodeState {..} <- execStateT st (CodeState 0 [] [] [] 0 emptyUnresolvedJmps)
+    CodeState {..} <- execStateT st (CodeState 0 [] [] [] 0 emptyUnresolvedJmps emptyUnresolvedCall)
     let labels = symbolsRefersed
     let maybeStart = Data.List.find (\(s, _) -> s == "_start") labels
     case maybeStart of
@@ -560,7 +498,7 @@ elfOFile c = let
     in do
         assemble elf
 
-
+-- not tested
 compileInFile :: Context -> String -> Bool -> IO ()
 compileInFile c name exec =
   if exec
@@ -569,13 +507,13 @@ compileInFile c name exec =
 
 convertOneInstruction :: MonadState CodeState m => Instruction -> m ()
 convertOneInstruction (Mov (Reg r) (Immediate i)) = mov r (intToWord16 i)
-convertOneInstruction (Mov (Reg r) (Memory i)) = encodeMovRegMem r i
-convertOneInstruction (Mov (Memory i) (Reg r)) = encodeMovMemReg i r
+convertOneInstruction (Mov (Reg r) (Memory i)) = encodeMovRegMem r i                                                -- not tested
+convertOneInstruction (Mov (Memory i) (Reg r)) = encodeMovMemReg i r                                                -- not tested
 convertOneInstruction (Mov (Reg r1) (Reg r2)) = encodeMovRegReg r1 r2
 convertOneInstruction (Mov (Memory i) (Immediate imm)) = encodeMovMemImm i imm
-convertOneInstruction (MovPtr (Memory i) (Immediate imm)) = encodeMovMemImm i imm
-convertOneInstruction (MovPtr (Memory i) (Reg imm)) = encodeMovMemReg i imm
-convertOneInstruction (MovStackAddr (Immediate ptr) (Immediate value)) = encodeMovStackAddrImm ptr value
+convertOneInstruction (MovPtr (Memory i) (Immediate imm)) = encodeMovMemImm i imm                                   -- not tested
+convertOneInstruction (MovPtr (Memory i) (Reg imm)) = encodeMovMemReg i imm                                         -- not tested 
+convertOneInstruction (MovStackAddr (Immediate ptr) (Immediate value)) = encodeMovStackAddrImm ptr value            -- not tested 
 convertOneInstruction (MovStackAddr (Immediate ptr) (Reg reg)) = encodeMovStackAddrReg ptr reg
 convertOneInstruction (MovFromStackAddr (Reg reg) (Immediate ptr)) = encodeMovFromStackAddrReg reg ptr
 convertOneInstruction (Push (Reg r)) = encodePushReg r
@@ -605,9 +543,9 @@ convertOneInstruction (And (Reg r1) (Immediate i)) = encodeAndRegImm r1 i
 convertOneInstruction (Not (Reg r)) = encodeNotReg r
 convertOneInstruction (Cmp (Reg r1) (Reg r2)) = encodeCmpRegReg r1 r2
 convertOneInstruction (Cmp (Reg r1) (Immediate i)) = encodeCmpRegImm r1 i
-convertOneInstruction (Cmp (Reg r1) (Memory i)) = encodeCmpRegMem r1 i
-convertOneInstruction (Cmp (Memory i) (Reg r1)) = encodeCmpMemReg i r1
-convertOneInstruction (Cmp (Memory i) (Immediate imm)) = encodeCmpMemImm i imm
+convertOneInstruction (Cmp (Reg r1) (Memory i)) = encodeCmpRegMem r1 i                              -- not tested
+convertOneInstruction (Cmp (Memory i) (Reg r1)) = encodeCmpMemReg i r1                              -- not tested
+convertOneInstruction (Cmp (Memory i) (Immediate imm)) = encodeCmpMemImm i imm                      -- not tested
 convertOneInstruction (Enter) = encodeEnter
 convertOneInstruction (Leave) = encodeLeave
 convertOneInstruction (Call name) = encodeCall name
@@ -621,17 +559,50 @@ convertOneInstruction i = allJmps i
 
 -------------------------------------------------------------------------------
 
+
+-------------------------------------------------------------------------------
+-- region Call
+-------------------------------------------------------------------------------
+
+delayResolutionCall :: (MonadState CodeState m) => String -> m Int
+delayResolutionCall name = do
+    binLen <- gets codeBinLength
+    addUnresolveCall name (CodeOffset . fromIntegral $ binLen)
+    P.return (-1)
+
+findAddrFromLabelCall :: (MonadState CodeState m) => String -> [(String, Label)] -> m Int
+findAddrFromLabelCall name [] = delayResolutionCall name
+findAddrFromLabelCall name ((str, lbl) : xs)
+  | str == name = case lbl of
+    CodeRef offset -> P.return $ fromIntegral offset
+    PoolRef offset -> P.return $ fromIntegral offset
+  | otherwise = findAddrFromLabelCall name xs
+
+labelNameToAddrCall :: MonadState CodeState m => String -> m Int
+labelNameToAddrCall name = do
+    symbols <- getSymbols
+    findAddrFromLabelCall name symbols
+
+
 rightFill0xff :: [Word8] -> [Word8]
 rightFill0xff xs = xs ++ P.replicate (5 - P.length xs) 0xff
 
--- region Call
+rightFill0x00 :: [Word8] -> [Word8]
+rightFill0x00 xs = xs ++ P.replicate (5 - P.length xs) 0x00
+
 encodeCall :: MonadState CodeState m => String -> m ()
 encodeCall name = do
-    addr <- labelNameToAddr name
+    addr <- labelNameToAddrCall name
     binLen <- gets codeBinLength
-    let delta = addr - (binLen + 5)
-    emit $ RInstruction $ byteStringToInteger . word8ArrayToByteString $
-        rightFill0xff (0xe8 : (removeNullPrefix . reverseArray . encodeImmediate $ delta))
+    if addr == -1
+        then 
+          do 
+            let delta = 42 - (binLen + 5)
+            emit $ RInstruction $ byteStringToInteger . word8ArrayToByteString $ rightFill0x00 (0xe8 : (removeNullPrefix . reverseArray . encodeImmediate $ delta))
+
+        else do
+            let delta = addr - (binLen + 5)
+            emit $ RInstruction $ byteStringToInteger . word8ArrayToByteString $ rightFill0xff (0xe8 : (removeNullPrefix . reverseArray . encodeImmediate $ delta))
 
 -------------------------------------------------------------------------------
 -- region MOV
@@ -844,31 +815,36 @@ setElt n x (y : xs) = y : setElt (n - 1) x xs
 word16Update2ndByte :: Integer -> Word8 -> Integer -- the integer is assumed to be encoded on two bytes
 word16Update2ndByte i w = (i .&. 0xff00) .|. (fromIntegral w :: Integer)
 
-updateJmpInstr :: (MonadState CodeState m) => Int -> Int -> RInstructionGen -> m ()
-updateJmpInstr  instrIndex jmpDelta instrGen = do
+word16Update2ndByteCall :: Integer -> Word8 -> Integer -- the integer is assumed to be encoded on two bytes
+word16Update2ndByteCall i w = (i .&. 0xff000000) .|. (fromIntegral w :: Integer)
+
+updateJmpInstr :: (MonadState CodeState m) => Int -> Int -> RInstructionGen -> Bool -> m ()
+updateJmpInstr  instrIndex jmpDelta instrGen bool = do
     case instrGen 0 0 of
         Left err -> error err
         Right instr -> do
             let instrBin = getInstruction instr
             -- update the instruction with the offset of the jump
-            let instrBin' = word16Update2ndByte instrBin (fromIntegral jmpDelta)
+            let instrBin' = if bool 
+                  then word16Update2ndByteCall instrBin (fromIntegral 0x02)
+                  else word16Update2ndByte instrBin (fromIntegral jmpDelta)
             let instr' = (\_ _ -> Right (RInstruction instrBin'))
             modify (\s -> s {codeReversed = setElt instrIndex instr' (codeReversed s)})
 
-resolveJmps :: (MonadState CodeState m) => CodeOffset -> [(CodeOffset, Int)] -> m ()
-resolveJmps labelAddr [] = P.return ()
-resolveJmps labelAddr (x : xs) = do
-    impl x
-    resolveJmps labelAddr xs
+resolveJmps :: (MonadState CodeState m) => CodeOffset -> [(CodeOffset, Int)] -> Bool -> m ()
+resolveJmps labelAddr [] bool = P.return ()
+resolveJmps labelAddr (x : xs) bool = do
+    impl x bool
+    resolveJmps labelAddr xs bool
     where
-        impl :: (MonadState CodeState m) => (CodeOffset, Int) -> m ()
-        impl (jmpOffset, jmpInstrIndex) = do
+        impl :: (MonadState CodeState m) => (CodeOffset, Int) -> Bool -> m ()
+        impl (jmpOffset, jmpInstrIndex) bool = do
             let delta = jmpOffset
             -- let delta = labelAddr - (jmpOffset + 2)
             code <- gets codeReversed
             let instrGen = code !! jmpInstrIndex
             let deltaAsInt = fromIntegral delta :: Int
-            updateJmpInstr jmpInstrIndex deltaAsInt instrGen
+            updateJmpInstr jmpInstrIndex deltaAsInt instrGen bool
 
 encodeLabel :: (MonadState CodeState m) => String -> m ()
 encodeLabel name = do
@@ -878,8 +854,11 @@ encodeLabel name = do
         PoolRef offset -> offset
   exportSymbol name l
   unresolved <- getUnresolvedJmps name
-  resolveJmps labelAddr unresolved
+  resolveJmps labelAddr unresolved False
   clearUnresolvedJmps name
+  unresolved <- getUnresolvedCall name
+  resolveJmps labelAddr unresolved True
+  clearUnresolvedCall name
 
 
 -- add reg -> im ok and reg -> reg ok
