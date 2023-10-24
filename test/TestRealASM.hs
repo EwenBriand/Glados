@@ -672,6 +672,6 @@ functionalASMTests =
       testAndInASM,
       testNotInASM,
       testCmpInASM,
-      testJeInASM,
-      testELInASM
-      ]
+      testJeInASM]
+    --   testELInASM        -- machine dependent
+    --   ]

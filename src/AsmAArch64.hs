@@ -8,6 +8,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE BlockArguments #-}
 
 module AsmAArch64
   ( CodeState (..),
@@ -31,7 +32,8 @@ module AsmAArch64
     word16Update2ndByte,
     -- compileInExec,
     -- compileInOFile
-    compileInFile
+    compileInFile,
+    elfOFile
   )
 where
 
@@ -57,6 +59,7 @@ import ValidState
 import Prelude as P
 import Data.Map
 import DummyLd
+import Control.Monad
 
 data RegisterWidth = X | W
 
@@ -436,23 +439,46 @@ writeElf path elf = do
     e <- serializeElf elf
     BSL.writeFile path e
 
-createElf :: MonadCatch m => [Instruction] -> StateT CodeState m ()
-createElf [i] =  convertOneInstruction i
-createElf (i : is) = do
-  convertOneInstruction i
-  createElf is
+blockToElf :: MonadCatch m => Block -> StateT CodeState m ()
+blockToElf (Block name ctx _) =
+    case ctx of
+        Invalid s -> error s
+        Valid c -> do
+            lbl <- label
+            exportSymbol name lbl
+            encodeEnter
+            contextToElf c False
+            encodeLeave
+            encodeRetReg
 
-elfExe :: MonadCatch m => [Instruction] -> m Elf
-elfExe i = assemble (createElf i) P.>>= dummyLd
+blocksToElf :: MonadCatch m => BlockMap -> StateT CodeState m ()
+blocksToElf bm = mapM_ (blockToElf . snd) (Data.Map.toList (blockMap bm))
+
+declareStart :: MonadState CodeState m => m ()
+declareStart = do
+    lbl <- label
+    exportSymbol "start" lbl
+
+contextToElf :: MonadCatch m => Context -> Bool -> StateT CodeState m ()
+contextToElf c isExec = do
+    blocksToElf (blocks c)
+    when isExec declareStart
+    createElf (instructions c)
+
+createElf :: MonadCatch m => [Instruction] -> StateT CodeState m ()
+createElf = mapM_ convertOneInstruction
+
+elfExe :: MonadCatch m => Context -> m Elf
+elfExe c = assemble (contextToElf c True) P.>>= dummyLd
 
 elfOFile :: MonadCatch m => [Instruction] -> m Elf
 elfOFile i = assemble (createElf i)
 
-compileInFile :: [Instruction] -> String -> Bool -> IO ()
-compileInFile instructions name exec=
-  if exec 
-    then elfExe instructions P.>>=  writeElf name 
-    else elfOFile instructions P.>>=  writeElf name
+compileInFile :: Context -> String -> Bool -> IO ()
+compileInFile c name exec =
+  if exec
+    then elfExe c P.>>=  writeElf name
+    else elfOFile (instructions c) P.>>=  writeElf name
 
 convertOneInstruction :: MonadState CodeState m => Instruction -> m ()
 convertOneInstruction (Mov (Reg r) (Immediate i)) = mov r (intToWord16 i)
