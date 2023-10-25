@@ -703,6 +703,31 @@ testFCallInASM = runRunctionalTest impl "ElfTestRes/Forward_FuncCall_expected.tx
                     convertOneInstruction Leave
                     convertOneInstruction Ret
 
+testXorMovGhostLimb :: Test
+testXorMovGhostLimb = runRunctionalTest impl "ElfTestRes/ghostLimb_expected.txt"
+    where
+        impl :: IO ()
+        impl = do
+            let elf = assemble p
+            elf P.>>= writeElf ".tmp_test_output"
+            where
+                p :: MonadCatch m => StateT CodeState m ()
+                p = do
+                        convertOneInstruction (Enter)
+                        convertOneInstruction (Xor (Reg EAX) (Reg EAX))
+                        convertOneInstruction (Mov (Reg EAX) (Immediate 1))
+                        convertOneInstruction (Cmp (Reg EAX) (Immediate 1))
+                        convertOneInstruction (Cmp (Reg EAX) (Immediate 1))
+                        convertOneInstruction (Jne "_0else")
+                        convertOneInstruction (VM.Label "_0else" 9)
+                        -- convertOneInstruction (VM.Label "_0then" 6)
+                        -- convertOneInstruction (Xor (Reg EAX) (Reg EAX))
+                        -- convertOneInstruction (Mov (Reg EAX) (Immediate 2))
+                        -- convertOneInstruction (Jmp "_0end")
+                        -- convertOneInstruction (Xor (Reg EAX) (Reg EAX))
+                        -- convertOneInstruction (Mov (Reg EAX) (Immediate 3))
+                        -- convertOneInstruction (VM.Label "_0end" 13)
+
 
 functionalASMTests :: Test
 functionalASMTests =
@@ -736,3 +761,4 @@ functionalASMTests =
     --   testCallInASM,      -- machine dependent
     --   testFCallInASM,     -- machine dependent
       testJeInASM]
+    --   testXorMovGhostLimb]

@@ -17,7 +17,6 @@ module AsmAArch64
     RInstructionGen,
     RInstruction (..),
     emit,
-    mov,
     ascii,
     label,
     exportSymbol,
@@ -198,12 +197,6 @@ align a n = (n + a' - 1) .&. complement (a' - 1)
 
 builderRepeatZero :: Int -> Builder
 builderRepeatZero n = mconcat $ P.replicate n (word8 0)
-
--- | C6.2.187 MOV (wide immediate)
-mov :: (MonadState CodeState m) => Register -> Word16 -> m ()
-mov r imm =
-  emit $
-    RInstruction $ (encodeMovqRegImm r (fromIntegral imm)) -- updated for x64
 
 findOffset :: CodeOffset -> Label -> CodeOffset
 findOffset _poolOffset (CodeRef codeOffset) = codeOffset
@@ -517,7 +510,7 @@ compileInFile c name exec =
     else elfOFile c P.>>=  writeElf name
 
 convertOneInstruction :: MonadState CodeState m => Instruction -> m ()
-convertOneInstruction (Mov (Reg r) (Immediate i)) = mov r (intToWord16 i)
+convertOneInstruction (Mov (Reg r) (Immediate i)) = encodeMovRegImm r i
 convertOneInstruction (Mov (Reg r) (Memory i)) = encodeMovRegMem r i                                                -- not tested
 convertOneInstruction (Mov (Memory i) (Reg r)) = encodeMovMemReg i r                                                -- not tested
 convertOneInstruction (Mov (Reg r1) (Reg r2)) = encodeMovRegReg r1 r2
@@ -640,6 +633,19 @@ encodeMovrmandmrBasis opcode r i =
     rr ESI = [0x34]
     rr EDI = [0x3c]
     rr _ = error ("unsupported register in mov instruction: " ++ show r)
+
+fillRightByte :: [Word8] -> Word8 -> Int -> [Word8]
+fillRightByte fillme fillWith n = fillme ++ P.replicate (n - P.length fillme) fillWith
+
+encodeMovRegImm :: (MonadState CodeState m) => Register -> Int -> m ()
+encodeMovRegImm r i =
+  emit $
+    RInstruction $
+      byteStringToInteger
+        ( word8ArrayToByteString
+            ( [0xb8 + registerCode r] ++ reverseArray (fillRightByte (reverseArray (encodeImmediate i)) 0 4)
+            )
+        )
 
 -- mov reg, mem
 encodeMovRegMem :: (MonadState CodeState m) => Register -> Int -> m ()
