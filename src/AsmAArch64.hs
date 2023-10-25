@@ -405,14 +405,21 @@ writeElf path elf = do
     easyPrintElf elf
     BSL.writeFile path e
 
+paramsRegisters = [EDI, ESI, EDX, ECX]
+
+passParamsToStack :: (MonadState CodeState m) => [a] -> m ()
+passParamsToStack argTypes = let params = reverseArray (P.zip paramsRegisters argTypes) in
+    mapM_ (\(reg, _) -> encodePushReg reg ) params
+
 blockToElf :: MonadCatch m => Block -> StateT CodeState m ()
-blockToElf (Block name ctx _) =
+blockToElf (Block name ctx argtypes) =
     case ctx of
         Invalid s -> error s
         Valid c -> do
             lbl <- label
             exportSymbol name lbl
             encodeEnter
+            passParamsToStack argtypes
             contextToElfNoSelfRec c name
             encodeLeave
             encodeRetReg
@@ -498,7 +505,7 @@ elfExe c = let
 
 elfOFile :: MonadCatch m => Context -> m Elf
 elfOFile c = let
-    elf = contextToElf c False
+    elf = contextToElf c True
     in do
         assemble elf
 
@@ -713,20 +720,31 @@ encodeMovFromStackAddrReg reg mem =
     RInstruction $
       byteStringToInteger
         ( word8ArrayToByteString
-            ( [0x8b, rr reg, 0x24] ++ removeNullPrefix (reverseArray (encodeImmediate mem))
-            )
+            ([0x8b, rr reg] ++ removeNullPrefix (reverseArray (encodeImmediate (-(1 + mem) * 8))))
         )
-  where
-    rr :: Register -> Word8
-    rr EAX = 0x44
-    rr ECX = 0x4c
-    rr EDX = 0x54
-    rr EBX = 0x5c
-    rr ESP = 0x64
-    rr EBP = 0x6c
-    rr ESI = 0x74
-    rr EDI = 0x7c
-    rr r = error ("unsupported register in mov instruction: " ++ show r)
+        where
+            rr :: Register -> Word8
+            rr EAX = 0x45
+            rr ECX = 0x4d
+            rr EDX = 0x55
+            rr EBX = 0x5d
+            rr ESP = 0x65
+            rr EBP = 0x6d
+            rr ESI = 0x75
+            rr EDI = 0x7d
+            rr r = error ("Unsuported registers in mov instruction: " ++ show r)
+
+--   where
+--     rr :: Register -> Word8
+--     rr EAX = 0x44
+--     rr ECX = 0x4c
+--     rr EDX = 0x54
+--     rr EBX = 0x5c
+--     rr ESP = 0x64
+--     rr EBP = 0x6c
+--     rr ESI = 0x74
+--     rr EDI = 0x7c
+--     rr r = error ("unsupported register in mov instruction: " ++ show r)
 
 -------------------------------------------------------------------------------
 -- region Push
