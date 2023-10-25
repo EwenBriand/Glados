@@ -142,14 +142,14 @@ testEncodeMovFromStackAddr = do
   where
     p :: MonadCatch m => StateT CodeState m ()
     p = do
-      convertOneInstruction (MovFromStackAddr (Reg EAX) (Immediate 42))
-      convertOneInstruction (MovFromStackAddr (Reg ECX) (Immediate 42))
-      convertOneInstruction (MovFromStackAddr (Reg EDX) (Immediate 42))
-      convertOneInstruction (MovFromStackAddr (Reg EBX) (Immediate 42))
-      convertOneInstruction (MovFromStackAddr (Reg ESP) (Immediate 42))
-      convertOneInstruction (MovFromStackAddr (Reg EBP) (Immediate 42))
-      convertOneInstruction (MovFromStackAddr (Reg ESI) (Immediate 42))
-      convertOneInstruction (MovFromStackAddr (Reg EDI) (Immediate 42))
+      convertOneInstruction (MovFromStackAddr (Reg EAX) (Immediate 1))
+      convertOneInstruction (MovFromStackAddr (Reg ECX) (Immediate 1))
+      convertOneInstruction (MovFromStackAddr (Reg EDX) (Immediate 1))
+      convertOneInstruction (MovFromStackAddr (Reg EBX) (Immediate 1))
+      convertOneInstruction (MovFromStackAddr (Reg ESP) (Immediate 1))
+      convertOneInstruction (MovFromStackAddr (Reg EBP) (Immediate 1))
+      convertOneInstruction (MovFromStackAddr (Reg ESI) (Immediate 1))
+      convertOneInstruction (MovFromStackAddr (Reg EDI) (Immediate 1))
 
 runRunctionalTest :: IO () -> String -> Test
 runRunctionalTest func path = TestCase $ do
