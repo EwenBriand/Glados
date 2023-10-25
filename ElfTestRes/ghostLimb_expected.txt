@@ -1,0 +1,13 @@
+
+mov.o:     file format elf64-x86-64
+
+
+Disassembly of section .text:
+
+0000000000000000 <_0else-0x13>:
+   0:	c8 00 00 00          	enter  $0x0,$0x0
+   4:	31 c0                	xor    %eax,%eax
+   6:	b8 01 00 00 00       	mov    $0x1,%eax
+   b:	83 f8 01             	cmp    $0x1,%eax
+   e:	83 f8 01             	cmp    $0x1,%eax
+  11:	75 00                	jne    13 <_0else>

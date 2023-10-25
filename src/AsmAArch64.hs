@@ -100,10 +100,8 @@ emptyUnresolvedJmps = Data.Map.empty
 addUnresolvedJmp :: MonadState CodeState m => String -> CodeOffset -> m ()
 addUnresolvedJmp name offset = do
   CodeState {..} <- get
---   let code = codeReversed
   let codelen = P.length codeReversed
-  -- inserting (binary index of jmp, index of jmp in the instruction list)
-  let newMap = Data.Map.insertWith (++) name [(offset, codelen)] unresolvedJmps
+  let newMap = Data.Map.insertWith (++) name [(offset, codelen)] unresolvedJmps -- triple checked, these values are OK
   put $ CodeState offsetInPool poolReversed codeReversed symbolsRefersed codeBinLength newMap unresolvedCall
 
 getUnresolvedJmps :: MonadState CodeState m => String -> m [(CodeOffset, Int)]
@@ -126,12 +124,7 @@ emptyUnresolvedCall = Data.Map.empty
 addUnresolveCall :: MonadState CodeState m => String -> CodeOffset -> m ()
 addUnresolveCall name offset = do
   CodeState {..} <- get
---   let code = codeReversed
   let codelen = P.length codeReversed
-  -- case False of
-  --   True -> P.return ()
-  --   False -> error ("in add call len is " ++ show codelen ++ " offset is " ++ show offset ++ " name is " ++ name)
-  -- inserting (binary index of jmp, index of jmp in the instruction list)
   let newMap = Data.Map.insertWith (++) name [(offset, codelen)] unresolvedCall
   put $ CodeState offsetInPool poolReversed codeReversed symbolsRefersed codeBinLength unresolvedJmps newMap
 
@@ -351,6 +344,9 @@ byteStringToInteger xs =
 word8ArrayToByteString :: [Word8] -> ByteString
 word8ArrayToByteString xs = P.foldr BSL.cons (BSL.pack []) xs
 
+word8ArrayToInteger :: [Word8] -> Integer
+word8ArrayToInteger xs = byteStringToInteger (word8ArrayToByteString xs)
+
 registerCode :: Register -> Word8
 registerCode EAX = 0x00
 registerCode ECX = 0x01
@@ -536,7 +532,7 @@ convertOneInstruction (Inc r) = encodeIncReg r
 convertOneInstruction (Dec r) = encodeDecReg r
 convertOneInstruction (Neg r) = encodeNegReg r
 convertOneInstruction (Div (Reg r)) = encodeDivReg r
-convertOneInstruction (Mult (Reg r) (Reg r2)) = encodeMultReg r
+convertOneInstruction (Mult (Reg r) (Reg r2)) = encodeMultReg r2
 convertOneInstruction (Jmp name) = encodeJmp name
 convertOneInstruction (Ret) = encodeRetReg
 convertOneInstruction (Interrupt) = encodeInterrupt
@@ -845,22 +841,21 @@ setElt 0 x (_ : xs) = x : xs
 setElt n x (y : xs) = y : setElt (n - 1) x xs
 
 word16Update2ndByte :: Integer -> Word8 -> Integer -- the integer is assumed to be encoded on two bytes
-word16Update2ndByte i w = (i .&. 0xff00) .|. (fromIntegral w :: Integer)
+word16Update2ndByte i w = if (i .&. 0x00ff) == 0 then i else
+    (i .&. 0xff00) .|. (fromIntegral w :: Integer)
 
 word16Update2ndByteCall :: Integer -> Word8 -> Integer -- the integer is assumed to be encoded on two bytes
 word16Update2ndByteCall i w = (i .&. 0xff00000000) .|. (fromIntegral w `shiftL` 24 :: Integer)
 
 updateJmpInstr :: (MonadState CodeState m) => Int -> Int -> RInstructionGen -> Bool -> m ()
-updateJmpInstr  instrIndex jmpDelta instrGen call = do
+updateJmpInstr instrIndex jmpDelta instrGen call = do
     case instrGen 0 0 of
         Left err -> error err
         Right instr -> do
             let instrBin = getInstruction instr
-
             let instrBin' = if call
                   then word16Update2ndByteCall instrBin (fromIntegral jmpDelta)
                   else word16Update2ndByte instrBin (fromIntegral jmpDelta)
-
             let instr' = (\_ _ -> Right (RInstruction instrBin'))
             modify (\s -> s {codeReversed = setElt instrIndex instr' (codeReversed s)})
 
@@ -883,16 +878,19 @@ resolveJmps labelAddr (x : xs) bool = do
         impl :: (MonadState CodeState m) => (CodeOffset, Int) -> Bool -> m ()
         impl (jmpOffset, jmpInstrIndex') call = do
             code <- gets codeReversed
-
+            let codeLen = P.length code
             let delta = if call
-                        then ((findLabelOffset code) - jmpInstrIndex' - 1)
-                        else fromIntegral jmpOffset :: Int
+                        then ((findLabelOffset code) - jmpInstrIndex' - 1) -- solve call
+                        -- else fromIntegral jmpOffset :: Int                 -- solve jmp
+                        else (fromIntegral labelAddr - fromIntegral jmpOffset - 2) :: Int
             let jmpInstrIndex = if call
-                              then (P.length code - 1 - jmpInstrIndex')
+                              then (P.length code - 1 - jmpInstrIndex')    -- solve call
                               else jmpInstrIndex'
-
-            let instrGen = code !! jmpInstrIndex
-            updateJmpInstr jmpInstrIndex delta instrGen bool
+            let jmpInstrIndex'' = codeLen - jmpInstrIndex - 1
+            let instrGen = code !! jmpInstrIndex''
+            updateJmpInstr jmpInstrIndex'' delta instrGen call
+            -- updateJmpInstr jmpInstrIndex delta instrGen call
+            -- updateJmpInstr jmpInstrIndex delta instrGen call
 
 encodeLabel :: (MonadState CodeState m) => String -> m ()
 encodeLabel name = do
@@ -904,8 +902,8 @@ encodeLabel name = do
   unresolved <- getUnresolvedJmps name
   resolveJmps labelAddr unresolved False
   clearUnresolvedJmps name
-  unresolved <- getUnresolvedCall name
-  resolveJmps labelAddr unresolved True
+  unresolvedC <- getUnresolvedCall name
+  resolveJmps labelAddr unresolvedC True
   clearUnresolvedCall name
 
 
@@ -1240,7 +1238,7 @@ allJmps i = error ("unsupported instruction: " ++ show i)
 
 delayResolution :: (MonadState CodeState m) => String -> m Int
 delayResolution name = do
-    binLen <- gets codeBinLength
+    binLen <- gets codeBinLength -- this is the index of jmp in the binary, I triple checked
     addUnresolvedJmp name (CodeOffset . fromIntegral $ binLen)
     P.return 42
 

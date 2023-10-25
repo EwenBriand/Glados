@@ -719,7 +719,7 @@ testXorMovGhostLimb = runRunctionalTest impl "ElfTestRes/ghostLimb_expected.txt"
                         convertOneInstruction (Cmp (Reg EAX) (Immediate 1))
                         convertOneInstruction (Cmp (Reg EAX) (Immediate 1))
                         convertOneInstruction (Jne "_0else")
-                        convertOneInstruction (VM.Label "_0else" 9)
+                        convertOneInstruction (VM.Label "_0else" 0)
                         -- convertOneInstruction (VM.Label "_0then" 6)
                         -- convertOneInstruction (Xor (Reg EAX) (Reg EAX))
                         -- convertOneInstruction (Mov (Reg EAX) (Immediate 2))
@@ -760,5 +760,5 @@ functionalASMTests =
     --   testELInASM,        -- machine dependent
     --   testCallInASM,      -- machine dependent
     --   testFCallInASM,     -- machine dependent
-      testJeInASM]
-    --   testXorMovGhostLimb]
+      testJeInASM,
+      testXorMovGhostLimb]
