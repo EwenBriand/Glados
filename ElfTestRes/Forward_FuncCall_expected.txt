@@ -1,0 +1,26 @@
+
+ElfTestRes/mov.o:     file format elf64-x86-64
+
+
+Disassembly of section .text:
+
+0000000000000000 <_start>:
+   0:	c8 00 00 00          	enterq $0x0,$0x0
+   4:	e8 10 00 00 00       	callq  19 <call_1>
+   9:	e8 16 00 00 00       	callq  24 <call_2>
+   e:	31 db                	xor    %ebx,%ebx
+  10:	89 c3                	mov    %eax,%ebx
+  12:	b8 01 00 00 00       	mov    $0x1,%eax
+  17:	cd 80                	int    $0x80
+
+0000000000000019 <call_1>:
+  19:	c8 00 00 00          	enterq $0x0,$0x0
+  1d:	b8 01 00 00 00       	mov    $0x1,%eax
+  22:	c9                   	leaveq 
+  23:	c3                   	retq   
+
+0000000000000024 <call_2>:
+  24:	c8 00 00 00          	enterq $0x0,$0x0
+  28:	b8 02 00 00 00       	mov    $0x2,%eax
+  2d:	c9                   	leaveq 
+  2e:	c3                   	retq   

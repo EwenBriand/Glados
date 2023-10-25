@@ -674,6 +674,35 @@ testCallInASM = runRunctionalTest impl "ElfTestRes/funcCall_expected.txt"
                     convertOneInstruction (Mov (Reg EAX) (Immediate 1))
                     convertOneInstruction Interrupt
 
+testFCallInASM :: Test
+testFCallInASM = runRunctionalTest impl "ElfTestRes/Forward_FuncCall_expected.txt"
+    where
+        impl :: IO ()
+        impl = do
+            let elf = assemble p
+            elf P.>>= writeElf ".tmp_test_output"
+            where
+                p :: MonadCatch m => StateT CodeState m ()
+                p = do
+                    convertOneInstruction (VM.Label "_start" 0)
+                    convertOneInstruction Enter
+                    convertOneInstruction (Call "call_1")
+                    convertOneInstruction (Call "call_2")
+                    convertOneInstruction (Xor (Reg EBX) (Reg EBX))
+                    convertOneInstruction (Mov (Reg EBX) (Reg EAX))
+                    convertOneInstruction (Mov (Reg EAX) (Immediate 1))
+                    convertOneInstruction Interrupt
+                    convertOneInstruction (VM.Label "call_1" 0)
+                    convertOneInstruction Enter
+                    convertOneInstruction (Mov (Reg EAX) (Immediate 1))
+                    convertOneInstruction Leave
+                    convertOneInstruction Ret
+                    convertOneInstruction (VM.Label "call_2" 0)
+                    convertOneInstruction Enter
+                    convertOneInstruction (Mov (Reg EAX) (Immediate 2))
+                    convertOneInstruction Leave
+                    convertOneInstruction Ret
+
 
 functionalASMTests :: Test
 functionalASMTests =
@@ -681,11 +710,11 @@ functionalASMTests =
     [ testRunStackAddr,
       testRunMovRegReg,
       testRunMovFromStackAddr,
-    --   testPushReg,       __ machine dependent
-    --   testPushImm,       __ machine dependent
-    --   testPushMem,       __ machine dependent
-    --   testPopReg,        __ machine dependent
-    --   testPopMem,        __ machine dependent
+    --   testPushReg,       -- machine dependent
+    --   testPushImm,       -- machine dependent
+    --   testPushMem,       -- machine dependent
+    --   testPopReg,        -- machine dependent
+    --   testPopMem,        -- machine dependent
       testXorRegReg,
       testXorRegImm,
       testLabelInASM,
@@ -697,13 +726,13 @@ functionalASMTests =
       testDivInASM,
       testMulInASM,
       testJmpInASM,
-    --   testRetInASM,      -- machine dependent
+    --   testRetInASM,       -- machine dependent
       testIntInASM,
       testOrInASM,
       testAndInASM,
       testNotInASM,
       testCmpInASM,
-      testJeInASM,
-      testCallInASM]
-    --   testELInASM        -- machine dependent
-    --   ]
+    --   testELInASM,        -- machine dependent
+    --   testCallInASM,      -- machine dependent
+    --   testFCallInASM,     -- machine dependent
+      testJeInASM]
