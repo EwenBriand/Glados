@@ -71,7 +71,7 @@ showDisassembly (Valid c) = do
     printBlocks c (blocks c)
 
 execOnOps :: IO (ValidState Context) -> Options -> IO ()
-execOnOps ctx ops =
+execOnOps ctx ops = do
     if fileExecutable ops /= "" then
         do
         c <- ctx
@@ -84,18 +84,19 @@ execOnOps ctx ops =
         case c of
             Invalid s -> putStrLn ("Context invalidated: " ++ s) >> exitWith (ExitFailure 84)
             Valid ct -> compileInFile ct (compileObject ops) False
-    else do
-        c <- ctx
-        if disassemble ops then
-            showDisassembly c
-        else
-            putStr ""
-        if execute ops then
-            execImpl c
-        else putStr ""
-        if outputFile ops /= "" then
-            saveContext c (outputFile ops)
-        else putStr ""
+    else
+        putStr ""
+    c <- ctx
+    if disassemble ops then
+        showDisassembly c
+    else
+        putStr ""
+    if execute ops then
+        execImpl c
+    else putStr ""
+    if outputFile ops /= "" then
+        saveContext c (outputFile ops)
+    else putStr ""
 
 
 switchOnOptions :: Options -> IO ()

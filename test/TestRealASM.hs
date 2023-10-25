@@ -113,8 +113,8 @@ testmovOpcodeCombineRegReg =
 
 dummyProgramMovStackAddr :: MonadCatch m => StateT CodeState m ()
 dummyProgramMovStackAddr = do
-  convertOneInstruction (MovStackAddr (Immediate 42) (Reg EDI))
-  convertOneInstruction (MovStackAddr (Immediate 100) (Reg ESI)) --  89 b4 24 dc 51 0b 00
+  convertOneInstruction (MovStackAddr (Immediate 0) (Reg EAX))
+  convertOneInstruction (MovStackAddr (Immediate 1) (Reg EAX)) --  89 b4 24 dc 51 0b 00
 
 testEncodeMovStackAddrImpl :: IO ()
 testEncodeMovStackAddrImpl = do

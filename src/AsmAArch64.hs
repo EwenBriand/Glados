@@ -519,8 +519,8 @@ convertOneInstruction (Mov (Memory i) (Reg r)) = encodeMovMemReg i r            
 convertOneInstruction (Mov (Reg r1) (Reg r2)) = encodeMovRegReg r1 r2
 convertOneInstruction (Mov (Memory i) (Immediate imm)) = encodeMovMemImm i imm
 convertOneInstruction (MovPtr (Memory i) (Immediate imm)) = encodeMovMemImm i imm                                   -- not tested
-convertOneInstruction (MovPtr (Memory i) (Reg imm)) = encodeMovMemReg i imm                                         -- not tested 
-convertOneInstruction (MovStackAddr (Immediate ptr) (Immediate value)) = encodeMovStackAddrImm ptr value            -- not tested 
+convertOneInstruction (MovPtr (Memory i) (Reg imm)) = encodeMovMemReg i imm                                         -- not tested
+convertOneInstruction (MovStackAddr (Immediate ptr) (Immediate value)) = encodeMovStackAddrImm ptr value            -- not tested
 convertOneInstruction (MovStackAddr (Immediate ptr) (Reg reg)) = encodeMovStackAddrReg ptr reg
 convertOneInstruction (MovFromStackAddr (Reg reg) (Immediate ptr)) = encodeMovFromStackAddrReg reg ptr
 convertOneInstruction (Push (Reg r)) = encodePushReg r
@@ -602,8 +602,8 @@ encodeCall name = do
     addr <- labelNameToAddrCall name
     binLen <- gets codeBinLength
     if addr == -1
-        then 
-          do 
+        then
+          do
             let delta = 42 - (binLen + 5)
             emit $ RInstruction $ byteStringToInteger . word8ArrayToByteString $ rightFill0x00 (0xe8 : (removeNullPrefix . reverseArray . encodeImmediate $ delta))
 
@@ -681,9 +681,11 @@ encodeMovStackAddrImm mem imm =
     RInstruction $
       byteStringToInteger
         ( word8ArrayToByteString
-            ( [0xc7, 0x44, 0x24] ++ encodeImmediate mem ++ encodeImmediate imm
+            -- ( [0xc7, 0x44, 0x24] ++ encodeImmediate (mem) ++ encodeImmediate imm
+            ( [0xc7, 0x6d] ++ encodeImmediate (-(1 + mem) * 8) ++ encodeImmediate imm
             )
         )
+
 
 removeNullPrefix :: [Word8] -> [Word8]
 removeNullPrefix [] = []
@@ -695,20 +697,20 @@ encodeMovStackAddrReg mem reg =
     RInstruction $
       byteStringToInteger
         ( word8ArrayToByteString
-            ( [0x89, rr reg, 0x24] ++ removeNullPrefix (reverseArray (encodeImmediate mem))
-            )
+            ( [0x89, rr reg] ++ removeNullPrefix (reverseArray (encodeImmediate (-(1 + mem) * 8))))
+            -- ( [0x89, rr reg, 0x24] ++ removeNullPrefix (reverseArray (encodeImmediate mem))
         )
   where
     rr :: Register -> Word8
-    rr EAX = 0x44
-    rr ECX = 0x4c
-    rr EDX = 0x54
-    rr EBX = 0x5c
-    rr ESP = 0x64
-    rr EBP = 0x6c
-    rr ESI = 0x74
-    rr EDI = 0x7c
-    rr r = error ("unsupported register in mov instruction: " ++ show r)
+    rr EAX = 0x45
+    rr ECX = 0x4d
+    rr EDX = 0x55
+    rr EBX = 0x5d
+    rr ESP = 0x65
+    rr EBP = 0x6d
+    rr ESI = 0x75
+    rr EDI = 0x7d
+    rr r = error ("Unsuported registers in mov instruction: " ++ show r)
 
 encodeMovFromStackAddrReg :: (MonadState CodeState m) => Register -> Int -> m ()
 encodeMovFromStackAddrReg reg mem =
@@ -761,8 +763,10 @@ encodePushImm imm =
     RInstruction $
       byteStringToInteger
         ( word8ArrayToByteString
-            (0x6a : removeNullPrefix (reverseArray (encodeImmediate imm)))
+            (0x6a : is)
         )
+    where
+        is = if imm == 0 then [0x0] else removeNullPrefix (reverseArray (encodeImmediate imm))
 
 -- push [42]
 -- push [register] is not used by our compiler
@@ -843,7 +847,7 @@ updateJmpInstr  instrIndex jmpDelta instrGen bool = do
         Right instr -> do
             let instrBin = getInstruction instr
             -- update the instruction with the offset of the jump
-            let instrBin' = if bool 
+            let instrBin' = if bool
                   then word16Update2ndByteCall instrBin (fromIntegral 0x02)
                   else word16Update2ndByte instrBin (fromIntegral jmpDelta)
             let instr' = (\_ _ -> Right (RInstruction instrBin'))
