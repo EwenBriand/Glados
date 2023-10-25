@@ -35,6 +35,7 @@ module AsmAArch64
   )
 where
 
+import Numeric (showHex)
 import Control.Exception.ChainedException
 import Control.Monad.Catch
 import Control.Monad.State as MS
@@ -128,6 +129,9 @@ addUnresolveCall name offset = do
   CodeState {..} <- get
 --   let code = codeReversed
   let codelen = P.length codeReversed
+  -- case False of
+  --   True -> P.return ()
+  --   False -> error ("in add call len is " ++ show codelen ++ " offset is " ++ show offset ++ " name is " ++ name)
   -- inserting (binary index of jmp, index of jmp in the instruction list)
   let newMap = Data.Map.insertWith (++) name [(offset, codelen)] unresolvedCall
   put $ CodeState offsetInPool poolReversed codeReversed symbolsRefersed codeBinLength unresolvedJmps newMap
@@ -604,7 +608,7 @@ encodeCall name = do
     if addr == -1
         then
           do
-            let delta = 42 - (binLen + 5)
+            let delta = 47 - (binLen + 5)
             emit $ RInstruction $ byteStringToInteger . word8ArrayToByteString $ rightFill0x00 (0xe8 : (removeNullPrefix . reverseArray . encodeImmediate $ delta))
 
         else do
@@ -838,20 +842,31 @@ word16Update2ndByte :: Integer -> Word8 -> Integer -- the integer is assumed to 
 word16Update2ndByte i w = (i .&. 0xff00) .|. (fromIntegral w :: Integer)
 
 word16Update2ndByteCall :: Integer -> Word8 -> Integer -- the integer is assumed to be encoded on two bytes
-word16Update2ndByteCall i w = (i .&. 0xff000000) .|. (fromIntegral w :: Integer)
+word16Update2ndByteCall i w = (i .&. 0xff00000000) .|. (fromIntegral w `shiftL` 24 :: Integer)
 
 updateJmpInstr :: (MonadState CodeState m) => Int -> Int -> RInstructionGen -> Bool -> m ()
-updateJmpInstr  instrIndex jmpDelta instrGen bool = do
+updateJmpInstr  instrIndex jmpDelta instrGen call = do
     case instrGen 0 0 of
         Left err -> error err
         Right instr -> do
             let instrBin = getInstruction instr
-            -- update the instruction with the offset of the jump
-            let instrBin' = if bool
-                  then word16Update2ndByteCall instrBin (fromIntegral 0x02)
+
+            let instrBin' = if call
+                  then word16Update2ndByteCall instrBin (fromIntegral jmpDelta)
                   else word16Update2ndByte instrBin (fromIntegral jmpDelta)
+
             let instr' = (\_ _ -> Right (RInstruction instrBin'))
             modify (\s -> s {codeReversed = setElt instrIndex instr' (codeReversed s)})
+
+hexLength :: Integer -> Int
+hexLength n = P.length hexStr `div` 2 - 1
+  where hexStr = showHex n ""
+
+findLabelOffset :: [RInstructionGen] -> Int
+findLabelOffset [] = 0
+findLabelOffset (x : xs) = case x 0 0 of
+    Left err -> error err
+    Right instr -> (hexLength (getInstruction instr)) + findLabelOffset xs
 
 resolveJmps :: (MonadState CodeState m) => CodeOffset -> [(CodeOffset, Int)] -> Bool -> m ()
 resolveJmps labelAddr [] bool = P.return ()
@@ -860,13 +875,18 @@ resolveJmps labelAddr (x : xs) bool = do
     resolveJmps labelAddr xs bool
     where
         impl :: (MonadState CodeState m) => (CodeOffset, Int) -> Bool -> m ()
-        impl (jmpOffset, jmpInstrIndex) bool = do
-            let delta = jmpOffset
-            -- let delta = labelAddr - (jmpOffset + 2)
+        impl (jmpOffset, jmpInstrIndex') call = do
             code <- gets codeReversed
+
+            let delta = if call
+                        then ((findLabelOffset code) - jmpInstrIndex' - 1)
+                        else fromIntegral jmpOffset :: Int
+            let jmpInstrIndex = if call
+                              then (P.length code - 1 - jmpInstrIndex')
+                              else jmpInstrIndex'
+
             let instrGen = code !! jmpInstrIndex
-            let deltaAsInt = fromIntegral delta :: Int
-            updateJmpInstr jmpInstrIndex deltaAsInt instrGen bool
+            updateJmpInstr jmpInstrIndex delta instrGen bool
 
 encodeLabel :: (MonadState CodeState m) => String -> m ()
 encodeLabel name = do
