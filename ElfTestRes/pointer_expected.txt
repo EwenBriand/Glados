@@ -1,0 +1,25 @@
+
+ElfTestRes/mov.o:     file format elf64-x86-64
+
+
+Disassembly of section .text:
+
+0000000000000000 <_start>:
+   0:	ba 0e 00 00 00       	mov    $0xe,%edx
+   5:	b9 00 00 00 00       	mov    $0x0,%ecx
+   a:	bb 01 00 00 00       	mov    $0x1,%ebx
+   f:	b8 04 00 00 00       	mov    $0x4,%eax
+  14:	cd 80                	int    $0x80
+  16:	b8 01 00 00 00       	mov    $0x1,%eax
+  1b:	cd 80                	int    $0x80
+
+000000000000001d <msg>:
+  1d:	48                   	rex.W
+  1e:	65 6c                	gs insb (%dx),%es:(%rdi)
+  20:	6c                   	insb   (%dx),%es:(%rdi)
+  21:	6f                   	outsl  %ds:(%rsi),(%dx)
+  22:	2c 20                	sub    $0x20,%al
+  24:	57                   	push   %rdi
+  25:	6f                   	outsl  %ds:(%rsi),(%dx)
+  26:	72 6c                	jb     94 <msg+0x77>
+  28:	64 21 0a             	and    %ecx,%fs:(%rdx)

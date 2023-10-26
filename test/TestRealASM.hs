@@ -729,6 +729,19 @@ testXorMovGhostLimb = runRunctionalTest impl "ElfTestRes/ghostLimb_expected.txt"
                         -- convertOneInstruction (VM.Label "_0end" 13)
 
 
+testEncodeWriteElf :: Test
+testEncodeWriteElf = runRunctionalTest impl "ElfTestRes/write_expected.txt"
+    where
+        impl :: IO ()
+        impl = do
+            let elf = assemble p
+            elf P.>>= writeElf ".tmp_test_output"
+            where
+                p :: MonadCatch m => StateT CodeState m ()
+                p = do
+                  convertOneInstruction (Write 1 (Symbol "42") 2)
+                  convertOneInstruction (Write 1 (Immediate 42) 2)
+
 functionalASMTests :: Test
 functionalASMTests =
   TestList
@@ -761,5 +774,6 @@ functionalASMTests =
       -- testCallInASM,      -- machine dependent
       -- testFCallInASM,     -- machine dependent
       -- testXorMovGhostLimb, -- machine dependent
+      testEncodeWriteElf,
       testJeInASM
       ]

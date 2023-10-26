@@ -589,6 +589,7 @@ data Instruction
   | Alloc Int
   | ShowInt
   | ShowBool
+  | Write Int Param Int
   deriving (Eq, Ord, Show, Generic)
 
 instance Binary Instruction

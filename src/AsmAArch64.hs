@@ -565,6 +565,8 @@ convertOneInstruction (Leave) = encodeLeave
 convertOneInstruction (Call name) = encodeCall name
 convertOneInstruction ShowInt = encodeShowInt
 convertOneInstruction ShowBool = encodeShowBool
+convertOneInstruction (Write fd (Immediate buf) len) = encodeWriteString fd (show buf) len
+convertOneInstruction (Write fd (Symbol buf) len) = encodeWriteString fd buf len
 convertOneInstruction i = allJmps i
 
 -- execAsm (Valid c) = execState (assemble (Rinstructions c)) (CodeState 0 [] [] [])
@@ -572,6 +574,55 @@ convertOneInstruction i = allJmps i
 -------------------------------------------------------------------------------
 -- Instructions opcodes
 -------------------------------------------------------------------------------
+
+-------------------------------------------------------------------------------
+-- Instructions Write
+-------------------------------------------------------------------------------
+
+encodeWriteString :: MonadState CodeState m => Int -> String -> Int -> m ()
+encodeWriteString fd buf len = do
+  buf_addr <- ascii buf
+  encodePushReg EDX
+  encodePushReg ECX
+  encodePushReg EBX
+  encodePushReg EAX
+  encodeMovRegImm EDX (P.length buf)
+  emit' (f buf_addr)
+  encodeMovRegImm EBX fd
+  encodeMovRegImm EAX 4
+  encodeInterrupt
+  encodePopReg EAX
+  encodePopReg EBX
+  encodePopReg ECX
+  encodePopReg EDX
+  where
+    offsetToImm :: CodeOffset -> Either String Word32
+    offsetToImm (CodeOffset o) =
+        if not $ isBitN 19 o
+                then Left "offset is too big"
+                else
+                    let
+                        immlo = o .&. 3
+                        immhi = (o `shiftR` 2)  .&. 0x7ffff
+                    in
+                        Right $ fromIntegral $ (immhi `shift` 5) .|. (immlo `shift` 29)
+
+    f :: Label -> RInstructionGen
+    f buf_addr instrAddr poolOffset = do
+        imm <- offsetToImm $ findOffset poolOffset buf_addr - instrAddr
+        P.return $ RInstruction $
+                    byteStringToInteger
+                      ( word8ArrayToByteString
+                          ( [0xb8 + registerCode ECX] ++ reverseArray (fillRightByte (reverseArray (encodeImmediate (fromIntegral imm))) 0 4)
+                          )
+                      )
+
+isBitN ::(Num b, Bits b, Ord b) => Int -> b -> Bool
+isBitN bitN w =
+    let
+        m = complement $ (1 `shift` bitN) - 1
+        h = w .&. m
+    in if w >= 0 then h == 0 else h == m
 
 -------------------------------------------------------------------------------
 -- region ShowInt
