@@ -79,6 +79,7 @@ data ASTNode
   | ASTNodeWhile {astniCondition :: ASTNode, astniThen :: [ASTNode]}
   | ASTNodeSet {astndName :: ASTNode, astndChildren :: ASTNode}
   | ASTNodeType {astntName :: VarType}
+  | ASTNodeShow {astnsChildren :: [ASTNode], astnsType :: VarType}
   deriving (Eq, Generic)
 
 instance Binary ASTNode
@@ -111,6 +112,7 @@ instance Show ASTNode where
   show (ASTNodeWhile c t) = "(while: \n\t(condition) " ++ show c ++ "\n\t(then) " ++ show t ++ ")"
   show (ASTNodeSet n c) = "(set: \n\t(name) " ++ show n ++ "\n\t(children) " ++ show c ++ ")"
   show (ASTNodeType n) = "(type: " ++ show n ++ ")"
+  show (ASTNodeShow l t) = "(show: \n\t(type) " ++ show t ++ "\n\t(children) " ++ show l ++ ")"
   show _ = "(unknown node)"
 
 isSymbolAndParamArray :: [ASTNode] -> Bool
@@ -289,6 +291,13 @@ tokOrExprToASTNode [A (ASTNodeIf _ _ _), A (ASTNodeElif _ _ _)] = ASTNodeError (
 tokOrExprToASTNode [A (ASTNodeElif _ _ _), A (ASTNodeElif _ _ _)] = ASTNodeError (TokenInfo TokError "cannot resolve input")
 tokOrExprToASTNode [A (ASTNodeSet _ _), A (ASTNodeSymbol _)] = ASTNodeError (TokenInfo TokError "cannot resolve input")
 tokOrExprToASTNode [A n1, A n2] = ASTNodeParamList [n1, n2]
+-- show with cast
+tokOrExprToASTNode [T (TokenInfo TokenShowKeyword _), A n, T (TokenInfo TokenAsKeyword _), T (TokenInfo TokenType typ), T (TokenInfo TokenPointComma _)] = case A n of
+        (A (ASTNodeParamList l)) -> ASTNodeShow l (getTypeFromToken (TokenInfo TokenType typ))
+        (A (ASTNodeArray l)) -> ASTNodeShow l (getTypeFromToken (TokenInfo TokenType typ))
+        (A (ASTNodeInteger _)) -> ASTNodeShow [n] (getTypeFromToken (TokenInfo TokenType typ))
+        (A (ASTNodeBoolean _)) -> ASTNodeShow [n] (getTypeFromToken (TokenInfo TokenType typ))
+        A n' -> ASTNodeShow [n'] (getTypeFromToken (TokenInfo TokenType typ))
 
 -- error
 tokOrExprToASTNode unresolved = ASTNodeError (TokenInfo TokError (show unresolved))

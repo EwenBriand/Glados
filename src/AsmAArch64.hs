@@ -456,8 +456,22 @@ extractStartAddr labels =
             PoolRef _ -> 0
         Nothing -> 0
 
+-- Sets up a few default symbols in .rodata, such as the formats for
+-- the printf syscall, etc
+setupConstants :: MonadState CodeState m => m ()
+setupConstants = do
+    labelFormatInt <- emitPool 0 $ BSLC.pack "%d"
+    exportSymbol "formatInt" labelFormatInt
+
+    labelFormatBoolTrue <- emitPool 0 $ BSLC.pack "%s"
+    exportSymbol "formatBoolTrue" labelFormatBoolTrue
+
+    labelFormatBoolFalse <- emitPool 0 $ BSLC.pack "%s"
+    exportSymbol "formatBoolFalse" labelFormatBoolFalse
+
 contextToElf :: MonadCatch m => Context -> Bool -> StateT CodeState m ()
 contextToElf c isExec = do
+    setupConstants
     blocksToElf (blocks c)
     when isExec declareStart
     createElf (instructions c)
@@ -549,6 +563,8 @@ convertOneInstruction (Cmp (Memory i) (Immediate imm)) = encodeCmpMemImm i imm  
 convertOneInstruction (Enter) = encodeEnter
 convertOneInstruction (Leave) = encodeLeave
 convertOneInstruction (Call name) = encodeCall name
+convertOneInstruction ShowInt = encodeShowInt
+convertOneInstruction ShowBool = encodeShowBool
 convertOneInstruction i = allJmps i
 
 -- execAsm (Valid c) = execState (assemble (Rinstructions c)) (CodeState 0 [] [] [])
@@ -558,7 +574,23 @@ convertOneInstruction i = allJmps i
 -------------------------------------------------------------------------------
 
 -------------------------------------------------------------------------------
+-- region ShowInt
+-------------------------------------------------------------------------------
 
+encodeShowInt :: MonadState CodeState m => m ()
+encodeShowInt = do
+    addr <- labelNameToAddr "formatInt"
+    encodePushReg EAX
+    encodePushImm addr
+    -- emit $
+
+
+-------------------------------------------------------------------------------
+-- region ShowBool
+-------------------------------------------------------------------------------
+
+encodeShowBool :: MonadState CodeState m => m ()
+encodeShowBool = P.return ()
 
 -------------------------------------------------------------------------------
 -- region Call

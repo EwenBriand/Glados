@@ -71,6 +71,10 @@ data Token
   | TokenKeywordWhile -- The "while" keyword
   | TokenKeywordFor -- The "for" keyword
   | TokenType -- int, bool, float, etc. keywords
+-- | Keywords
+  | TokenShowKeyword -- The "show" keyword, to print a value
+  | TokenAsKeyword -- The "as" keyword, to perform a cast
+
   deriving (Eq, Show, Generic)
 
 instance Binary Token
@@ -132,6 +136,8 @@ wordToTok "=" = TokenInfo {token = TokenEq, value = "="}
 wordToTok ";" = TokenInfo {token = TokenPointComma, value = ";"}
 wordToTok "while" = TokenInfo {token = TokenKeywordWhile, value = "while"}
 wordToTok "for" = TokenInfo {token = TokenKeywordFor, value = "for"}
+wordToTok "show" = TokenInfo {token = TokenShowKeyword, value = "show"}
+wordToTok "as" = TokenInfo {token = TokenAsKeyword, value = "as"}
 wordToTok str
   | all isAlpha str = TokenInfo {token = TokSymbol, value = str}
   | all isDigit str = TokenInfo {token = TokInteger, value = str}

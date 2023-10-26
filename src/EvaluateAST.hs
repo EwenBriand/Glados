@@ -108,7 +108,23 @@ instructionFromAST (ASTNodeBreak [ASTNodeLambda _ param body, ASTNodeFunctionCal
     (uuid, ctx') = nextUUIDValid ctx
 instructionFromAST (ASTNodeBreak (a : b)) ctx = instructionFromAST (ASTNodeBreak b) (instructionFromAST a ctx)
 instructionFromAST (ASTNodeBreak []) ctx = ctx
+instructionFromAST (ASTNodeShow (x:xs) _type) ctx = instructionFromAST (ASTNodeShow xs _type) (putASTNodeShow x _type ctx)
+instructionFromAST (ASTNodeShow [] _type) ctx = ctx
 instructionFromAST _ _ = Invalid "Error!!!!"
+
+putASTNodeShow :: ASTNode -> VarType -> ValidState Context -> ValidState Context
+putASTNodeShow n _type c = case _type of
+    GInt -> putShowInt (instructionFromAST n c)
+    GBool -> putShowBool (instructionFromAST n c)
+    _ -> putShowInt (instructionFromAST n c)
+
+putShowInt :: ValidState Context -> ValidState Context
+putShowInt (Invalid s) = Invalid s
+putShowInt (Valid c) = Valid c {instructions = instructions c ++ [ShowInt]}
+
+putShowBool :: ValidState Context -> ValidState Context
+putShowBool (Invalid s) = Invalid s
+putShowBool (Valid c) = Valid c {instructions = instructions c ++ [ShowBool]}
 
 paramsRegisters :: [Register]
 paramsRegisters = [EDI, ESI, EDX, ECX]

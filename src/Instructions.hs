@@ -61,6 +61,7 @@ import Data.Bits
 import Lexer (VarType)
 import VM
 import ValidState
+import ValidState (ValidState(Valid))
 
 instructionTable :: ValidState Context -> Instruction -> ValidState Context
 -- instructionTable ctx instr = fst (instructionTableIO ctx instr)
@@ -137,6 +138,8 @@ instructionTableIO :: ValidState Context -> Instruction -> (ValidState Context, 
 instructionTableIO (Invalid s) _ = (Invalid s, putStrLn s)
 instructionTableIO ctx Interrupt = execSyscallWrapper ctx
 instructionTableIO ctx (Call str) = callImpl ctx str
+instructionTableIO ctx ShowInt = showIntImpl ctx
+instructionTableIO ctx ShowBool = showBoolImpl ctx
 instructionTableIO ctx ins = (instructionTable ctx ins, putStr "")
 
 evalOneInstructionIO :: Context -> Instruction -> (ValidState Context, IO())
@@ -197,6 +200,22 @@ getInsIndex (Valid context) i = if i < length (instructions context) then instru
 nbInstructions :: ValidState Context -> Int
 nbInstructions (Invalid _) = -1
 nbInstructions (Valid context) = length (instructions context)
+
+--
+-- ShowInt SECTION
+--
+
+showIntImpl :: ValidState Context -> (ValidState Context, IO ())
+showIntImpl (Invalid s) = (Invalid s, putStr "")
+showIntImpl (Valid c) = case getTrueValueFromParam (Valid c) (Reg EAX) of
+  Invalid s -> (Invalid s, putStr "")
+  Valid val -> (Valid c, print val)
+
+showBoolImpl :: ValidState Context -> (ValidState Context, IO())
+showBoolImpl (Invalid s) = (Invalid s, putStr "")
+showBoolImpl (Valid c) = if fromValidState 0 (getTrueValueFromParam (Valid c) (Reg EAX)) == 0
+    then (Valid c, print "false")
+    else (Valid c, print "true")
 
 --
 -- PUSH SECTION
