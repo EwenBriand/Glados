@@ -1,7 +1,12 @@
 section .data
     ; no data yet
-section .text
-    global _start
 
-_start:
-    mov eax, 42
+section .text
+    mov eax, 1
+    jmp ici
+    xor eax, eax
+
+
+
+ici:
+    mov eax, 2

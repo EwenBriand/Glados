@@ -552,7 +552,7 @@ data Instruction
   | Nop
   | Push Param
   | Pop Param
-  | IMul Param Param
+  | IMul Param Param -- noop
   | Xor Param Param
   | Or Param Param
   | And Param Param
@@ -585,6 +585,7 @@ data Instruction
   | Interrupt
   | Label String Int -- name of the label, instruction pointer at the time.
   | Alloc Int
+  | Ret
   deriving (Eq, Ord, Show, Generic)
 
 instance Binary Instruction

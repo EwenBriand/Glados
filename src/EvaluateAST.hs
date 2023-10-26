@@ -104,7 +104,7 @@ instructionFromAST (ASTNodeWhile cond body) ctx = putWhileInstruction ctx cond b
 instructionFromAST (ASTNodeSet name value) ctx = putSetInstruction ctx name value
 instructionFromAST (ASTNodeBreak [ASTNodeLambda _ param body, ASTNodeFunctionCall _ params]) ctx = instructionFromAST (ASTNodeBreak [(ASTNodeFunctionCall u_name params)]) (instructionFromAST (ASTNodeLambda (ASTNodeSymbol u_name) param body) (Valid ctx'))
   where
-    u_name = "lambda@" ++ show uuid
+    u_name = "lambda@" ++ ("_" ++ show uuid)
     (uuid, ctx') = nextUUIDValid ctx
 instructionFromAST (ASTNodeBreak (a : b)) ctx = instructionFromAST (ASTNodeBreak b) (instructionFromAST a ctx)
 instructionFromAST (ASTNodeBreak []) ctx = ctx
@@ -214,7 +214,7 @@ putEqInstruction _ (Invalid s) = Invalid s
 putEqInstruction [x, y] (Valid ctx) = do
   ctx' <- instructionFromAST x (Valid c)
   ctx'' <- instructionFromAST y (Valid ctx' {instructions = instructions ctx' ++ [Push (Reg EAX)]})
-  Prelude.return (ctx'' {instructions = instructions ctx'' ++ [Pop (Reg EDI), Cmp (Reg EDI) (Reg EAX), Je (show uuid ++ "eq"), Mov (Reg EAX) (Immediate 0), Jmp (show uuid ++ "eqend"), Label (show uuid ++ "eq") (length (instructions ctx'') + 1), Mov (Reg EAX) (Immediate 1), Label (show uuid ++ "eqend") (length (instructions ctx'') + 1)]})
+  Prelude.return (ctx'' {instructions = instructions ctx'' ++ [Pop (Reg EDI), Cmp (Reg EDI) (Reg EAX), Je (("_" ++ show uuid) ++ "eq"), Mov (Reg EAX) (Immediate 0), Jmp (("_" ++ show uuid) ++ "eqend"), Label (("_" ++ show uuid) ++ "eq") (length (instructions ctx'') + 1), Mov (Reg EAX) (Immediate 1), Label (("_" ++ show uuid) ++ "eqend") (length (instructions ctx'') + 1)]})
   where
     (uuid, c) = nextUUID ctx
 putEqInstruction _ _ = Invalid "Error"
@@ -233,7 +233,7 @@ putInferiorInstruction _ (Invalid s) = Invalid s
 putInferiorInstruction [x, y] (Valid ctx) = do
   ctx' <- instructionFromAST x (Valid c)
   ctx'' <- instructionFromAST y (Valid ctx' {instructions = instructions ctx' ++ [Push (Reg EAX)]})
-  Prelude.return (ctx'' {instructions = instructions ctx'' ++ [Pop (Reg EDI), Cmp (Reg EDI) (Reg EAX), Jl (show uuid ++ "inf"), Mov (Reg EAX) (Immediate 0), Jmp (show uuid ++ "infend"), Label (show uuid ++ "inf") (length (instructions ctx'') + 1), Mov (Reg EAX) (Immediate 1), Label (show uuid ++ "infend") (length (instructions ctx'') + 1)]})
+  Prelude.return (ctx'' {instructions = instructions ctx'' ++ [Pop (Reg EDI), Cmp (Reg EDI) (Reg EAX), Jl (("_" ++ show uuid) ++ "inf"), Mov (Reg EAX) (Immediate 0), Jmp (("_" ++ show uuid) ++ "infend"), Label (("_" ++ show uuid) ++ "inf") (length (instructions ctx'') + 1), Mov (Reg EAX) (Immediate 1), Label (("_" ++ show uuid) ++ "infend") (length (instructions ctx'') + 1)]})
   where
     (uuid, c) = nextUUID ctx
 putInferiorInstruction _ _ = Invalid "Error"
@@ -243,7 +243,7 @@ putInferiorEqInstruction _ (Invalid s) = Invalid s
 putInferiorEqInstruction [x, y] (Valid ctx) = do
   ctx' <- instructionFromAST x (Valid c)
   ctx'' <- instructionFromAST y (Valid ctx' {instructions = instructions ctx' ++ [Push (Reg EAX)]})
-  Prelude.return (ctx'' {instructions = instructions ctx'' ++ [Pop (Reg EDI), Cmp (Reg EDI) (Reg EAX), Jle (show uuid ++ "inf"), Mov (Reg EAX) (Immediate 0), Jmp (show uuid ++ "infeqend"), Label (show uuid ++ "inf") (length (instructions ctx'') + 1), Mov (Reg EAX) (Immediate 1), Label (show uuid ++ "infeqend") (length (instructions ctx'') + 1)]})
+  Prelude.return (ctx'' {instructions = instructions ctx'' ++ [Pop (Reg EDI), Cmp (Reg EDI) (Reg EAX), Jle (("_" ++ show uuid) ++ "inf"), Mov (Reg EAX) (Immediate 0), Jmp (("_" ++ show uuid) ++ "infeqend"), Label (("_" ++ show uuid) ++ "inf") (length (instructions ctx'') + 1), Mov (Reg EAX) (Immediate 1), Label (("_" ++ show uuid) ++ "infeqend") (length (instructions ctx'') + 1)]})
   where
     (uuid, c) = nextUUID ctx
 putInferiorEqInstruction _ _ = Invalid "Error"
@@ -253,7 +253,7 @@ putSuperiorEqInstruction _ (Invalid s) = Invalid s
 putSuperiorEqInstruction [x, y] (Valid ctx) = do
   ctx' <- instructionFromAST x (Valid c)
   ctx'' <- instructionFromAST y (Valid ctx' {instructions = instructions ctx' ++ [Push (Reg EAX)]})
-  Prelude.return (ctx'' {instructions = instructions ctx'' ++ [Pop (Reg EDI), Cmp (Reg EDI) (Reg EAX), Jge (show uuid ++ "inf"), Mov (Reg EAX) (Immediate 0), Jmp (show uuid ++ "supeqend"), Label (show uuid ++ "inf") (length (instructions ctx'') + 1), Mov (Reg EAX) (Immediate 1), Label (show uuid ++ "supeqend") (length (instructions ctx'') + 1)]})
+  Prelude.return (ctx'' {instructions = instructions ctx'' ++ [Pop (Reg EDI), Cmp (Reg EDI) (Reg EAX), Jge (("_" ++ show uuid) ++ "inf"), Mov (Reg EAX) (Immediate 0), Jmp (("_" ++ show uuid) ++ "supeqend"), Label (("_" ++ show uuid) ++ "inf") (length (instructions ctx'') + 1), Mov (Reg EAX) (Immediate 1), Label (("_" ++ show uuid) ++ "supeqend") (length (instructions ctx'') + 1)]})
   where
     (uuid, c) = nextUUID ctx
 putSuperiorEqInstruction _ _ = Invalid "Error"
@@ -263,7 +263,7 @@ putSuperiorInstruction _ (Invalid s) = Invalid s
 putSuperiorInstruction [x, y] (Valid ctx) = do
   ctx' <- instructionFromAST x (Valid c)
   ctx'' <- instructionFromAST y (Valid ctx' {instructions = instructions ctx' ++ [Push (Reg EAX)]})
-  Prelude.return (ctx'' {instructions = instructions ctx'' ++ [Pop (Reg EDI), Cmp (Reg EDI) (Reg EAX), Jg (show uuid ++ "inf"), Mov (Reg EAX) (Immediate 0), Jmp (show uuid ++ "supend"), Label (show uuid ++ "inf") (length (instructions ctx'') + 1), Mov (Reg EAX) (Immediate 1), Label (show uuid ++ "supend") (length (instructions ctx'') + 1)]})
+  Prelude.return (ctx'' {instructions = instructions ctx'' ++ [Pop (Reg EDI), Cmp (Reg EDI) (Reg EAX), Jg (("_" ++ show uuid) ++ "inf"), Mov (Reg EAX) (Immediate 0), Jmp (("_" ++ show uuid) ++ "supend"), Label (("_" ++ show uuid) ++ "inf") (length (instructions ctx'') + 1), Mov (Reg EAX) (Immediate 1), Label (("_" ++ show uuid) ++ "supend") (length (instructions ctx'') + 1)]})
   where
     (uuid, c) = nextUUID ctx
 putSuperiorInstruction _ _ = Invalid "Error"
@@ -451,8 +451,8 @@ putIfInstruction (Valid c) (ASTNodeIf cond thenBlock elseBlock) =
                   c5
                     { instructions =
                         instructions c5
-                          ++ [ Jmp (show uuid ++ "end"),
-                               Label (show uuid ++ "else") (length (instructions c5) + 1)
+                          ++ [ Jmp (("_" ++ show uuid) ++ "end"),
+                               Label (("_" ++ show uuid) ++ "else") (length (instructions c5) + 1)
                              ]
                     }
         let c6 = case elseBlock of
@@ -465,7 +465,7 @@ putIfInstruction (Valid c) (ASTNodeIf cond thenBlock elseBlock) =
               c7
                 { instructions =
                     instructions c7
-                      ++ [ Label (show uuid ++ "end") (length (instructions c7) + 1)
+                      ++ [ Label (("_" ++ show uuid) ++ "end") (length (instructions c7) + 1)
                          ]
                 }
 putIfInstruction _ _ = Invalid "Invalid arguments to if clause"
@@ -481,8 +481,8 @@ ifPutCondition c cond uuid = do
           { instructions =
               instructions c'
                 ++ [ Cmp (Reg EAX) (Immediate 1),
-                     Jne (show uuid ++ "else"),
-                     Label (show uuid ++ "then") (length (instructions c') + 3)
+                     Jne (("_" ++ show uuid) ++ "else"),
+                     Label (("_" ++ show uuid) ++ "then") (length (instructions c') + 3)
                    ]
           }
 
