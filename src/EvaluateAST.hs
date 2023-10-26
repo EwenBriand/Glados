@@ -34,6 +34,7 @@ instructionFromAST (ASTNodeElif cond [ASTNodeParamList thenBlock] (Valid [ASTNod
 instructionFromAST (ASTNodeElif cond [ASTNodeParamList thenBlock] elseBlock) ctx = putIfInstruction ctx (ASTNodeIf cond (expendParamList thenBlock) elseBlock)
 instructionFromAST (ASTNodeElif cond thenBlock (Valid [ASTNodeParamList elseBlock])) ctx = putIfInstruction ctx (ASTNodeIf cond thenBlock (Valid (expendParamList elseBlock)))
 instructionFromAST (ASTNodeElif cond thenBlock elseBlock) ctx = putIfInstruction ctx (ASTNodeIf cond thenBlock elseBlock)
+instructionFromAST (ASTNodeDefine name params [ASTNodeParamList body]) ctx = putDefineInstruction ctx name params [ASTNodeInstructionSequence (expendParamList body)]
 instructionFromAST (ASTNodeDefine name params body) c = putDefineInstruction c name params body
 instructionFromAST (ASTNodeInteger i) ctx = putIntegerInstruction (fromIntegral i) ctx
 instructionFromAST (ASTNodeSymbol s) ctx = putSymbolInstruction s ctx
@@ -49,7 +50,7 @@ instructionFromAST (ASTNodeSuperior x) ctx = putSuperiorInstruction x ctx
 instructionFromAST (ASTNodeSuperiorEq x) ctx = putSuperiorEqInstruction x ctx
 instructionFromAST (ASTNodeNotEqual x) ctx = putNotEqualInstruction x ctx
 instructionFromAST (ASTNodeMutable (ASTNodeType symtyp) name (ASTNodeType symval) x) ctx = putMutableInstruction symtyp name symval x ctx
-instructionFromAST (ASTNodeParamList _) ctx = ctx -- not an actual instruction, does (Invalid "Error")
+instructionFromAST (ASTNodeParamList n) ctx = ctx
 instructionFromAST (ASTNodeArray n) ctx = astNodeArrayToHASM ctx (ASTNodeArray n)
 instructionFromAST (ASTNodeInstructionSequence n) ctx = putInstructionSequence n ctx
 instructionFromAST (ASTNodePrint n) ctx = putPrintInstruction ctx n
@@ -66,7 +67,7 @@ instructionFromAST (ASTNodeBreak [ASTNodeLambda _ param body, ASTNodeFunctionCal
     (uuid, ctx') = nextUUIDValid ctx
 instructionFromAST (ASTNodeBreak (a : b)) ctx = instructionFromAST (ASTNodeBreak b) (instructionFromAST a ctx)
 instructionFromAST (ASTNodeBreak []) ctx = ctx
-instructionFromAST _ _ = Invalid "Error!!!!"
+instructionFromAST a _ = Invalid ("Error: invalid AST" ++ show a)
 
 paramsRegisters = [EDI, ESI, EDX, ECX]
 
@@ -94,6 +95,9 @@ pushParamTypeToBlock (Valid blk) (x : xs) =
 
 declSymbolBlock :: Block -> [ASTNode] -> ValidState Block
 declSymbolBlock blk [] = Valid blk
+declSymbolBlock blk (ASTNodeVariable  (ASTNodeSymbol paramName) typ : ps) = case symSet (blockContext blk) paramName typ of -- Todo set types here
+  Invalid s -> Invalid ("While declaring parameter: \n\t" ++ s)
+  Valid ctx -> declSymbolBlock (blk {blockContext = Valid ctx}) ps
 declSymbolBlock blk (ASTNodeSymbol paramName : ps) = case symSet (blockContext blk) paramName (GUndefinedType) of -- Todo set types here
   Invalid s -> Invalid ("While declaring parameter: \n\t" ++ s)
   Valid ctx -> declSymbolBlock (blk {blockContext = Valid ctx}) ps
@@ -132,6 +136,11 @@ putDefineInstruction (Valid c) name params body = case blockAdd (Valid c) (astns
     Valid blk -> case setupBlockParams blk params of
       Invalid s -> Invalid ("While parsing the parameters of the function: \n" ++ s)
       Valid blk' -> evaluateBlock (Valid ctx) (copyParentBlocks ctx blk') params body
+
+putParamListInstruction :: ValidState Context -> [ASTNode] -> ValidState Context
+putParamListInstruction (Invalid s) _ = Invalid s
+putParamListInstruction ctx [] = ctx
+putParamListInstruction ctx x = instructionFromAST (ASTNodeInstructionSequence x) ctx
 
 -- 4 is the syscall for out in asm
 putPrintInstruction :: ValidState Context -> ASTNode -> ValidState Context
@@ -520,7 +529,8 @@ strToHASM (Valid ctx) str = c'
   where
     c' = case c of
       (Invalid s) -> Invalid s
-      Valid c2 -> Valid c2 {instructions = blockInitAllocVarSpace (Valid c2) ++ instructions c2}
+      -- Valid c2 -> Valid c2 {instructions = blockInitAllocVarSpace (Valid c2) ++ instructions c2}
+      Valid c2 -> Valid c2 {instructions = [Enter] ++ instructions c2}
     c = case strToAST str of
       ASTNodeError e -> Invalid ("Error: not a valid expression: " ++ show e)
       ast -> instructionFromAST ast (Valid ctx {cAST = [ast]})

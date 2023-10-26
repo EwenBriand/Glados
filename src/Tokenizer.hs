@@ -67,6 +67,7 @@ data Token
   -- | TokenInt
   | TokenEq -- The "=" operator
   | TokenPointComma -- The ";" operator
+  | TokenComma -- The "," operator
   | TokenElif -- The "elif" keyword
   | TokenKeywordWhile -- The "while" keyword
   | TokenKeywordFor -- The "for" keyword
@@ -130,6 +131,7 @@ wordToTok "int" = TokenInfo {token = TokenType, value = "int"}
 wordToTok "bool" = TokenInfo {token = TokenType, value = "bool"}
 wordToTok "=" = TokenInfo {token = TokenEq, value = "="}
 wordToTok ";" = TokenInfo {token = TokenPointComma, value = ";"}
+wordToTok "," = TokenInfo {token = TokenComma, value = ","}
 wordToTok "while" = TokenInfo {token = TokenKeywordWhile, value = "while"}
 wordToTok "for" = TokenInfo {token = TokenKeywordFor, value = "for"}
 wordToTok str

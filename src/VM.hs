@@ -151,6 +151,7 @@ execSyscall :: ValidState Context -> SyscallCode -> (ValidState Context, IO ())
 execSyscall (Invalid s) _ = (Invalid s, putStr s)
 -- print
 execSyscall (Valid ctx) SCEasyPrint = (Valid ctx, callEasyPrint (Valid ctx))
+-- execSyscall (Valid ctx) SCEasyPrint = (Valid ctx, putStr "print")
 -- exit
 execSyscall (Valid ctx) SCExit = (callExit (Valid ctx), putStr "exit")
 
@@ -460,7 +461,6 @@ sysPrintValue (Valid c) tp name = case tp of
 
 truePrintValue :: ValidState Context -> Param -> Param -> IO ()
 truePrintValue (Invalid s) _ _ = putStrLn s
--- truePrintValue (Valid c) varType param = putStrLn ("param is " ++ show param ++ " type being " ++ show (trueType)) >> putStrLn (show (getTrueValueFromParam (Valid c) param))
 truePrintValue c varType param = putStrLn (adaptValueToVarType (fromValidState GUndefinedType trueType) (getTrueValueFromParam c param))
   where
     trueType = intToType (getTrueValueFromParam c varType)
@@ -639,6 +639,7 @@ blockAdd (Invalid s) _ = Invalid s
 blockAdd (Valid c) name = case Map.lookup name (blockMap (blocks c)) of
   Just _ -> Invalid ("Block already defined: " ++ name)
   Nothing -> Valid c {blocks = BlockMap (Map.insert name (Block name (Valid c) []) (blockMap (blocks c)))}
+  -- Nothing -> Valid c {blocks = BlockMap (Map.insert name (Block name (Valid newContext) []) (blockMap (blocks c)))}
 
 blockReplace :: ValidState Context -> ValidState Block -> ValidState Context
 blockReplace (Invalid s) _ = Invalid s

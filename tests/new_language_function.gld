@@ -1,0 +1,9 @@
+int j = 45;
+int k = 0;
+int func(int arg, int args) {
+    print(arg);
+    print(args);
+    int ret = 0;
+}
+int p = 0;
+func(51,12);
