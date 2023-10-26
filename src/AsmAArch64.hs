@@ -513,6 +513,8 @@ convertOneInstruction (Mov (Reg r1) (Reg r2)) = encodeMovRegReg r1 r2
 convertOneInstruction (Mov (Memory i) (Immediate imm)) = encodeMovMemImm i imm
 convertOneInstruction (MovPtr (Memory i) (Immediate imm)) = encodeMovMemImm i imm                                   -- not tested
 convertOneInstruction (MovPtr (Memory i) (Reg imm)) = encodeMovMemReg i imm                                         -- not tested
+convertOneInstruction (MovPtr (Reg i) (Immediate imm)) = encodeMovRegImm i imm                                   -- not tested
+convertOneInstruction (MovPtr (Reg i) (Reg imm)) = encodeMovRegReg i imm                                         -- not tested
 convertOneInstruction (MovStackAddr (Immediate ptr) (Immediate value)) = encodeMovStackAddrImm ptr value            -- not tested
 convertOneInstruction (MovStackAddr (Immediate ptr) (Reg reg)) = encodeMovStackAddrReg ptr reg
 convertOneInstruction (MovFromStackAddr (Reg reg) (Immediate ptr)) = encodeMovFromStackAddrReg reg ptr
@@ -549,6 +551,7 @@ convertOneInstruction (Cmp (Memory i) (Immediate imm)) = encodeCmpMemImm i imm  
 convertOneInstruction (Enter) = encodeEnter
 convertOneInstruction (Leave) = encodeLeave
 convertOneInstruction (Call name) = encodeCall name
+convertOneInstruction (Alloc i) = encodeAlloc i
 convertOneInstruction i = allJmps i
 
 -- execAsm (Valid c) = execState (assemble (Rinstructions c)) (CodeState 0 [] [] [])
@@ -1226,6 +1229,20 @@ allJmps (Jbe name) = emptyJmp name 0x76
 allJmps i = error ("unsupported instruction: " ++ show i)
 
 
+
+-------------------------------------------------------------------------------
+-- region Alloc
+-------------------------------------------------------------------------------
+
+encodeAlloc :: (MonadState CodeState m) => Int -> m ()
+encodeAlloc i = do
+  encodePushReg EAX
+  encodePushReg EDI
+  encodeMovRegImm EDI i
+  encodeMovRegImm EAX 45
+  encodeInterrupt
+  encodePopReg EDI
+  encodePopReg EAX
 
 -------------------------------------------------------------------------------
 -- region Jmp

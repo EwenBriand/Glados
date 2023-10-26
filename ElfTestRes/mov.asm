@@ -1,12 +1,10 @@
 section .data
     ; no data yet
+    myVar   dd 42
 
 section .text
-    mov eax, 1
-    jmp ici
-    xor eax, eax
+    global _start
 
-
-
-ici:
-    mov eax, 2
+_start:
+    mov dword [myVar], 40
+    mov eax, [myVar]

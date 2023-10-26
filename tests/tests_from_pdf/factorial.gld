@@ -1,1 +1,2 @@
-(define (fact x)(if (eq? x 1)1(* x (fact (- x 1))))) (if (eq? (fact 3) 6) (print(6)) (print(false)))
+(define (fact x)(if (eq? x 1)1(* x (fact (- x 1))))) 
+(if (eq? (fact 3) 6) (print(6)) (print(false)))

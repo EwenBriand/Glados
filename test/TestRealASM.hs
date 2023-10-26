@@ -728,6 +728,17 @@ testXorMovGhostLimb = runRunctionalTest impl "ElfTestRes/ghostLimb_expected.txt"
                         -- convertOneInstruction (Mov (Reg EAX) (Immediate 3))
                         -- convertOneInstruction (VM.Label "_0end" 13)
 
+testEncodeAlloc :: Test
+testEncodeAlloc = runRunctionalTest impl "ElfTestRes/alloc_expected.txt"
+    where
+        impl :: IO ()
+        impl = do
+            let elf = assemble p
+            elf P.>>= writeElf ".tmp_test_output"
+            where
+                p :: MonadCatch m => StateT CodeState m ()
+                p = do
+                  convertOneInstruction (Alloc 16000)
 
 functionalASMTests :: Test
 functionalASMTests =
@@ -761,5 +772,6 @@ functionalASMTests =
       -- testCallInASM,      -- machine dependent
       -- testFCallInASM,     -- machine dependent
       -- testXorMovGhostLimb, -- machine dependent
+      testEncodeAlloc,
       testJeInASM
       ]
