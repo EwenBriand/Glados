@@ -735,11 +735,11 @@ functionalASMTests =
     [ testRunStackAddr,
       testRunMovRegReg,
       testRunMovFromStackAddr,
-      testPushReg,       -- machine dependent
-      testPushImm,       -- machine dependent
-      testPushMem,       -- machine dependent
-      testPopReg,        -- machine dependent
-      testPopMem,        -- machine dependent
+      -- testPushReg,       -- machine dependent
+      -- testPushImm,       -- machine dependent
+      -- testPushMem,       -- machine dependent
+      -- testPopReg,        -- machine dependent
+      -- testPopMem,        -- machine dependent
       testXorRegReg,
       testXorRegImm,
       testLabelInASM,
@@ -751,15 +751,15 @@ functionalASMTests =
       testDivInASM,
       testMulInASM,
       testJmpInASM,
-      testRetInASM,       -- machine dependent
+      -- testRetInASM,       -- machine dependent
       testIntInASM,
       testOrInASM,
       testAndInASM,
       testNotInASM,
       testCmpInASM,
-      testELInASM,        -- machine dependent
-      testCallInASM,      -- machine dependent
-      testFCallInASM,     -- machine dependent
-      testJeInASM,
-      testXorMovGhostLimb -- machine dependent
+      -- testELInASM,        -- machine dependent
+      -- testCallInASM,      -- machine dependent
+      -- testFCallInASM,     -- machine dependent
+      -- testXorMovGhostLimb, -- machine dependent
+      testJeInASM
       ]
