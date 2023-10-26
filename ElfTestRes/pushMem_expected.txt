@@ -1,0 +1,8 @@
+
+mov.o:     file format elf64-x86-64
+
+
+Disassembly of section .text:
+
+0000000000000000 <_start>:
+   0:	ff 34 25 2a 00 00 00 	pushq  0x2a

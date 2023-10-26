@@ -132,6 +132,14 @@ testFunctions =
     testMyTest,
     testStackClear,
     testEncodeMov,
+    testEncodeMovqRegImm,
+    testmovOpcodeCombineRegReg,
+    testEncodeMovRegReg,
+    testEncodeMovMemImm,
+    testRemoveNullPrefix,
+    functionalASMTests,
+    testGetBinLengthFromRInstruction,
+    testWord16Update2ndByte,
     testStackGetValueFromIndex,
     testAddressDoesntExist,
     testEncodeMovqRegImm,
@@ -146,7 +154,14 @@ testFunctions =
     testIps,
     testHasmNStackPush,
     testLabels,
-    testSetupfunctionStack
+    testSetupfunctionStack,
+    testParamsRegister,
+    testInvalidFuncs,
+    testInferTypeFromNode,
+    testPutSetNoErrCheck,
+    testArraysFuncs,
+    testExecInstructionsIO,
+    testInvalidInstructions
   ]
 
 -- Run all test functions and return the results as a list

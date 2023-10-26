@@ -28,8 +28,8 @@ getMachineConfig EM_AARCH64 = return $ MachineConfig 0x400000 0x10000
 getMachineConfig EM_X86_64  = return $ MachineConfig 0x400000 0x1000
 getMachineConfig _          = $chainedError "could not find machine config for this arch"
 
-dummyLd' :: forall a m . (MonadThrow m, SingElfClassI a) => ElfListXX a -> m (ElfListXX a)
-dummyLd' es = do
+dummyLd' :: forall a m . (MonadThrow m, SingElfClassI a) => ElfListXX a -> Int -> m (ElfListXX a)
+dummyLd' es entryOffset = do
 
     section' <- elfFindSectionByName es ".text"
 
@@ -60,7 +60,7 @@ dummyLd' es = do
                     , epData       =
                         ElfHeader
                             { ehType  = ET_EXEC
-                            , ehEntry = mcAddress + headerSize (fromSingElfClass $ singElfClass @a)
+                            , ehEntry = mcAddress + headerSize (fromSingElfClass $ singElfClass @a) + (toEnum (fromIntegral entryOffset) :: WordXX a)
                             , ..
                             }
                         ~: ElfRawData
@@ -74,5 +74,5 @@ dummyLd' es = do
 -- | @dummyLd@ places the content of ".text" section of the input ELF
 -- into the loadable segment of the resulting ELF.
 -- This could work if there are no relocations or references to external symbols.
-dummyLd :: MonadThrow m => Elf -> m Elf
-dummyLd (Elf c l) = Elf c <$> withSingElfClassI c dummyLd' l
+dummyLd :: MonadThrow m => Int -> Elf -> m Elf
+dummyLd entryOffset (Elf c l) = Elf c <$> withSingElfClassI c dummyLd' l entryOffset

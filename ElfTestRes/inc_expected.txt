@@ -1,0 +1,10 @@
+
+ElfTestRes/mov.o:     file format elf64-x86-64
+
+
+Disassembly of section .text:
+
+0000000000000000 <_start>:
+   0:	ff c0                	inc    %eax
+   2:	ff c1                	inc    %ecx
+   4:	ff c6                	inc    %esi
