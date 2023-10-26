@@ -881,16 +881,10 @@ resolveJmps labelAddr (x : xs) bool = do
             let codeLen = P.length code
             let delta = if call
                         then ((findLabelOffset code) - jmpInstrIndex' - 1) -- solve call
-                        -- else fromIntegral jmpOffset :: Int                 -- solve jmp
                         else (fromIntegral labelAddr - fromIntegral jmpOffset - 2) :: Int
-            let jmpInstrIndex = if call
-                              then (P.length code - 1 - jmpInstrIndex')    -- solve call
-                              else jmpInstrIndex'
-            let jmpInstrIndex'' = codeLen - jmpInstrIndex - 1
-            let instrGen = code !! jmpInstrIndex''
-            updateJmpInstr jmpInstrIndex'' delta instrGen call
-            -- updateJmpInstr jmpInstrIndex delta instrGen call
-            -- updateJmpInstr jmpInstrIndex delta instrGen call
+            let jmpInstrIndex = (P.length code - 1 - jmpInstrIndex') 
+            let instrGen = code !! jmpInstrIndex
+            updateJmpInstr jmpInstrIndex delta instrGen call
 
 encodeLabel :: (MonadState CodeState m) => String -> m ()
 encodeLabel name = do
