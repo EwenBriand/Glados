@@ -446,6 +446,7 @@ adaptValueToVarType tp (Valid val) = case tp of
   GInt -> show val
   GBool -> if val == 0 then "false" else "true"
   GVoid -> ""
+  GPtr -> show val
   GUndefinedType -> "Undefined"
 
 -- Recieves the Context, list of symbols and the symbol you are looking for and prints it
@@ -460,7 +461,6 @@ sysPrintValue (Valid c) tp name = case tp of
 
 truePrintValue :: ValidState Context -> Param -> Param -> IO ()
 truePrintValue (Invalid s) _ _ = putStrLn s
--- truePrintValue (Valid c) varType param = putStrLn ("param is " ++ show param ++ " type being " ++ show (trueType)) >> putStrLn (show (getTrueValueFromParam (Valid c) param))
 truePrintValue c varType param = putStrLn (adaptValueToVarType (fromValidState GUndefinedType trueType) (getTrueValueFromParam c param))
   where
     trueType = intToType (getTrueValueFromParam c varType)
@@ -547,6 +547,7 @@ instance Binary Param
 data Instruction
   = Mov Param Param
   | MovPtr Param Param -- mov [eax], ebx
+  | DerefMacro Register -- mov eax, [reg + index]
   | MovStackAddr Param Param -- mov [ebp + 4], ebx
   | MovFromStackAddr Param Param -- mov ebx, [ebp + 4]
   | Nop

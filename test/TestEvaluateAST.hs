@@ -310,7 +310,8 @@ testInferTypeFromNode = TestList
     "Mul is int" ~: inferTypeFromNode (Valid newContext) (ASTNodeMul [ASTNodeInteger 3, ASTNodeInteger 4]) ~?= GInt,
     "Div is int" ~: inferTypeFromNode (Valid newContext) (ASTNodeDiv [ASTNodeInteger 3, ASTNodeInteger 4]) ~?= GInt,
     "Mod is int" ~: inferTypeFromNode (Valid newContext) (ASTNodeMod [ASTNodeInteger 3, ASTNodeInteger 4]) ~?= GInt,
-    "Undefined is undefined" ~: inferTypeFromNode (Valid newContext) (ASTNodeArray []) ~?= GUndefinedType
+    "Array is a ptr" ~: inferTypeFromNode (Valid newContext) (ASTNodeArray []) ~?= GPtr,
+    "Undefined has no type" ~: inferTypeFromNode (Valid newContext) (ASTNodeIf (ASTNodeBoolean True) [] (Invalid "")) ~?= GUndefinedType
   ]
 
 testPutSetNoErrCheck :: Test

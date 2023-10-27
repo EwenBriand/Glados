@@ -57,10 +57,12 @@ where
 
 -- labelAlloc,
 
+import Debug.Trace
 import Data.Bits
 import Lexer (VarType)
 import VM
 import ValidState
+import VM (Context(Context))
 
 instructionTable :: ValidState Context -> Instruction -> ValidState Context
 -- instructionTable ctx instr = fst (instructionTableIO ctx instr)
@@ -103,6 +105,7 @@ instructionTable ctx (Label _ _) = ctx -- labels are preprocessed before executi
 instructionTable ctx (MovStackAddr p1 p2) = movStackAddrImpl ctx p1 p2
 instructionTable ctx (MovFromStackAddr p1 p2) = movFromStackAddrImpl ctx p1 p2
 instructionTable ctx (Alloc int) = allocHeap ctx int
+instructionTable ctx (DerefMacro r) = derefMacroImpl ctx r
 instructionTable ctx _ = ctx
 
 allocHeap :: ValidState Context -> Int -> ValidState Context
@@ -197,6 +200,21 @@ getInsIndex (Valid context) i = if i < length (instructions context) then instru
 nbInstructions :: ValidState Context -> Int
 nbInstructions (Invalid _) = -1
 nbInstructions (Valid context) = length (instructions context)
+
+--
+-- DerefMacro SECTION
+--
+
+derefMacroImpl :: ValidState Context -> Register -> ValidState Context
+derefMacroImpl (Invalid s) _ = Invalid s
+derefMacroImpl ctx r = do
+    value <- regGet ctx EAX
+    index <- regGet ctx r
+    let addr = value + index
+    val <- heapGet ctx addr
+    -- Invalid ("address is " ++ show addr ++ " valud is " ++ show value ++ " and index is " ++ show index ++ " and content is " ++ show val)
+    regSet ctx EAX val
+
 
 --
 -- PUSH SECTION

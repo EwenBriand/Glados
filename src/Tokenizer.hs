@@ -71,6 +71,8 @@ data Token
   | TokenKeywordWhile -- The "while" keyword
   | TokenKeywordFor -- The "for" keyword
   | TokenType -- int, bool, float, etc. keywords
+  | TokenDeref -- operator to dereference pointers
+  | TokenCast -- operator to cast a value to a type
   deriving (Eq, Show, Generic)
 
 instance Binary Token
@@ -128,10 +130,14 @@ wordToTok "lambda" = TokenInfo {token = TokLambda, value = "lambda"}
 wordToTok "print" = TokenInfo {token = TokenSymPrint, value = "print"}
 wordToTok "int" = TokenInfo {token = TokenType, value = "int"}
 wordToTok "bool" = TokenInfo {token = TokenType, value = "bool"}
+wordToTok "@" = TokenInfo {token = TokenType, value = "@"}
 wordToTok "=" = TokenInfo {token = TokenEq, value = "="}
 wordToTok ";" = TokenInfo {token = TokenPointComma, value = ";"}
 wordToTok "while" = TokenInfo {token = TokenKeywordWhile, value = "while"}
 wordToTok "for" = TokenInfo {token = TokenKeywordFor, value = "for"}
+wordToTok ":" = TokenInfo {token = TokenKeywordPartialExpression, value = ":"}
+wordToTok "::" = TokenInfo {token = TokenDeref, value = "deref"}
+wordToTok "as" = TokenInfo {token = TokenCast, value = "as"}
 wordToTok str
   | all isAlpha str = TokenInfo {token = TokSymbol, value = str}
   | all isDigit str = TokenInfo {token = TokInteger, value = str}
