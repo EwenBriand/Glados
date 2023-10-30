@@ -448,7 +448,7 @@ putMutableInstruction symtyp name valtyp node ctx =
    in case newCtx of
         Valid _ -> Invalid "Error: Variable already exists" -- error, the variable already exists!
         -- Invalid _ -> putMutableNoErrCheck symtyp name vartyp node ctx
-        Invalid _ -> if symtyp == valtyp then putMutableNoErrCheck symtyp name node ctx else Invalid "Error: type mismatch"
+        Invalid _ -> if symtyp == valtyp then putMutableNoErrCheck symtyp name node ctx else Invalid ("Error: type mismatch:\n\tCannot assign " ++ show name ++ " of type " ++ show symtyp ++ " to value " ++ show node ++ " of type " ++ show valtyp)
 
 putSetNoErrCheck :: ValidState Context -> ASTNode -> ASTNode -> ValidState Context
 putSetNoErrCheck (Invalid s) _ _ = Invalid s
