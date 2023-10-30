@@ -23,7 +23,8 @@ data Options = Options {
     disassemble :: Bool,
     execute :: Bool,
     compileObject :: String,
-    fileExecutable :: String
+    fileExecutable :: String,
+    ast :: Bool
 } deriving (Show, Data, Typeable)
 
 options :: Options
@@ -34,7 +35,8 @@ options = Options {
     disassemble = def &= help "Prints the disassembled binary",
     execute = def &= help "Execute the binary loaded / created",
     compileObject = def &= help "The path to the object file to produce" &= typFile,
-    fileExecutable = def &= help "The path to the executable file to produce" &= typFile
+    fileExecutable = def &= help "The path to the executable file to produce" &= typFile,
+    ast = def &= help "Prints the AST"
 } &= summary "Very SAD GladOs Compiler & Interpreter V1.0" -- SAD: Simple And Dumb, Splendid And Direct, Service After Death, or maybe just sad ;)
 
 getContextOnOps :: Options -> IO (ValidState Context)
@@ -70,6 +72,14 @@ showDisassembly (Valid c) = do
     printInstructions (instructions c)
     printBlocks c (blocks c)
 
+showAST :: ValidState Context -> IO ()
+showAST (Invalid s) = putStrLn ("Context invalidated: " ++ s) >> exitWith (ExitFailure 84)
+showAST (Valid c) = do
+    print (cAST c)
+    mapM_ (\(k, v) -> do
+        putStrLn ("\n" ++ k ++ ":")
+        showAST (blockContext v)) (Map.toList (blockMap (blocks c)))
+
 execOnOps :: IO (ValidState Context) -> Options -> IO ()
 execOnOps ctx ops = do
     if fileExecutable ops /= "" then
@@ -91,6 +101,9 @@ execOnOps ctx ops = do
         showDisassembly c
     else
         putStr ""
+    if ast ops then
+        showAST c
+    else putStr ""
     if execute ops then
         execImpl c
     else putStr ""

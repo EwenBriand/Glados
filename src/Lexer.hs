@@ -31,6 +31,7 @@ data VarType
   | GInt -- 64 bit integer
   | GBool -- True or False, #t or #f
   | GVoid -- No Prelude.return value
+  | GPtr -- Pointer to a value
   deriving (Show, Eq, Generic)
 
 instance Binary VarType
@@ -81,6 +82,8 @@ data ASTNode
   | ASTNodeType {astntName :: VarType}
   | ASTNodeVariable {astnvName :: ASTNode, astnvType :: VarType}
   | ASTNodeReturn {astnrValue :: ASTNode}
+  | ASTNodeDeref {astndChildren :: ASTNode, astndindex :: ASTNode}
+  | ASTNodeCast {astncastee :: ASTNode, astncasttype :: VarType}
   deriving (Eq, Generic)
 
 instance Binary ASTNode
@@ -115,6 +118,8 @@ instance Show ASTNode where
   show (ASTNodeType n) = "(type: " ++ show n ++ ")"
   show (ASTNodeVariable n t) = "(variable: \n\t(name) " ++ show n ++ "\n\t(type) " ++ show t ++ ")"
   show (ASTNodeReturn v) = "(return: " ++ show v ++ ")"
+  show (ASTNodeCast n t) = "(cast: \n\t(castee) " ++ show n ++ "\n\t(type) " ++ show t ++ ")"
+  show (ASTNodeDeref n i) = "(deref: \n\t(name) " ++ show n ++ "\n\t(index) " ++ show i ++ ")"
   show _ = "(unknown node)"
 
 isSymbolAndParamArray :: [ASTNode] -> Bool
@@ -145,11 +150,14 @@ getTypeFromToken (TokenInfo TokenType "int") = GInt
 getTypeFromToken (TokenInfo TokenType "bool") = GBool
 getTypeFromToken (TokenInfo TokenType "void") = GVoid
 getTypeFromToken (TokenInfo TokenType "undefined") = GUndefinedType
+getTypeFromToken (TokenInfo TokenType "@") = GPtr
 getTypeFromToken _ = GUndefinedType
 
 getTypeFromNodeValue :: ASTNode -> VarType
 getTypeFromNodeValue (ASTNodeInteger _) = GInt
 getTypeFromNodeValue (ASTNodeBoolean _) = GBool
+getTypeFromNodeValue (ASTNodeArray _) = GPtr
+getTypeFromNodeValue (ASTNodeCast _ t) = t
 getTypeFromNodeValue _ = GUndefinedType
 
 -- | @params:
@@ -312,6 +320,9 @@ tokOrExprToASTNode [A (ASTNodeParamList l), T (TokenInfo TokenComma _), A n] = A
 tokOrExprToASTNode [A (ASTNodeParamList l), A n] = ASTNodeParamList (l ++ [n])
 tokOrExprToASTNode [A n1, A n2] = ASTNodeParamList [n1, n2]
 
+tokOrExprToASTNode [A n, T (TokenInfo TokenCast _), T (TokenInfo TokenType typ)] = ASTNodeCast n (getTypeFromToken (TokenInfo TokenType typ))
+
+tokOrExprToASTNode [A n, T (TokenInfo TokenDeref _), A i] = ASTNodeDeref n i
 -- error
 tokOrExprToASTNode unresolved = ASTNodeError (TokenInfo TokError (show unresolved))
 
@@ -320,6 +331,7 @@ typeToInt GUndefinedType = 1
 typeToInt GInt = 2
 typeToInt GBool = 3
 typeToInt GVoid = 4
+typeToInt GPtr = 5
 typeToInt _ = 0
 
 intToType :: ValidState Int -> ValidState VarType
@@ -330,6 +342,7 @@ intToType (Valid i) = case i of
   2 -> Valid GInt
   3 -> Valid GBool
   4 -> Valid GVoid
+  5 -> Valid GPtr
   _ -> Invalid "invalid type"
 
 -- | @params:

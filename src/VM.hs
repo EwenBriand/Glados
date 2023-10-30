@@ -447,6 +447,7 @@ adaptValueToVarType tp (Valid val) = case tp of
   GInt -> show val
   GBool -> if val == 0 then "false" else "true"
   GVoid -> ""
+  GPtr -> show val
   GUndefinedType -> "Undefined"
 
 -- Recieves the Context, list of symbols and the symbol you are looking for and prints it
@@ -547,6 +548,7 @@ instance Binary Param
 data Instruction
   = Mov Param Param
   | MovPtr Param Param -- mov [eax], ebx
+  | DerefMacro Register -- mov eax, [reg + index]
   | MovStackAddr Param Param -- mov [ebp + 4], ebx
   | MovFromStackAddr Param Param -- mov ebx, [ebp + 4]
   | Nop

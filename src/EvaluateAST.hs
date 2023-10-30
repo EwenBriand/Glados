@@ -109,6 +109,9 @@ instructionFromAST (ASTNodeBreak [ASTNodeLambda _ param body, ASTNodeFunctionCal
     u_name = "lambda@" ++ ("_" ++ show uuid)
     (uuid, ctx') = nextUUIDValid ctx
 instructionFromAST (ASTNodeBreak (a : b)) ctx = instructionFromAST (ASTNodeBreak b) (instructionFromAST a ctx)
+instructionFromAST (ASTNodeDeref value index) ctx = putDerefInstruction value index ctx
+instructionFromAST (ASTNodeCast n _) ctx = instructionFromAST n ctx
+
 instructionFromAST (ASTNodeBreak []) ctx = ctx
 instructionFromAST a _ = Invalid ("Error: invalid AST" ++ show a)
 
@@ -195,6 +198,20 @@ putPrintInstruction ctx node = do
 
 -- 5 is for 4 (numeric) + 1
 -- putPrintInstruction (Valid ctx) = Valid ctx {instructions = instructions ctx ++ [Mov (Reg EAX) 4, Mov (Reg EBX) 1, Mov (Reg ECX) (Reg ), Mov (Reg EDX) 5, Interrupt]}
+
+putDerefInstruction :: ASTNode -> ASTNode -> ValidState Context -> ValidState Context
+putDerefInstruction value index ctx = do
+    indexCtx <- instructionFromAST index ctx -- store the index in eax by evaluating the index node
+    let ctx' = indexCtx {instructions = instructions indexCtx ++ [Nop, Push (Reg EAX)]} -- push the index to the stack
+    valueCtx <- instructionFromAST value (Valid ctx')
+    let ctx'' = valueCtx {instructions = instructions valueCtx ++ [Pop (Reg EBX), DerefMacro EBX]} -- pop the index from the stack and dereference it
+    ValidState.return ctx'' -- return the context
+
+    -- ValidState.return valueCtx
+
+    -- valueInstr <- instructionFromAST value ctx
+    -- indexInstr <- instructionFromAST index (Valid valueInstr {instructions = instructions valueInstr ++ [Push (Reg EAX)]})
+    -- ValidState.return indexInstr {instructions = instructions indexInstr ++ [Pop (Reg EBX), DerefMacro EBX]}
 
 putInstructionSequence :: [ASTNode] -> ValidState Context -> ValidState Context
 putInstructionSequence _ (Invalid s) = Invalid s
@@ -383,8 +400,10 @@ putWhileCondition ctx cond uuid = do
 
 inferTypeFromNode :: ValidState Context -> ASTNode -> VarType
 inferTypeFromNode (Invalid _) _ = GUndefinedType
+inferTypeFromNode _ (ASTNodeCast _ t) = t
 inferTypeFromNode _ (ASTNodeInteger _) = GInt
 inferTypeFromNode _ (ASTNodeBoolean _) = GBool
+inferTypeFromNode _ (ASTNodeArray _) = GPtr
 inferTypeFromNode c (ASTNodeSymbol name) = case symGetFull c name of
   (Invalid _) -> GUndefinedType
   Valid (_, t) -> t
