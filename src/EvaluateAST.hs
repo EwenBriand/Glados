@@ -118,6 +118,7 @@ instructionFromAST (ASTNodeBreak []) ctx = ctx
 instructionFromAST a _ = Invalid ("Error: invalid AST" ++ show a)
 instructionFromAST (ASTNodeShow (x:xs) _type) ctx = instructionFromAST (ASTNodeShow xs _type) (putASTNodeShow x _type ctx)
 instructionFromAST (ASTNodeShow [] _type) ctx = ctx
+-- instructionFromAST (ASTNodeStruct name params) ctx = putStructInstruction ctx name params
 instructionFromAST _ _ = Invalid "Error!!!!"
 
 putASTNodeShow :: ASTNode -> VarType -> ValidState Context -> ValidState Context
@@ -133,6 +134,9 @@ putShowInt (Valid c) (ASTNodeInteger val) = Valid c {instructions = instructions
 putShowBool :: ValidState Context -> ASTNode -> ValidState Context
 putShowBool (Invalid s) _ = Invalid s
 putShowBool (Valid c) (ASTNodeBoolean val) = Valid c {instructions = instructions c ++ [ShowBool]}
+
+putStructInstruction :: ValidState Context -> ASTNode -> [ASTNode] -> ValidState Context
+putStructInstruction (Invalid s) _ _ = Invalid s
 
 paramsRegisters :: [Register]
 paramsRegisters = [EDI, ESI, EDX, ECX]

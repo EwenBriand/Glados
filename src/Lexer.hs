@@ -32,6 +32,7 @@ data VarType
   | GBool -- True or False, #t or #f
   | GVoid -- No Prelude.return value
   | GPtr -- Pointer to a value
+  | GStruct String -- A structure
   deriving (Show, Eq, Generic)
 
 instance Binary VarType
@@ -86,6 +87,7 @@ data ASTNode
   | ASTNodeDeref {astndChildren :: ASTNode, astndindex :: ASTNode}
   | ASTNodeCast {astncastee :: ASTNode, astncasttype :: VarType}
   | ASTNodeShow {astnsChildren :: [ASTNode], astnsType :: VarType}
+  | ASTNodeStruct {astnsName :: String, astnsChildren :: [ASTNode]}
   deriving (Eq, Generic)
 
 instance Binary ASTNode
@@ -124,6 +126,7 @@ instance Show ASTNode where
   show (ASTNodeCast n t) = "(cast: \n\t(castee) " ++ show n ++ "\n\t(type) " ++ show t ++ ")"
   show (ASTNodeDeref n i) = "(deref: \n\t(name) " ++ show n ++ "\n\t(index) " ++ show i ++ ")"
   show (ASTNodeShow l t) = "(show: \n\t(type) " ++ show t ++ "\n\t(children) " ++ show l ++ ")"
+  show (ASTNodeStruct n l) = "(struct: \n\t(name) " ++ n ++ "\n\t(children) " ++ show l ++ ")"
   show _ = "(unknown node)"
 
 isSymbolAndParamArray :: [ASTNode] -> Bool
@@ -155,12 +158,14 @@ getTypeFromToken (TokenInfo TokenType "bool") = GBool
 getTypeFromToken (TokenInfo TokenType "void") = GVoid
 getTypeFromToken (TokenInfo TokenType "undefined") = GUndefinedType
 getTypeFromToken (TokenInfo TokenType "@") = GPtr
+getTypeFromToken (TokenInfo TokenStruct s) = GStruct s
 getTypeFromToken _ = GUndefinedType
 
 getTypeFromNodeValue :: ASTNode -> VarType
 getTypeFromNodeValue (ASTNodeInteger _) = GInt
 getTypeFromNodeValue (ASTNodeBoolean _) = GBool
 getTypeFromNodeValue (ASTNodeArray _) = GPtr
+getTypeFromNodeValue (ASTNodeStruct s _) = GStruct s
 getTypeFromNodeValue (ASTNodeCast _ t) = t
 getTypeFromNodeValue _ = GUndefinedType
 
@@ -238,6 +243,9 @@ tokOrExprToASTNode [A (ASTNodeVariable sym typ), T (TokenInfo TokenEq _), T (Tok
 tokOrExprToASTNode [T (TokenInfo TokenReturn _), A n, T (TokenInfo TokenPointComma _)] = ASTNodeReturn n
 
 tokOrExprToASTNode [T (TokenInfo TokenType typ), A (ASTNodeSymbol sym)] = ASTNodeVariable (ASTNodeSymbol sym) (getTypeFromToken (TokenInfo TokenType typ))
+
+-- structures
+tokOrExprToASTNode [T (TokenInfo TokenStruct _), T (TokenInfo TokSymbol sym), T (TokenInfo TokOpenCurrBrac _), A (ASTNodeParamList n), T (TokenInfo TokCloseCurrBrac _), T (TokenInfo TokenPointComma _)] = ASTNodeStruct sym n
 
 -- Old language
 
@@ -351,6 +359,7 @@ typeToInt GInt = 2
 typeToInt GBool = 3
 typeToInt GVoid = 4
 typeToInt GPtr = 5
+typeToInt (GStruct _) = 6
 typeToInt _ = 0
 
 intToType :: ValidState Int -> ValidState VarType
@@ -362,6 +371,7 @@ intToType (Valid i) = case i of
   3 -> Valid GBool
   4 -> Valid GVoid
   5 -> Valid GPtr
+  6 -> Valid (GStruct "")
   _ -> Invalid "invalid type"
 
 -- | @params:
