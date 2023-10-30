@@ -62,6 +62,7 @@ import Data.Bits
 import Lexer (VarType)
 import VM
 import ValidState
+import ValidState (ValidState(Valid))
 import VM (Context(Context))
 
 instructionTable :: ValidState Context -> Instruction -> ValidState Context
@@ -178,7 +179,8 @@ instructionTableIO ctx (Label _ _) = (ctx, putStr "label\n") -- labels are prepr
 instructionTableIO (Valid ctx) (MovStackAddr p1 p2) = (movStackAddrImpl (Valid ctx) p1 p2, putStr (show (registers ctx) ++ show (stack ctx) ++ show (symbolTable ctx) ++ "mov stack addr\n"))
 instructionTableIO (Valid ctx) (MovFromStackAddr p1 p2) = (movFromStackAddrImpl (Valid ctx) p1 p2, putStr (show (registers ctx) ++ show (stack ctx) ++ show (symbolTable ctx) ++ "mov from stack addr\n"))
 instructionTableIO ctx (Call str) = callImpl ctx str
-instructionTableIO ctx Ret = (returnImpl ctx, putStr "")
+instructionTableIO ctx ShowInt = showIntImpl ctx
+instructionTableIO ctx ShowBool = showBoolImpl ctx
 instructionTableIO ctx ins = (instructionTable ctx ins, putStr "")
 
 evalOneInstructionIO :: Context -> Instruction -> (ValidState Context, IO())
@@ -264,6 +266,22 @@ derefMacroImpl ctx r = do
     -- Invalid ("address is " ++ show addr ++ " valud is " ++ show value ++ " and index is " ++ show index ++ " and content is " ++ show val)
     regSet ctx EAX val
 
+
+--
+-- ShowInt SECTION
+--
+
+showIntImpl :: ValidState Context -> (ValidState Context, IO ())
+showIntImpl (Invalid s) = (Invalid s, putStr "")
+showIntImpl (Valid c) = case getTrueValueFromParam (Valid c) (Reg EAX) of
+  Invalid s -> (Invalid s, putStr "")
+  Valid val -> (Valid c, print val)
+
+showBoolImpl :: ValidState Context -> (ValidState Context, IO())
+showBoolImpl (Invalid s) = (Invalid s, putStr "")
+showBoolImpl (Valid c) = if fromValidState 0 (getTrueValueFromParam (Valid c) (Reg EAX)) == 0
+    then (Valid c, print "false")
+    else (Valid c, print "true")
 
 --
 -- PUSH SECTION

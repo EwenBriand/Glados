@@ -733,6 +733,19 @@ testEncodeAlloc = runRunctionalTest impl "ElfTestRes/alloc_expected.txt"
                 p = do
                   convertOneInstruction (Alloc 16000)
 
+testEncodeWriteElf :: Test
+testEncodeWriteElf = runRunctionalTest impl "ElfTestRes/write_expected.txt"
+    where
+        impl :: IO ()
+        impl = do
+            let elf = assemble p
+            elf P.>>= writeElf ".tmp_test_output"
+            where
+                p :: MonadCatch m => StateT CodeState m ()
+                p = do
+                  convertOneInstruction (Write 1 (Symbol "42") 2)
+                  convertOneInstruction (Write 1 (Immediate 42) 2)
+
 functionalASMTests :: Test
 functionalASMTests =
   TestList
@@ -766,5 +779,6 @@ functionalASMTests =
       -- testFCallInASM,     -- machine dependent
       -- testXorMovGhostLimb, -- machine dependent
       testEncodeAlloc,
+      testEncodeWriteElf,
       testJeInASM
       ]
