@@ -58,10 +58,10 @@ where
 
 import Lexer
 import VM
-import VM (Context (Context))
 import ValidState
 import System.IO.Error (catchIOError)
 import Control.Exception (try)
+import Tokenizer
 
 -- -- | Evaluates the AST and push the instructions into the context.
 -- evaluateAST :: ASTNode -> Context -> ValidState Context
@@ -69,6 +69,7 @@ import Control.Exception (try)
 
 instructionFromAST :: ASTNode -> ValidState Context -> ValidState Context
 instructionFromAST _ (Invalid s) = Invalid s
+instructionFromAST (ASTNodeBinOps l) ctx = putBinOpsInstruction l ctx
 instructionFromAST (ASTNodeIf (ASTNodeArray cond) thenBlock elseBlock) ctx = putIfInstruction ctx (ASTNodeIf (head cond) thenBlock elseBlock)
 instructionFromAST (ASTNodeIf cond [ASTNodeParamList thenBlock] (Valid [ASTNodeParamList elseBlock])) ctx = putIfInstruction ctx (ASTNodeIf cond (expendParamList thenBlock) (Valid (expendParamList elseBlock)))
 instructionFromAST (ASTNodeIf cond [ASTNodeParamList thenBlock] elseBlock) ctx = putIfInstruction ctx (ASTNodeIf cond (expendParamList thenBlock) elseBlock)
@@ -624,3 +625,54 @@ strToHASM (Valid ctx) str = c'
     c = case strToAST str of
       ASTNodeError e -> Invalid ("Error: not a valid expression: " ++ show e)
       ast -> instructionFromAST ast (Valid ctx {cAST = [ast]})
+
+getPriority :: Token -> Int
+getPriority TokOperatorPlus = 1
+getPriority TokOperatorMinus = 1
+getPriority TokOperatorMul = 2
+getPriority TokOperatorDiv = 2
+getPriority TokOperatorMod = 2
+getPriority _ = 0
+
+hasHigherPriorityThan :: Token -> Token -> Bool
+hasHigherPriorityThan a b = getPriority a > getPriority b
+
+buildOpStack :: [TokorNode] -> ([ASTNode], [Token])
+buildOpStack l = buildOpStackImpl l [] []
+    where
+        buildOpStackImpl :: [TokorNode] -> [ASTNode] -> [Token] -> ([ASTNode], [Token])
+        buildOpStackImpl [] operands operators = (operands, operators)
+        buildOpStackImpl (A a : ls) operands operators = buildOpStackImpl ls (a : operands) operators
+        buildOpStackImpl (T (TokenInfo op _) : ls) operands [] = buildOpStackImpl ls operands [op]
+        buildOpStackImpl (T (TokenInfo op _) : ls) (t1 : t2 : ts) (ohead : os) =
+            if op `hasHigherPriorityThan` ohead
+                then buildOpStackImpl ls (t1 : t2 : ts) (op : ohead : os)
+                else buildOpStackImpl ls ([ASTNodeBinOps [A t1, T (TokenInfo ohead ""), A t2]] ++ ts) (op : os)
+        buildOpStackImpl _ _ _ = ([], [])
+
+matchOperatorToNode :: Token -> ASTNode -> ASTNode -> ASTNode
+matchOperatorToNode TokOperatorPlus a b = ASTNodeSum [a, b]
+matchOperatorToNode TokOperatorMinus a b = ASTNodeSub [a, b]
+matchOperatorToNode TokOperatorMul a b = ASTNodeMul [a, b]
+matchOperatorToNode TokOperatorDiv a b = ASTNodeDiv [a, b]
+matchOperatorToNode TokOperatorMod a b = ASTNodeMod [a, b]
+matchOperatorToNode t _ _ = ASTNodeError (TokenInfo t ("Unknown operator : " ++ show t))
+
+evalBinOpStack :: ValidState Context -> ([ASTNode], [Token]) -> ValidState Context
+evalBinOpStack (Invalid s) _ = Invalid s
+evalBinOpStack ctx ([], []) = ctx
+evalBinOpStack ctx ([finalResult], []) = instructionFromAST finalResult ctx
+evalBinOpStack ctx ((t1 : t2 : ts), (o : os)) =
+    let
+        node = matchOperatorToNode o t1 t2
+    in
+        evalBinOpStack ctx (node : ts, os)
+evalBinOpStack _ (a, b) = Invalid ("Error: unbalanced stack: \n" ++ show a ++ "\n" ++ show b)
+
+
+putBinOpsInstruction :: [TokorNode] -> ValidState Context -> ValidState Context
+putBinOpsInstruction _ (Invalid s) = Invalid s                                 -- error
+putBinOpsInstruction [A (ASTNodeBinOps [A left, T (TokenInfo op _), A right])] ctx =         -- trivial case, one operation
+    instructionFromAST (matchOperatorToNode op left right) ctx
+putBinOpsInstruction l (Valid c) = evalBinOpStack (Valid c) (buildOpStack l)   -- complex case, multiple operations
+
