@@ -5,14 +5,13 @@
           | <comment>
           | <paren>
           | <error>
-          | <empty>
           | <whitespace>
           | <newline>
           | <bool>
           | <comparison>
           | <print>
           | <bracket>
-          | <curly-bracket>
+          | <curly_bracket>
           | <type>
           | <deref>
           | <cast>
@@ -52,13 +51,11 @@
             | "for"
             | "as"
 
-<comment> ::= "//" <text>
+<comment> ::= "#" <text>
 
 <paren> ::= "(" | ")"
 
 <error> ::= <other>
-
-<empty> ::= ""
 
 <whitespace> ::= " "
 
@@ -72,7 +69,7 @@
 
 <bracket> ::= "[" | "]"
 
-<curly-bracket> ::= "{" | "}"
+<curly_bracket> ::= "{" | "}"
 
 <type> ::= "int" | "bool" | "float" | "@"
 
@@ -82,7 +79,7 @@
 
 <digit> ::= "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9"
 
-<letter> ::= "a" | "b" | "c" | ... | "x" | "y" | "z"
+<letter> ::= [a-z]
 
 <semicolon> ::= ";"
 
@@ -93,3 +90,40 @@
 
 <symbol_declaration> ::= <type> <symbol> <semicolon>
 
+<text> ::= <letter>+
+
+<other> ::= <token>
+
+<list> ::= "[" <expression>+ "]"
+
+<func> ::= <type> <text> "(" <arg_list> ")" "{" <statement_list> "}"
+
+<arg_list> ::= <argument> | <argument> "," <arg_list>
+<argument> ::= <type> " " <text>
+
+<statement_list> ::= <statement> | <statement> <statement_list>
+<statement> ::= <expression_statement> | <if_statement> | <for_statement> | <jmp_statment>
+
+<expression_statement> ::= <expression> ";"
+
+<if_statement> ::= "if" "(" <expression> ")" "{" <statement_list> "}" <elif_statement> <else_statement>
+<elif_statement> ::= "elif" "(" <expression> ")" "{" <statement_list> "}" <elif_statement> | " "
+<else_statement> ::= "else" "{" <statement_list> "}" | " "
+
+<for_statement> ::= "for" "(" <expression_statement> <expression> ";" <expression> ")" "{" <statement_list> "}"
+
+<jmp_statment> ::= "continue" ";" | "break" ";" | <return_statement>
+
+<return_statement> ::= "return" <expression> ";"
+
+<binary_expression> ::= <expression> <operator> <expression>
+
+<mutable> ::= <type> " " <text> " = " <expression>
+
+<lambda> ::= "(" <text> ") => {" <statement_list> "}"
+
+<func_call> ::= <text> "(" <arg_list> ")"
+
+<set_mutable> ::= <symbol> "=" <expression> <semicolon>
+<inc_mutable> ::= <symbol> "++" <semicolon>
+<dec_mutable> ::= <symbol> "--" <semicolon>

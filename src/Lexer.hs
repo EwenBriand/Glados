@@ -75,6 +75,7 @@ data ASTNode
   | ASTNodePrint {astnPrint :: ASTNode}
   | ASTNodeDefine {astndName :: ASTNode, astndParams :: ValidState ASTNode, astndBody :: [ASTNode]}
   | ASTNodeLambda {astndName :: ASTNode, astndParams :: ValidState ASTNode, astndBody :: [ASTNode]}
+  | ASTNodeCapture {astncChildren :: [ASTNode]}
   | ASTNodeFunctionCall {astnfName :: String, astfnParams :: [ASTNode]}
   | ASTNodeBreak {astneChildren :: [ASTNode]}
   | ASTNodeWhile {astniCondition :: ASTNode, astniThen :: [ASTNode]}
@@ -85,6 +86,7 @@ data ASTNode
   | ASTNodeDeref {astndChildren :: ASTNode, astndindex :: ASTNode}
   | ASTNodeCast {astncastee :: ASTNode, astncasttype :: VarType}
   | ASTNodeBinOps {astnboChildren :: [TokorNode]}
+  | ASTNodeShow {astnsChildren :: [ASTNode], astnsType :: VarType}
   deriving (Eq, Generic)
 
 instance Binary ASTNode
@@ -111,17 +113,19 @@ instance Show ASTNode where
   show (ASTNodePrint p) = "(print " ++ show p ++ ")"
   show (ASTNodeFunctionCall n p) = "(functioncall: \n\t(name) " ++ n ++ "\n\t(params) " ++ show p ++ ")\n"
   show (ASTNodeLambda n p b) = "(lambda: \n\t(name) " ++ show n ++ "\n\t(params) " ++ show p ++ "\n\t(body) {" ++ show b ++ "})\n"
+  show (ASTNodeCapture c) = "(capture: " ++ show c ++ ")"
   show (ASTNodeBreak l) = "(break: " ++ show l ++ ")"
   show (ASTNodeEq l) = "(eq: " ++ show l ++ ")"
   show (ASTNodeInferior l) = "(inferior: " ++ show l ++ ")"
   show (ASTNodeWhile c t) = "(while: \n\t(condition) " ++ show c ++ "\n\t(then) " ++ show t ++ ")"
   show (ASTNodeSet n c) = "(set: \n\t(name) " ++ show n ++ "\n\t(children) " ++ show c ++ ")"
   show (ASTNodeType n) = "(type: " ++ show n ++ ")"
-  show (ASTNodeVariable n t) = "(variable: \n\t(name) " ++ show n ++ "\n\t(type) " ++ show t ++ ")"
+  show (ASTNodeVariable n t) = "(variable: \n\t(name) " ++ show n ++ "\n\t(type) " ++ show t ++ ")\n"
   show (ASTNodeReturn v) = "(return: " ++ show v ++ ")"
   show (ASTNodeCast n t) = "(cast: \n\t(castee) " ++ show n ++ "\n\t(type) " ++ show t ++ ")"
   show (ASTNodeDeref n i) = "(deref: \n\t(name) " ++ show n ++ "\n\t(index) " ++ show i ++ ")"
   show (ASTNodeBinOps l) = "(binops: " ++ show l ++ ")"
+  show (ASTNodeShow l t) = "(show: \n\t(type) " ++ show t ++ "\n\t(children) " ++ show l ++ ")"
   show _ = "(unknown node)"
 
 isSymbolAndParamArray :: [ASTNode] -> Bool
@@ -214,6 +218,7 @@ tokOrExprToASTNode [T (TokenInfo TokenSymPrint _), T (TokenInfo TokOpenParen _),
 tokOrExprToASTNode [T (TokenInfo TokenSymPrint _), T (TokenInfo TokOpenParen _), A n, T (TokenInfo TokCloseParen _)] = ASTNodePrint n
 tokOrExprToASTNode [A (ASTNodePrint n), T (TokenInfo TokenPointComma _)] = ASTNodePrint n
 
+
 tokOrExprToASTNode [T (TokenInfo TokOpenParen _), A n1, T (TokenInfo TokenInferior _), A n2, T (TokenInfo TokCloseParen _)] = ASTNodeInferior [n1, n2]
 tokOrExprToASTNode [T (TokenInfo TokOpenParen _), A n1, T (TokenInfo TokenInferiorEq _), A n2, T (TokenInfo TokCloseParen _)] = ASTNodeInferiorEq [n1, n2]
 tokOrExprToASTNode [T (TokenInfo TokOpenParen _), A n1, T (TokenInfo TokenSuperior _), A n2, T (TokenInfo TokCloseParen _)] = ASTNodeSuperior [n1, n2]
@@ -228,15 +233,22 @@ tokOrExprToASTNode [A (ASTNodeVariable sym typ), T (TokenInfo TokenEq _), A n] =
 tokOrExprToASTNode [A (ASTNodeSymbol sym), T (TokenInfo TokOpenParen _), A (ASTNodeParamList l), T (TokenInfo TokCloseParen _), T (TokenInfo TokenPointComma _)] = ASTNodeFunctionCall sym l
 tokOrExprToASTNode [A (ASTNodeSymbol sym), T (TokenInfo TokOpenParen _), A n, T (TokenInfo TokCloseParen _), T (TokenInfo TokenPointComma _)] = ASTNodeFunctionCall sym [n]
 
+-- functions
 tokOrExprToASTNode [A (ASTNodeVariable sym typ), T (TokenInfo TokOpenParen _), A n, T (TokenInfo TokCloseParen _), T (TokenInfo TokOpenCurrBrac _), A body, T (TokenInfo TokCloseCurrBrac _)] = ASTNodeDefine sym (Valid (ASTNodeParamList [n])) [body]
 tokOrExprToASTNode [A (ASTNodeParamList [ASTNodeVariable sym typ, ASTNodeArray params]), T (TokenInfo TokOpenCurrBrac _), A body, T (TokenInfo TokCloseCurrBrac _)] = ASTNodeDefine sym (Valid (ASTNodeParamList params)) [body]
 tokOrExprToASTNode [A (ASTNodeVariable sym typ), A (ASTNodeArray params), T (TokenInfo TokOpenCurrBrac _), A body, T (TokenInfo TokCloseCurrBrac _)] = ASTNodeDefine sym (Valid (ASTNodeParamList params)) [body]
 -- tokOrExprToASTNode [A (ASTNodeVariable sym typ), T (TokenInfo TokOpenParen _), A n, T (TokenInfo TokCloseParen _), T (TokenInfo TokOpenCurrBrac _), A body, T (TokenInfo TokCloseCurrBrac _)] = ASTNodeDefine sym (Valid (ASTNodeParamList [n])) [body]
 -- tokOrExprToASTNode [T (TokenInfo TokenType typ), A (ASTNodeParamList [ASTNodeSymbol sym, ASTNodeArray params]), T (TokenInfo TokOpenCurrBrac _), A body, T (TokenInfo TokCloseCurrBrac _)] = ASTNodeDefine (ASTNodeSymbol sym) (Valid (ASTNodeParamList params)) [body]
 
+-- lambda with parameters
+tokOrExprToASTNode [T (TokenInfo TokOpenBrac _), T (TokenInfo TokCloseBrac _)] = ASTNodeCapture []
+tokOrExprToASTNode [A (ASTNodeVariable sym typ), T (TokenInfo TokenEq _), T (TokenInfo TokLambda _), T (TokenInfo TokOpenParen _), A n, T (TokenInfo TokCloseParen _), T (TokenInfo TokOpenCurrBrac _), A body, T (TokenInfo TokCloseCurrBrac _), T (TokenInfo TokenPointComma _)] = ASTNodeDefine sym (Valid (ASTNodeParamList [n])) [body]
+tokOrExprToASTNode [A (ASTNodeVariable sym typ), T (TokenInfo TokenEq _), T (TokenInfo TokLambda _), A (ASTNodeArray params), T (TokenInfo TokOpenCurrBrac _), A body, T (TokenInfo TokCloseCurrBrac _), T (TokenInfo TokenPointComma _)] = ASTNodeDefine sym (Valid (ASTNodeParamList params)) [body]
+
 tokOrExprToASTNode [T (TokenInfo TokenReturn _), A n, T (TokenInfo TokenPointComma _)] = ASTNodeReturn n
 
 tokOrExprToASTNode [T (TokenInfo TokenType typ), A (ASTNodeSymbol sym)] = ASTNodeVariable (ASTNodeSymbol sym) (getTypeFromToken (TokenInfo TokenType typ))
+
 -- Old language
 
 tokOrExprToASTNode [T (TokenInfo TokOpenParen _), T (TokenInfo TokOperatorMinus _), A (ASTNodeInteger i), T (TokenInfo TokCloseParen _)] = ASTNodeInteger (-i)
@@ -329,6 +341,13 @@ tokOrExprToASTNode [A n1, T (TokenInfo TokenComma _), A n2] = ASTNodeParamList [
 tokOrExprToASTNode [A (ASTNodeParamList l), T (TokenInfo TokenComma _), A n] = ASTNodeParamList (l ++ [n])
 tokOrExprToASTNode [A (ASTNodeParamList l), A n] = ASTNodeParamList (l ++ [n])
 tokOrExprToASTNode [A n1, A n2] = ASTNodeParamList [n1, n2]
+-- show with cast
+tokOrExprToASTNode [T (TokenInfo TokenShowKeyword _), A n, T (TokenInfo TokenAsKeyword _), T (TokenInfo TokenType typ), T (TokenInfo TokenPointComma _)] = case A n of
+        (A (ASTNodeParamList l)) -> ASTNodeShow l (getTypeFromToken (TokenInfo TokenType typ))
+        (A (ASTNodeArray l)) -> ASTNodeShow l (getTypeFromToken (TokenInfo TokenType typ))
+        (A (ASTNodeInteger _)) -> ASTNodeShow [n] (getTypeFromToken (TokenInfo TokenType typ))
+        (A (ASTNodeBoolean _)) -> ASTNodeShow [n] (getTypeFromToken (TokenInfo TokenType typ))
+        A n' -> ASTNodeShow [n'] (getTypeFromToken (TokenInfo TokenType typ))
 
 tokOrExprToASTNode [A n, T (TokenInfo TokenCast _), T (TokenInfo TokenType typ)] = ASTNodeCast n (getTypeFromToken (TokenInfo TokenType typ))
 

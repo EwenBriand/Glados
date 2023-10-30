@@ -117,6 +117,23 @@ instructionFromAST (ASTNodeCast n _) ctx = instructionFromAST n ctx
 
 instructionFromAST (ASTNodeBreak []) ctx = ctx
 instructionFromAST a _ = Invalid ("Error: invalid AST" ++ show a)
+instructionFromAST (ASTNodeShow (x:xs) _type) ctx = instructionFromAST (ASTNodeShow xs _type) (putASTNodeShow x _type ctx)
+instructionFromAST (ASTNodeShow [] _type) ctx = ctx
+instructionFromAST _ _ = Invalid "Error!!!!"
+
+putASTNodeShow :: ASTNode -> VarType -> ValidState Context -> ValidState Context
+putASTNodeShow n _type c = case _type of
+    GInt -> putShowInt (instructionFromAST n c) n
+    GBool -> putShowBool (instructionFromAST n c) n
+    _ -> putShowInt (instructionFromAST n c) n
+
+putShowInt :: ValidState Context -> ASTNode -> ValidState Context
+putShowInt (Invalid s) _ = Invalid s
+putShowInt (Valid c) (ASTNodeInteger val) = Valid c {instructions = instructions c ++ [Write 1 (Symbol (show val)) (length (show val))]}
+
+putShowBool :: ValidState Context -> ASTNode -> ValidState Context
+putShowBool (Invalid s) _ = Invalid s
+putShowBool (Valid c) (ASTNodeBoolean val) = Valid c {instructions = instructions c ++ [ShowBool]}
 
 paramsRegisters :: [Register]
 paramsRegisters = [EDI, ESI, EDX, ECX]
@@ -432,7 +449,7 @@ putMutableInstruction symtyp name valtyp node ctx =
    in case newCtx of
         Valid _ -> Invalid "Error: Variable already exists" -- error, the variable already exists!
         -- Invalid _ -> putMutableNoErrCheck symtyp name vartyp node ctx
-        Invalid _ -> if symtyp == valtyp then putMutableNoErrCheck symtyp name node ctx else Invalid "Error: type mismatch"
+        Invalid _ -> if symtyp == valtyp then putMutableNoErrCheck symtyp name node ctx else Invalid ("Error: type mismatch:\n\tCannot assign " ++ show name ++ " of type " ++ show symtyp ++ " to value " ++ show node ++ " of type " ++ show valtyp)
 
 putSetNoErrCheck :: ValidState Context -> ASTNode -> ASTNode -> ValidState Context
 putSetNoErrCheck (Invalid s) _ _ = Invalid s
