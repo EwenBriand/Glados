@@ -151,6 +151,7 @@ execSyscall :: ValidState Context -> SyscallCode -> (ValidState Context, IO ())
 execSyscall (Invalid s) _ = (Invalid s, putStr s)
 -- print
 execSyscall (Valid ctx) SCEasyPrint = (Valid ctx, callEasyPrint (Valid ctx))
+-- execSyscall (Valid ctx) SCEasyPrint = (Valid ctx, putStr "print")
 -- exit
 execSyscall (Valid ctx) SCExit = (callExit (Valid ctx), putStr "exit")
 
@@ -446,6 +447,7 @@ adaptValueToVarType tp (Valid val) = case tp of
   GInt -> show val
   GBool -> if val == 0 then "false" else "true"
   GVoid -> ""
+  GPtr -> show val
   GUndefinedType -> "Undefined"
 
 -- Recieves the Context, list of symbols and the symbol you are looking for and prints it
@@ -460,7 +462,6 @@ sysPrintValue (Valid c) tp name = case tp of
 
 truePrintValue :: ValidState Context -> Param -> Param -> IO ()
 truePrintValue (Invalid s) _ _ = putStrLn s
--- truePrintValue (Valid c) varType param = putStrLn ("param is " ++ show param ++ " type being " ++ show (trueType)) >> putStrLn (show (getTrueValueFromParam (Valid c) param))
 truePrintValue c varType param = putStrLn (adaptValueToVarType (fromValidState GUndefinedType trueType) (getTrueValueFromParam c param))
   where
     trueType = intToType (getTrueValueFromParam c varType)
@@ -547,12 +548,13 @@ instance Binary Param
 data Instruction
   = Mov Param Param
   | MovPtr Param Param -- mov [eax], ebx
+  | DerefMacro Register -- mov eax, [reg + index]
   | MovStackAddr Param Param -- mov [ebp + 4], ebx
   | MovFromStackAddr Param Param -- mov ebx, [ebp + 4]
   | Nop
   | Push Param
   | Pop Param
-  | IMul Param Param
+  | IMul Param Param -- noop
   | Xor Param Param
   | Or Param Param
   | And Param Param
@@ -584,7 +586,12 @@ data Instruction
   | Call String -- calls evaluates a function (block)
   | Interrupt
   | Label String Int -- name of the label, instruction pointer at the time.
+  | Ret
+-- macros
   | Alloc Int
+  | ShowInt
+  | ShowBool
+  | Write Int Param Int
   deriving (Eq, Ord, Show, Generic)
 
 instance Binary Instruction
@@ -638,7 +645,8 @@ blockAdd :: ValidState Context -> String -> ValidState Context
 blockAdd (Invalid s) _ = Invalid s
 blockAdd (Valid c) name = case Map.lookup name (blockMap (blocks c)) of
   Just _ -> Invalid ("Block already defined: " ++ name)
-  Nothing -> Valid c {blocks = BlockMap (Map.insert name (Block name (Valid c) []) (blockMap (blocks c)))}
+  -- Nothing -> Valid c {blocks = BlockMap (Map.insert name (Block name (Valid c) []) (blockMap (blocks c)))}
+  Nothing -> Valid c {blocks = BlockMap (Map.insert name (Block name (Valid newContext) []) (blockMap (blocks c)))}
 
 blockReplace :: ValidState Context -> ValidState Block -> ValidState Context
 blockReplace (Invalid s) _ = Invalid s

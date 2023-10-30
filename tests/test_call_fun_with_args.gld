@@ -1,1 +1,2 @@
-(define foo (a b) (if (true) then ((+ a 1)) else ((+ b 1)))) (if (eq? (foo 1 1) 2) (print(2)) (print(1)))
+(define foo (a b) (if (true) then ((+ a 1)) else ((+ b 1))))
+(if (eq? (foo 1 1) 2) (print 2) (print 0))

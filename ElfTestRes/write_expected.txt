@@ -1,0 +1,39 @@
+
+.tmp_test_output2:     file format elf64-x86-64
+
+
+Disassembly of section .text:
+
+0000000000000000 <msg"42"-0x3c>:
+   0:	52                   	push   %rdx
+   1:	51                   	push   %rcx
+   2:	53                   	push   %rbx
+   3:	50                   	push   %rax
+   4:	ba 02 00 00 00       	mov    $0x2,%edx
+   9:	b9 34 10 40 00       	mov    $0x401034,%ecx
+   e:	bb 01 00 00 00       	mov    $0x1,%ebx
+  13:	b8 04 00 00 00       	mov    $0x4,%eax
+  18:	cd 80                	int    $0x80
+  1a:	58                   	pop    %rax
+  1b:	5b                   	pop    %rbx
+  1c:	59                   	pop    %rcx
+  1d:	5a                   	pop    %rdx
+  1e:	52                   	push   %rdx
+  1f:	51                   	push   %rcx
+  20:	53                   	push   %rbx
+  21:	50                   	push   %rax
+  22:	ba 02 00 00 00       	mov    $0x2,%edx
+  27:	b9 34 10 40 00       	mov    $0x401034,%ecx
+  2c:	bb 01 00 00 00       	mov    $0x1,%ebx
+  31:	b8 04 00 00 00       	mov    $0x4,%eax
+  36:	cd 80                	int    $0x80
+  38:	58                   	pop    %rax
+  39:	5b                   	pop    %rbx
+  3a:	59                   	pop    %rcx
+  3b:	5a                   	pop    %rdx
+
+000000000000003c <msg"42">:
+  3c:	34 32                	xor    $0x32,%al
+
+000000000000003e <msg"42">:
+  3e:	34 32                	xor    $0x32,%al

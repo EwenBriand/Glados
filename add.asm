@@ -11,3 +11,6 @@ _start:
     mov rax, 2
     pop rdi
     add rax, rdi
+    mov rdi, 60 ; sys_exit
+    xor rax, rax
+    syscall

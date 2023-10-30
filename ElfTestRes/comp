@@ -1,12 +1,13 @@
 #!/bin/bash
 
-if [ $# -ne 1 ]; then
-  echo "Usage: $0 <asm-file>"
-  exit 1
+options=""
+
+if [ $# -gt 2 ]; then
+    $options=$2
 fi
 
 asm_file="$1"
 obj_file="${asm_file%.*}.o"
 
 nasm -f elf64 -o "$obj_file" "$asm_file"
-objdump -d "$obj_file"
+objdump -d $options "$obj_file"

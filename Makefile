@@ -12,7 +12,7 @@ ROUTE	:=  $(shell stack path --local-install-root)
 all: $(NAME)
 
 $(NAME):
-	stack setup && stack build
+	stack clean && stack setup && stack build
 	cp $(ROUTE)/bin/$(NAME)-exe .
 	mv $(NAME)-exe $(NAME)
 

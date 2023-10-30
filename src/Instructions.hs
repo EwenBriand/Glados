@@ -30,6 +30,26 @@ module Instructions
     setupfunctionStack,
     instructionTableIO,
     allocHeap,
+    movPtrImpl,
+    enterImpl,
+    leaveImpl,
+    callImpl,
+    executeBlock,
+    getInsIndex,
+    pushImpl,
+    popImpl,
+    setStackIndex,
+    movImpl,
+    allCmp,
+    allAdd,
+    myAdd,
+    xorImpl,
+    divImpl,
+    multImpl,
+    subImpl,
+    andImpl,
+    orImpl,
+    notImpl
   )
 where
 
@@ -37,14 +57,58 @@ where
 
 -- labelAlloc,
 
+import Debug.Trace
 import Data.Bits
 import Lexer (VarType)
 import VM
 import ValidState
+import ValidState (ValidState(Valid))
+import VM (Context(Context))
 
 instructionTable :: ValidState Context -> Instruction -> ValidState Context
+-- instructionTable ctx instr = fst (instructionTableIO ctx instr)
 instructionTable (Invalid s) _ = Invalid s
-instructionTable ctx instr = fst (instructionTableIO ctx instr)
+instructionTable ctx (Mov r1 r2) = movImpl ctx r1 r2
+instructionTable ctx (Cmp r1 r2) = allCmp ctx r1 r2
+instructionTable ctx (Test r1 r2) = allTest ctx r1 r2
+instructionTable ctx (Jmp r1) = myJmp ctx r1
+instructionTable ctx (Je r1) = myJe ctx r1
+instructionTable ctx (Jne r1) = myJne ctx r1
+instructionTable ctx (Js r1) = myJs ctx r1
+instructionTable ctx (Jns r1) = myJns ctx r1
+instructionTable ctx (Jg r1) = myJg ctx r1
+instructionTable ctx (Jge r1) = myJge ctx r1
+instructionTable ctx (Jl r1) = myJl ctx r1
+instructionTable ctx (Jle r1) = myJle ctx r1
+instructionTable ctx (Ja r1) = myJa ctx r1
+instructionTable ctx (Jae r1) = myJae ctx r1
+instructionTable ctx (Jb r1) = myJb ctx r1
+instructionTable ctx (Jbe r1) = myJbe ctx r1
+instructionTable ctx (Inc r1) = myInc ctx r1 (regGet ctx r1)
+instructionTable ctx (Dec r1) = myDec ctx r1 (regGet ctx r1)
+instructionTable ctx (Neg r1) = myNeg ctx r1 (regGet ctx r1)
+instructionTable ctx (Add r1 r2) = allAdd ctx r1 r2
+instructionTable ctx (Sub r1 r2) = subImpl ctx r1 r2
+instructionTable ctx (Mult r1 r2) = multImpl ctx r1 r2
+instructionTable ctx (Div r1) = divImpl ctx r1
+instructionTable ctx (Push r1) = pushImpl ctx r1
+instructionTable ctx (Pop r1) = popImpl ctx r1
+instructionTable ctx (Xor r1 r2) = xorImpl ctx r1 r2
+instructionTable ctx (And r1 r2) = andImpl ctx r1 r2
+instructionTable ctx (Or r1 r2) = orImpl ctx r1 r2
+instructionTable ctx (Not r1) = notImpl ctx r1
+instructionTable ctx (MovPtr p1 p2) = movPtrImpl ctx p1 p2
+instructionTable ctx Nop = ctx
+instructionTable ctx (IMul _ _) = ctx
+instructionTable ctx Enter = enterImpl (fromValidState newContext ctx)
+instructionTable ctx Leave = leaveImpl ctx
+instructionTable ctx (Label _ _) = ctx -- labels are preprocessed before executing
+instructionTable ctx (MovStackAddr p1 p2) = movStackAddrImpl ctx p1 p2
+instructionTable ctx (MovFromStackAddr p1 p2) = movFromStackAddrImpl ctx p1 p2
+instructionTable ctx (Alloc int) = allocHeap ctx int
+instructionTable ctx Ret = returnImpl ctx
+instructionTable ctx (DerefMacro r) = derefMacroImpl ctx r
+instructionTable ctx _ = ctx
 
 allocHeap :: ValidState Context -> Int -> ValidState Context
 allocHeap (Invalid s) _ = Invalid s
@@ -77,7 +141,7 @@ blkSetupCtx ctx (Block name bc paramsTypes) = Block name c' paramsTypes
 instructionTableIO :: ValidState Context -> Instruction -> (ValidState Context, IO ())
 instructionTableIO (Invalid s) _ = (Invalid s, putStrLn s)
 instructionTableIO ctx Interrupt = execSyscallWrapper ctx
-instructionTableIO ctx (Mov r1 r2) = (movImpl ctx r1 r2, putStr "")
+instructionTableIO (Valid ctx) (Mov r1 r2) = (movImpl (Valid ctx) r1 r2, putStr (show (registers ctx) ++ show (stack ctx) ++ show (symbolTable ctx) ++ "mov\n"))
 instructionTableIO ctx (Cmp r1 r2) = (allCmp ctx r1 r2, putStr "")
 instructionTableIO ctx (Test r1 r2) = (allTest ctx r1 r2, putStr "")
 instructionTableIO ctx (Jmp r1) = (myJmp ctx r1, putStr "")
@@ -100,25 +164,27 @@ instructionTableIO ctx (Add r1 r2) = (allAdd ctx r1 r2, putStr "")
 instructionTableIO ctx (Sub r1 r2) = (subImpl ctx r1 r2, putStr "")
 instructionTableIO ctx (Mult r1 r2) = (multImpl ctx r1 r2, putStr "")
 instructionTableIO ctx (Div r1) = (divImpl ctx r1, putStr "")
-instructionTableIO ctx (Push r1) = (pushImpl ctx r1, putStr "")
+instructionTableIO (Valid ctx) (Push r1) = (pushImpl (Valid ctx) r1, putStr (show (registers ctx) ++ show (stack ctx) ++ show (symbolTable ctx) ++ "push\n"))
 instructionTableIO ctx (Pop r1) = (popImpl ctx r1, putStr "")
-instructionTableIO ctx (Xor r1 r2) = (xorImpl ctx r1 r2, putStr "")
+instructionTableIO (Valid ctx) (Xor r1 r2) = (xorImpl (Valid ctx) r1 r2, putStr (show (registers ctx) ++ show (stack ctx) ++ show (symbolTable ctx) ++ "xor\n"))
 instructionTableIO ctx (And r1 r2) = (andImpl ctx r1 r2, putStr "")
 instructionTableIO ctx (Or r1 r2) = (orImpl ctx r1 r2, putStr "")
 instructionTableIO ctx (Not r1) = (notImpl ctx r1, putStr "")
-instructionTableIO ctx (MovPtr p1 p2) = (movPtrImpl ctx p1 p2, putStr "")
+instructionTableIO (Valid ctx) (MovPtr p1 p2) = (movPtrImpl (Valid ctx) p1 p2, putStr (show (registers ctx) ++ show (stack ctx) ++ show (symbolTable ctx) ++ "mov ptr\n"))
 instructionTableIO ctx Nop = (ctx, putStr "")
 instructionTableIO ctx (IMul _ _) = (ctx, putStr "")
 instructionTableIO ctx Enter = (enterImpl (fromValidState newContext ctx), putStr "")
 instructionTableIO ctx Leave = (leaveImpl ctx, putStr "")
-instructionTableIO ctx (Label _ _) = (ctx, putStr "") -- labels are preprocessed before executing
-instructionTableIO ctx (MovStackAddr p1 p2) = (movStackAddrImpl ctx p1 p2, putStr "")
-instructionTableIO ctx (MovFromStackAddr p1 p2) = (movFromStackAddrImpl ctx p1 p2, putStr "")
+instructionTableIO ctx (Label _ _) = (ctx, putStr "label\n") -- labels are preprocessed before executing
+instructionTableIO (Valid ctx) (MovStackAddr p1 p2) = (movStackAddrImpl (Valid ctx) p1 p2, putStr (show (registers ctx) ++ show (stack ctx) ++ show (symbolTable ctx) ++ "mov stack addr\n"))
+instructionTableIO (Valid ctx) (MovFromStackAddr p1 p2) = (movFromStackAddrImpl (Valid ctx) p1 p2, putStr (show (registers ctx) ++ show (stack ctx) ++ show (symbolTable ctx) ++ "mov from stack addr\n"))
 instructionTableIO ctx (Call str) = callImpl ctx str
-instructionTableIO ctx (Alloc int) = (allocHeap ctx int, putStr "")
+instructionTableIO ctx ShowInt = showIntImpl ctx
+instructionTableIO ctx ShowBool = showBoolImpl ctx
+instructionTableIO ctx ins = (instructionTable ctx ins, putStr "")
 
 evalOneInstructionIO :: Context -> Instruction -> (ValidState Context, IO())
-evalOneInstructionIO ctx instr = instructionTableIO (Valid ctx) instr
+evalOneInstructionIO ctx = instructionTableIO (Valid ctx)
 
 execInstructionsIO :: (ValidState Context, IO ()) -> (ValidState Context, IO ())
 execInstructionsIO (context, prevIO) =
@@ -175,6 +241,47 @@ getInsIndex (Valid context) i = if i < length (instructions context) then instru
 nbInstructions :: ValidState Context -> Int
 nbInstructions (Invalid _) = -1
 nbInstructions (Valid context) = length (instructions context)
+
+checkInstructionRet :: [Instruction] -> [Instruction]
+checkInstructionRet [] = []
+checkInstructionRet inst = if last inst == Ret
+  then inst
+  else checkInstructionRet (init inst)
+
+returnImpl :: ValidState Context -> ValidState Context
+returnImpl (Invalid s) = Invalid s
+returnImpl (Valid c) = (Valid c {instructions = checkInstructionRet (instructions c)})
+
+--
+-- DerefMacro SECTION
+--
+
+derefMacroImpl :: ValidState Context -> Register -> ValidState Context
+derefMacroImpl (Invalid s) _ = Invalid s
+derefMacroImpl ctx r = do
+    value <- regGet ctx EAX
+    index <- regGet ctx r
+    let addr = value + index
+    val <- heapGet ctx addr
+    -- Invalid ("address is " ++ show addr ++ " valud is " ++ show value ++ " and index is " ++ show index ++ " and content is " ++ show val)
+    regSet ctx EAX val
+
+
+--
+-- ShowInt SECTION
+--
+
+showIntImpl :: ValidState Context -> (ValidState Context, IO ())
+showIntImpl (Invalid s) = (Invalid s, putStr "")
+showIntImpl (Valid c) = case getTrueValueFromParam (Valid c) (Reg EAX) of
+  Invalid s -> (Invalid s, putStr "")
+  Valid val -> (Valid c, print val)
+
+showBoolImpl :: ValidState Context -> (ValidState Context, IO())
+showBoolImpl (Invalid s) = (Invalid s, putStr "")
+showBoolImpl (Valid c) = if fromValidState 0 (getTrueValueFromParam (Valid c) (Reg EAX)) == 0
+    then (Valid c, print "false")
+    else (Valid c, print "true")
 
 --
 -- PUSH SECTION

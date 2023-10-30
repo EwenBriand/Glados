@@ -33,9 +33,9 @@ jobs:
           sudo apt-get update
           sudo apt-get install libgmp-dev -y
 
-      - name: Build project
-        run: |
-          make
+      # - name: Build project
+      #   run: |
+      #     make
 
       - name: Check if a file exists
         run: |
@@ -47,8 +47,16 @@ jobs:
           fi
 
       - name: Integration Tests
-        run: |
-          ./scripts/run-it-bash.sh
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18.x'
+      - run: node scripts/run-it.js
+
+        # uses: actions/setup-node@v3
+        # with:
+        #   node-version: 18
+        # run: |
+        #   ./scripts/run-it-bash.sh
 
       - name: Delete binary
         run: |

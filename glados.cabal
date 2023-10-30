@@ -28,6 +28,7 @@ library
       AsmAArch64
       DummyLd
       EvaluateAST
+      Includes
       Instructions
       Lexer
       Lib
@@ -50,10 +51,13 @@ library
     , bytestring >=0.10.12.0
     , cmdargs >=0.10.21
     , containers >=0.6.2.1
+    , directory >=1.3.6.0
     , exceptions >=0.10.4
+    , filepath >=1.4.2.1
     , melf >=1.3.0
     , mtl >=2.2.2
     , prettyprinter >=1.7.0
+    , process >=1.6.9.0
     , silently >=1.2.5.2
   default-language: Haskell2010
 
@@ -72,11 +76,14 @@ executable glados-exe
     , bytestring >=0.10.12.0
     , cmdargs >=0.10.21
     , containers >=0.6.2.1
+    , directory >=1.3.6.0
     , exceptions >=0.10.4
+    , filepath >=1.4.2.1
     , glados
     , melf >=1.3.0
     , mtl >=2.2.2
     , prettyprinter >=1.7.0
+    , process >=1.6.9.0
     , silently >=1.2.5.2
   default-language: Haskell2010
 
@@ -103,10 +110,13 @@ test-suite glados-test
     , bytestring >=0.10.12.0
     , cmdargs >=0.10.21
     , containers >=0.6.2.1
+    , directory >=1.3.6.0
     , exceptions >=0.10.4
+    , filepath >=1.4.2.1
     , glados
     , melf >=1.3.0
     , mtl >=2.2.2
     , prettyprinter >=1.7.0
+    , process >=1.6.9.0
     , silently >=1.2.5.2
   default-language: Haskell2010
