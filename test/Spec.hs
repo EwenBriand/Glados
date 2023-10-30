@@ -161,7 +161,8 @@ testFunctions =
     testPutSetNoErrCheck,
     testArraysFuncs,
     testExecInstructionsIO,
-    testInvalidInstructions
+    testInvalidInstructions,
+    testShowFunctions
   ]
 
 -- Run all test functions and return the results as a list

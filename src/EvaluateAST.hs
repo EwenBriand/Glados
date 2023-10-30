@@ -44,7 +44,12 @@ module EvaluateAST
     aSTNodeArrayToHASMPreLoop,
     astNodeArrayToHASMEnd,
     putIntegerInstruction,
-    putInstructionSequence
+    putInstructionSequence,
+    putASTNodeShow,
+    putReturnInstruction,
+    putASTNodeShow,
+    putShowInt,
+    putShowBool
   )
 where
 
@@ -119,7 +124,7 @@ instructionFromAST (ASTNodeBreak []) ctx = ctx
 instructionFromAST a _ = Invalid ("Error: invalid AST" ++ show a)
 instructionFromAST (ASTNodeShow (x:xs) _type) ctx = instructionFromAST (ASTNodeShow xs _type) (putASTNodeShow x _type ctx)
 instructionFromAST (ASTNodeShow [] _type) ctx = ctx
-instructionFromAST _ _ = Invalid "Error!!!!"
+-- instructionFromAST _ _ = Invalid "Error!!!!"
 
 putASTNodeShow :: ASTNode -> VarType -> ValidState Context -> ValidState Context
 putASTNodeShow n _type c = case _type of

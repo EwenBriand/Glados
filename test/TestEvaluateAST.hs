@@ -21,7 +21,8 @@ module TestEvaluateAST
     testInvalidFuncs,
     testInferTypeFromNode,
     testPutSetNoErrCheck,
-    testArraysFuncs
+    testArraysFuncs,
+    testShowFunctions
   )
 where
 
@@ -78,7 +79,21 @@ testInstructionFromAST =
       "instruction Break" ~: instructionFromAST (ASTNodeBreak []) (Valid newContext) ~?= Valid newContext,
       "instruction Break" ~: instructionFromAST (ASTNodeBreak [ASTNodeInteger 4, ASTNodeInteger 4, ASTNodeInteger 4]) (Valid newContext) ~?= instructionFromAST (ASTNodeBreak [ASTNodeInteger 4, ASTNodeInteger 4]) (instructionFromAST (ASTNodeInteger 4) (Valid newContext)),
       "instruction Error" ~: instructionFromAST (ASTNodeError (TokenInfo TokenBool "String")) (Valid newContext) ~?= Invalid "Error: invalid AST(Error: String)"
+      -- "instruction NodeShow" ~: instructionFromAST (ASTNodeShow [] GInt) (Valid newContext) ~?= Valid newContext,
+      -- "instruction NodeShow" ~: instructionFromAST (ASTNodeShow [ASTNodeInteger 4] GInt) (Valid newContext) ~?= instructionFromAST (ASTNodeShow [] GInt) (putASTNodeShow (ASTNodeInteger 4) GInt (Valid newContext))
     ]
+
+testShowFunctions :: Test
+testShowFunctions = TestList
+  [
+    "putASTNodeShow Int" ~: putASTNodeShow (ASTNodeInteger 2) GInt (Valid newContext) ~?= putShowInt (instructionFromAST (ASTNodeInteger 2) (Valid newContext)) (ASTNodeInteger 2),
+    "putASTNodeShow Bool" ~: putASTNodeShow (ASTNodeBoolean True) GBool (Valid newContext) ~?= putShowBool (instructionFromAST (ASTNodeBoolean True) (Valid newContext)) (ASTNodeBoolean True),
+    "putASTNodeShow Other" ~: putASTNodeShow (ASTNodeInteger 2) GUndefinedType (Valid newContext) ~?= putShowInt (instructionFromAST (ASTNodeInteger 2) (Valid newContext)) (ASTNodeInteger 2),
+    "putShowInt Invalid" ~: putShowInt (Invalid "Error") (ASTNodeInteger 4) ~?= Invalid "Error",
+    "putShowInt Valid" ~: putShowInt (Valid newContext {instructions = []}) (ASTNodeInteger 4) ~?= Valid newContext {instructions = [Write 1 (Symbol (show 4)) (length (show 4))]},
+    "putShowBool Invalid" ~: putShowBool (Invalid "Error") (ASTNodeBoolean True) ~?= Invalid "Error",
+    "putShowBool Valid" ~: putShowBool (Valid newContext {instructions = []}) (ASTNodeBoolean True) ~?= Valid newContext {instructions = [ShowBool]}
+  ]
 
 testParamsRegister :: Test
 testParamsRegister = TestList
