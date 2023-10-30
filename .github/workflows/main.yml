@@ -30,10 +30,11 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install libgmp-dev -y
+          sudo apt install libc6
 
-      # - name: Build project
-      #   run: |
-      #     make
+      - name: Build project
+        run: |
+          make
 
       - name: Check if a file exists
         run: |
