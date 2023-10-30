@@ -1,9 +1,11 @@
 int j = 45;
-int k = 0;
+int k = 5;
 int func(int arg, int args) {
-    print(arg);
-    print(args);
-    int ret = 0;
+    int reg = 45;
+    print(reg);
+    return reg;
+    int a = 0;
+    print(a);
 }
-int p = 0;
-func(51,12);
+func(1, 2);
+func(1, 2);
