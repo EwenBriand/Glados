@@ -84,6 +84,7 @@ data ASTNode
   | ASTNodeReturn {astnrValue :: ASTNode}
   | ASTNodeDeref {astndChildren :: ASTNode, astndindex :: ASTNode}
   | ASTNodeCast {astncastee :: ASTNode, astncasttype :: VarType}
+  | ASTNodeShow {astnsChildren :: [ASTNode], astnsType :: VarType}
   deriving (Eq, Generic)
 
 instance Binary ASTNode
@@ -120,6 +121,7 @@ instance Show ASTNode where
   show (ASTNodeReturn v) = "(return: " ++ show v ++ ")"
   show (ASTNodeCast n t) = "(cast: \n\t(castee) " ++ show n ++ "\n\t(type) " ++ show t ++ ")"
   show (ASTNodeDeref n i) = "(deref: \n\t(name) " ++ show n ++ "\n\t(index) " ++ show i ++ ")"
+  show (ASTNodeShow l t) = "(show: \n\t(type) " ++ show t ++ "\n\t(children) " ++ show l ++ ")"
   show _ = "(unknown node)"
 
 isSymbolAndParamArray :: [ASTNode] -> Bool
@@ -319,6 +321,13 @@ tokOrExprToASTNode [A n1, T (TokenInfo TokenComma _), A n2] = ASTNodeParamList [
 tokOrExprToASTNode [A (ASTNodeParamList l), T (TokenInfo TokenComma _), A n] = ASTNodeParamList (l ++ [n])
 tokOrExprToASTNode [A (ASTNodeParamList l), A n] = ASTNodeParamList (l ++ [n])
 tokOrExprToASTNode [A n1, A n2] = ASTNodeParamList [n1, n2]
+-- show with cast
+tokOrExprToASTNode [T (TokenInfo TokenShowKeyword _), A n, T (TokenInfo TokenAsKeyword _), T (TokenInfo TokenType typ), T (TokenInfo TokenPointComma _)] = case A n of
+        (A (ASTNodeParamList l)) -> ASTNodeShow l (getTypeFromToken (TokenInfo TokenType typ))
+        (A (ASTNodeArray l)) -> ASTNodeShow l (getTypeFromToken (TokenInfo TokenType typ))
+        (A (ASTNodeInteger _)) -> ASTNodeShow [n] (getTypeFromToken (TokenInfo TokenType typ))
+        (A (ASTNodeBoolean _)) -> ASTNodeShow [n] (getTypeFromToken (TokenInfo TokenType typ))
+        A n' -> ASTNodeShow [n'] (getTypeFromToken (TokenInfo TokenType typ))
 
 tokOrExprToASTNode [A n, T (TokenInfo TokenCast _), T (TokenInfo TokenType typ)] = ASTNodeCast n (getTypeFromToken (TokenInfo TokenType typ))
 

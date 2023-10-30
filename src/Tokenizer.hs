@@ -76,6 +76,10 @@ data Token
   | TokenDeref -- operator to dereference pointers
   | TokenCast -- operator to cast a value to a type
   | TokenInclude -- keyword to include a file
+-- | Keywords
+  | TokenShowKeyword -- The "show" keyword, to print a value
+  | TokenAsKeyword -- The "as" keyword, to perform a cast
+
   deriving (Eq, Show, Generic)
 
 instance Binary Token
@@ -143,6 +147,8 @@ wordToTok "return" = TokenInfo {token = TokenReturn, value = "return"}
 wordToTok ":" = TokenInfo {token = TokenKeywordPartialExpression, value = ":"}
 wordToTok "::" = TokenInfo {token = TokenDeref, value = "deref"}
 wordToTok "as" = TokenInfo {token = TokenCast, value = "as"}
+wordToTok "show" = TokenInfo {token = TokenShowKeyword, value = "show"}
+wordToTok "as" = TokenInfo {token = TokenAsKeyword, value = "as"}
 wordToTok str
   | all isAlpha str = TokenInfo {token = TokSymbol, value = str}
   | all isDigit str = TokenInfo {token = TokInteger, value = str}

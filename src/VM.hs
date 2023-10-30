@@ -586,8 +586,12 @@ data Instruction
   | Call String -- calls evaluates a function (block)
   | Interrupt
   | Label String Int -- name of the label, instruction pointer at the time.
-  | Alloc Int
   | Ret
+-- macros
+  | Alloc Int
+  | ShowInt
+  | ShowBool
+  | Write Int Param Int
   deriving (Eq, Ord, Show, Generic)
 
 instance Binary Instruction
