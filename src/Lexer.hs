@@ -86,6 +86,7 @@ data ASTNode
   | ASTNodeDeref {astndChildren :: ASTNode, astndindex :: ASTNode}
   | ASTNodeCast {astncastee :: ASTNode, astncasttype :: VarType}
   | ASTNodeShow {astnsChildren :: [ASTNode], astnsType :: VarType}
+  | ASTNodeBinOps {astnboChildren :: [TokorNode]}
   deriving (Eq, Generic)
 
 instance Binary ASTNode
@@ -124,6 +125,7 @@ instance Show ASTNode where
   show (ASTNodeCast n t) = "(cast: \n\t(castee) " ++ show n ++ "\n\t(type) " ++ show t ++ ")"
   show (ASTNodeDeref n i) = "(deref: \n\t(name) " ++ show n ++ "\n\t(index) " ++ show i ++ ")"
   show (ASTNodeShow l t) = "(show: \n\t(type) " ++ show t ++ "\n\t(children) " ++ show l ++ ")"
+  show (ASTNodeBinOps l) = "(binops: " ++ show l ++ ")"
   show _ = "(unknown node)"
 
 isSymbolAndParamArray :: [ASTNode] -> Bool
@@ -164,6 +166,14 @@ getTypeFromNodeValue (ASTNodeArray _) = GPtr
 getTypeFromNodeValue (ASTNodeCast _ t) = t
 getTypeFromNodeValue _ = GUndefinedType
 
+mergeBinOps :: [TokorNode] -> ASTNode
+mergeBinOps [A (ASTNodeBinOps l)] = ASTNodeBinOps l
+mergeBinOps [A (ASTNodeBinOps l1), operator, A (ASTNodeBinOps l2)] = ASTNodeBinOps (l1 ++ [operator] ++ l2)
+mergeBinOps [A (ASTNodeBinOps l), operator, A n2] = ASTNodeBinOps (l ++ [operator, A n2])
+mergeBinOps [A n1, operator, A (ASTNodeBinOps l)] = ASTNodeBinOps ([A n1, operator] ++ l)
+mergeBinOps [A n1, operator, A n2] = ASTNodeBinOps [A n1, operator, A n2]
+mergeBinOps other = ASTNodeError (TokenInfo TokError ("Invalid binary operation: " ++ show other))
+
 -- | @params:
 --     l: the word which will be compared to the different constructors for nodes.
 -- @return: a node corresponding to the pattern given in argument, or an error
@@ -198,11 +208,11 @@ tokOrExprToASTNode [A (ASTNodeSymbol name), T (TokenInfo TokenEq _), A n, T (Tok
 tokOrExprToASTNode [A (ASTNodeSymbol name), T (TokenInfo TokOperatorPlus _), T (TokenInfo TokOperatorPlus _), T (TokenInfo TokenPointComma _)] = ASTNodeSet (ASTNodeSymbol name) (ASTNodeSum [ASTNodeSymbol name, ASTNodeInteger 1])
 tokOrExprToASTNode [A (ASTNodeSymbol name), T (TokenInfo TokOperatorMinus _), T (TokenInfo TokOperatorMinus _), T (TokenInfo TokenPointComma _)] = ASTNodeSet (ASTNodeSymbol name) (ASTNodeSub [ASTNodeSymbol name, ASTNodeInteger 1])
 
-tokOrExprToASTNode [A n1, T (TokenInfo TokOperatorPlus _), A n2] = ASTNodeSum [n1, n2]
-tokOrExprToASTNode [A n1, T (TokenInfo TokOperatorMinus _), A n2] = ASTNodeSub [n1, n2]
-tokOrExprToASTNode [A n1, T (TokenInfo TokOperatorMul _), A n2] = ASTNodeMul [n1, n2]
-tokOrExprToASTNode [A n1, T (TokenInfo TokOperatorDiv _), A n2] = ASTNodeDiv [n1, n2]
-tokOrExprToASTNode [A n1, T (TokenInfo TokOperatorMod _), A n2] = ASTNodeMod [n1, n2]
+tokOrExprToASTNode [A n1, T (TokenInfo TokOperatorMul _), A n2] =  mergeBinOps [A n1, T (TokenInfo TokOperatorMul ""), A n2]
+tokOrExprToASTNode [A n1, T (TokenInfo TokOperatorDiv _), A n2] =  mergeBinOps [A n1, T (TokenInfo TokOperatorDiv ""), A n2]
+tokOrExprToASTNode [A n1, T (TokenInfo TokOperatorMod _), A n2] =  mergeBinOps [A n1, T (TokenInfo TokOperatorMod ""), A n2]
+tokOrExprToASTNode [A n1, T (TokenInfo TokOperatorPlus _), A n2] = mergeBinOps [A n1, T (TokenInfo TokOperatorPlus ""), A n2]
+tokOrExprToASTNode [A n1, T (TokenInfo TokOperatorMinus _), A n2] = mergeBinOps [A n1, T (TokenInfo TokOperatorMinus ""), A n2]
 
 tokOrExprToASTNode [T (TokenInfo TokenSymPrint _), T (TokenInfo TokOpenParen _), A n, T (TokenInfo TokCloseParen _), T (TokenInfo TokenPointComma _)] = ASTNodePrint n
 tokOrExprToASTNode [T (TokenInfo TokenSymPrint _), T (TokenInfo TokOpenParen _), A n, T (TokenInfo TokCloseParen _)] = ASTNodePrint n
