@@ -1,0 +1,10 @@
+int j = 45;
+
+int oui = lambda (int a, int b) {
+    int c = 5;
+    print(c);
+    return c;
+};
+
+oui(1, 2);
+
