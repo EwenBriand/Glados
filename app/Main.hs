@@ -15,6 +15,7 @@ import qualified Data.Map as Map
 import Control.Monad (mapM_)
 import MakeELF
 import AsmAArch64
+import Includes
 
 data Options = Options {
     binary :: String,
@@ -45,7 +46,8 @@ getContextOnOps ops = do
         loadContext (binary ops)
     else if srcRaw ops /= "" then do
             src <- readFile (srcRaw ops)
-            Prelude.return (detectLabels (strToHASM (Valid newContext) src))
+            src' <- resolveIncludes src
+            Prelude.return (detectLabels (strToHASM (Valid newContext) src'))
         else do
             putStrLn "Awaiting input: (Ctrl-d to end input)\n"
             hFlush stdout

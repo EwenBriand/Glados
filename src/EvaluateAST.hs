@@ -60,6 +60,8 @@ import Lexer
 import VM
 import VM (Context (Context))
 import ValidState
+import System.IO.Error (catchIOError)
+import Control.Exception (try)
 
 -- -- | Evaluates the AST and push the instructions into the context.
 -- evaluateAST :: ASTNode -> Context -> ValidState Context

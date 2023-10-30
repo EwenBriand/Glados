@@ -73,6 +73,7 @@ data Token
   | TokenType -- int, bool, float, etc. keywords
   | TokenDeref -- operator to dereference pointers
   | TokenCast -- operator to cast a value to a type
+  | TokenInclude -- keyword to include a file
   deriving (Eq, Show, Generic)
 
 instance Binary Token

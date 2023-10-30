@@ -36,6 +36,7 @@ library
       Tokenizer
       ValidState
       VM
+      Includes
   other-modules:
       Paths_glados
   hs-source-dirs:

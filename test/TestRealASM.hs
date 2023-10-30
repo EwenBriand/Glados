@@ -720,13 +720,6 @@ testXorMovGhostLimb = runRunctionalTest impl "ElfTestRes/ghostLimb_expected.txt"
                         convertOneInstruction (Cmp (Reg EAX) (Immediate 1))
                         convertOneInstruction (Jne "_0else")
                         convertOneInstruction (VM.Label "_0else" 0)
-                        -- convertOneInstruction (VM.Label "_0then" 6)
-                        -- convertOneInstruction (Xor (Reg EAX) (Reg EAX))
-                        -- convertOneInstruction (Mov (Reg EAX) (Immediate 2))
-                        -- convertOneInstruction (Jmp "_0end")
-                        -- convertOneInstruction (Xor (Reg EAX) (Reg EAX))
-                        -- convertOneInstruction (Mov (Reg EAX) (Immediate 3))
-                        -- convertOneInstruction (VM.Label "_0end" 13)
 
 testEncodeAlloc :: Test
 testEncodeAlloc = runRunctionalTest impl "ElfTestRes/alloc_expected.txt"
