@@ -77,7 +77,7 @@ testInstructionFromAST =
       "instruction Set" ~: instructionFromAST (ASTNodeSet (ASTNodeSymbol "test") (ASTNodeInteger 2)) (Valid newContext) ~?= putSetInstruction (Valid newContext) (ASTNodeSymbol "test") (ASTNodeInteger 2),
       "instruction Break" ~: instructionFromAST (ASTNodeBreak []) (Valid newContext) ~?= Valid newContext,
       "instruction Break" ~: instructionFromAST (ASTNodeBreak [ASTNodeInteger 4, ASTNodeInteger 4, ASTNodeInteger 4]) (Valid newContext) ~?= instructionFromAST (ASTNodeBreak [ASTNodeInteger 4, ASTNodeInteger 4]) (instructionFromAST (ASTNodeInteger 4) (Valid newContext)),
-      "instruction Error" ~: instructionFromAST (ASTNodeError (TokenInfo TokenBool "String")) (Valid newContext) ~?= Invalid "Error!!!!"
+      "instruction Error" ~: instructionFromAST (ASTNodeError (TokenInfo TokenBool "String")) (Valid newContext) ~?= Invalid "Error: invalid AST(Error: String)"
     ]
 
 testParamsRegister :: Test
@@ -237,14 +237,14 @@ testInvalidFuncs = TestList
   [
     "Invalid evalParamsToReg" ~: evalParamsToReg (Invalid "error") [] [] ~?= Invalid "error",
     "Invalid evalParamsToReg" ~: evalParamsToReg (Valid newContext) [ASTNodeInteger 3] [] ~?= Invalid "Error: too many parameters (max: 4)",
-    "Invalid evalParamsToReg" ~: evalParamsToReg (Valid newContext) [ASTNodeError (TokenInfo TokenBool "String")] [EAX] ~?= Invalid "Error!!!!",
+    "Invalid evalParamsToReg" ~: evalParamsToReg (Valid newContext) [ASTNodeError (TokenInfo TokenBool "String")] [EAX] ~?= Invalid "Error: invalid AST(Error: String)",
     "Invalid putFunctionCall" ~: putFunctionCall (Invalid "Error") "String" [] ~?= Invalid "Error",
-    "Invalid putFunctionCall" ~: putFunctionCall (Valid newContext) "String" [ASTNodeError (TokenInfo TokenBool "String")] ~?= Invalid "Error!!!!",
+    "Invalid putFunctionCall" ~: putFunctionCall (Valid newContext) "String" [ASTNodeError (TokenInfo TokenBool "String")] ~?= Invalid "Error: invalid AST(Error: String)",
     "Invalid pushParamTypeToBlock" ~: pushParamTypeToBlock (Invalid "Error") [] ~?= Invalid "Error",
     "Valid setupBlockParams" ~: setupBlockParams (Block "foo" (Valid newContext) []) (Valid (ASTNodeInteger 4)) ~?= Valid (Block "foo" (Valid newContext) []),
     "Invalid declSymbolBlock" ~: declSymbolBlock (Block "foo" (Valid newContext) []) [ASTNodeInteger 4] ~?= Invalid "Error: invalid parameter: expected symbol",
     "Invalid evaluateBlock" ~: evaluateBlock (Invalid "Error") (Block "foo" (Valid newContext) []) (Valid (ASTNodeInteger 4)) [] ~?= Invalid "Error",
-    "Invalid evaluateBlock" ~: evaluateBlock (Valid newContext) (Block "foo" (Valid newContext) []) (Valid (ASTNodeInteger 4)) [ASTNodeError (TokenInfo TokenBool "String")] ~?= Invalid "Error!!!!",
+    "Invalid evaluateBlock" ~: evaluateBlock (Valid newContext) (Block "foo" (Valid newContext) []) (Valid (ASTNodeInteger 4)) [ASTNodeError (TokenInfo TokenBool "String")] ~?= Invalid "Error: invalid AST(Error: String)",
     "Invalid evaluateBlockOneInstr" ~: evaluateBlockOneInstr (Invalid "Error") (Block "foo" (Valid newContext) []) (Invalid "Error") (ASTNodeInteger 4) ~?= Invalid "Error",
     "Invalid copyParentBlocks" ~: copyParentBlocks newContext (Block "foo" (Invalid "Error") []) ~?= Block "foo" (Invalid "Error") [],
     "Invalid putDefineInstruction" ~: putDefineInstruction (Invalid "Error") (ASTNodeInteger 3) (Invalid "Error") [] ~?= Invalid "While defining function: \n\tError",
@@ -280,7 +280,7 @@ testInvalidFuncs = TestList
     "Invalid putWhileInstruction" ~: putWhileInstruction (Invalid "Error") (ASTNodeInteger 4) [] ~?= Invalid "Error",
     "Invalid putWhileCondition" ~: putWhileCondition (Invalid "Error") (ASTNodeInteger 4) 4 ~?= Invalid "Error",
     "Invalid putMutableNoErrCheck" ~: putMutableNoErrCheck GInt (ASTNodeInteger 2) (ASTNodeInteger 2) (Invalid "Error") ~?= Invalid "Error",
-    "Invalid putMutableNoErrCheck" ~: putMutableNoErrCheck GInt (ASTNodeSymbol "test") (ASTNodeError (TokenInfo TokenBool "String")) (Valid newContext) ~?= Invalid "Error!!!!",
+    "Invalid putMutableNoErrCheck" ~: putMutableNoErrCheck GInt (ASTNodeSymbol "test") (ASTNodeError (TokenInfo TokenBool "String")) (Valid newContext) ~?= Invalid "Error: invalid AST(Error: String)",
     "Invalid putMutableInstruction" ~: putMutableInstruction GInt (ASTNodeInteger 2) GInt (ASTNodeInteger 2) (Invalid "Error") ~?= Invalid "Error",
     "Invalid putSetInstruction" ~: putSetInstruction (Invalid "Error") (ASTNodeInteger 2) (ASTNodeInteger 2) ~?= Invalid "Error",
     "Valid putSetInstruction" ~: putSetInstruction (Valid newContext) (ASTNodeSymbol "Test") (ASTNodeInteger 2) ~?= Invalid "Error: Variable does't exists",
@@ -288,7 +288,7 @@ testInvalidFuncs = TestList
     "Invalid putIfInstruction" ~: putIfInstruction (Invalid "Error") (ASTNodeInteger 1) ~?= Invalid "Error",
     "Invalid putIfInstruction" ~: putIfInstruction (Valid newContext) (ASTNodeInteger 1) ~?= Invalid "Invalid arguments to if clause",
     "Invalid ifPutCondition" ~: ifPutCondition (Invalid "Error") (ASTNodeBoolean True) 0 ~?= Invalid "Error",
-    "Invalid ifPutCondition" ~: ifPutCondition (Valid newContext) (ASTNodeError (TokenInfo TokenBool "String")) 0 ~?= Invalid "Error!!!!",
+    "Invalid ifPutCondition" ~: ifPutCondition (Valid newContext) (ASTNodeError (TokenInfo TokenBool "String")) 0 ~?= Invalid "Error: invalid AST(Error: String)",
     "Invalid astNodeArrayToHASM" ~: astNodeArrayToHASM (Invalid "Error") (ASTNodeBoolean True) ~?= Invalid "Error",
     "Invalid astNodeArrayToHASM" ~: astNodeArrayToHASM (Valid newContext) (ASTNodeBoolean True) ~?= Invalid "Error: could not resolve array",
     "Invalid aSTNodeArrayToHASMPreLoop" ~: aSTNodeArrayToHASMPreLoop (Invalid "Error") [] ~?= Invalid "Error",

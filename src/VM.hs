@@ -151,6 +151,7 @@ execSyscall :: ValidState Context -> SyscallCode -> (ValidState Context, IO ())
 execSyscall (Invalid s) _ = (Invalid s, putStr s)
 -- print
 execSyscall (Valid ctx) SCEasyPrint = (Valid ctx, callEasyPrint (Valid ctx))
+-- execSyscall (Valid ctx) SCEasyPrint = (Valid ctx, putStr "print")
 -- exit
 execSyscall (Valid ctx) SCExit = (callExit (Valid ctx), putStr "exit")
 
@@ -640,7 +641,8 @@ blockAdd :: ValidState Context -> String -> ValidState Context
 blockAdd (Invalid s) _ = Invalid s
 blockAdd (Valid c) name = case Map.lookup name (blockMap (blocks c)) of
   Just _ -> Invalid ("Block already defined: " ++ name)
-  Nothing -> Valid c {blocks = BlockMap (Map.insert name (Block name (Valid c) []) (blockMap (blocks c)))}
+  -- Nothing -> Valid c {blocks = BlockMap (Map.insert name (Block name (Valid c) []) (blockMap (blocks c)))}
+  Nothing -> Valid c {blocks = BlockMap (Map.insert name (Block name (Valid newContext) []) (blockMap (blocks c)))}
 
 blockReplace :: ValidState Context -> ValidState Block -> ValidState Context
 blockReplace (Invalid s) _ = Invalid s
