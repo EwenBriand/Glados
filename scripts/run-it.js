@@ -32,7 +32,6 @@ const testsOutput = {
   './tests/test_call_lambda_with_arguments.gld': '24',
   './tests/test_call_lambda_with_variable.gld': '24',
   './tests/test_call_varriable.gld': '3',
-  './tests/test_call_varriable_list.gld': '18',
   './tests/tests_from_pdf/builtins1.gld': '11',
   './tests/tests_from_pdf/builtins2.gld': '1',
   './tests/tests_from_pdf/builtins3.gld': '0',

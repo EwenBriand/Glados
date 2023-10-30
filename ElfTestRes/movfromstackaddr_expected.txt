@@ -1,0 +1,15 @@
+
+mov.o:     file format elf64-x86-64
+
+
+Disassembly of section .text:
+
+0000000000000000 <.text>:
+   0:	8b 45 f0             	mov    -0x10(%rbp),%eax
+   3:	8b 4d f0             	mov    -0x10(%rbp),%ecx
+   6:	8b 55 f0             	mov    -0x10(%rbp),%edx
+   9:	8b 5d f0             	mov    -0x10(%rbp),%ebx
+   c:	8b 65 f0             	mov    -0x10(%rbp),%esp
+   f:	8b 6d f0             	mov    -0x10(%rbp),%ebp
+  12:	8b 75 f0             	mov    -0x10(%rbp),%esi
+  15:	8b 7d f0             	mov    -0x10(%rbp),%edi

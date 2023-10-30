@@ -1,0 +1,33 @@
+
+mov.o:     file format elf64-x86-64
+
+
+Disassembly of section .text:
+
+0000000000000000 <_start>:
+   0:	74 16                	je     18 <_test>
+   2:	75 14                	jne    18 <_test>
+   4:	78 12                	js     18 <_test>
+   6:	79 10                	jns    18 <_test>
+   8:	7f 0e                	jg     18 <_test>
+   a:	7d 0c                	jge    18 <_test>
+   c:	7c 0a                	jl     18 <_test>
+   e:	7e 08                	jle    18 <_test>
+  10:	77 06                	ja     18 <_test>
+  12:	73 04                	jae    18 <_test>
+  14:	72 02                	jb     18 <_test>
+  16:	76 00                	jbe    18 <_test>
+
+0000000000000018 <_test>:
+  18:	74 e6                	je     0 <_start>
+  1a:	75 e4                	jne    0 <_start>
+  1c:	78 e2                	js     0 <_start>
+  1e:	79 e0                	jns    0 <_start>
+  20:	7f de                	jg     0 <_start>
+  22:	7d dc                	jge    0 <_start>
+  24:	7c da                	jl     0 <_start>
+  26:	7e d8                	jle    0 <_start>
+  28:	77 d6                	ja     0 <_start>
+  2a:	73 d4                	jae    0 <_start>
+  2c:	72 d2                	jb     0 <_start>
+  2e:	76 d0                	jbe    0 <_start>
