@@ -103,6 +103,7 @@ instructionFromAST (ASTNodeWhile cond [(ASTNodeInstructionSequence [(ASTNodePara
 instructionFromAST (ASTNodeWhile cond [(ASTNodeParamList body)]) ctx = putWhileInstruction ctx cond (expendParamList body)
 instructionFromAST (ASTNodeWhile cond body) ctx = putWhileInstruction ctx cond body
 instructionFromAST (ASTNodeSet name value) ctx = putSetInstruction ctx name value
+instructionFromAST (ASTNodeReturn value) ctx = putReturnInstruction ctx value
 instructionFromAST (ASTNodeBreak [ASTNodeLambda _ param body, ASTNodeFunctionCall _ params]) ctx = instructionFromAST (ASTNodeBreak [(ASTNodeFunctionCall u_name params)]) (instructionFromAST (ASTNodeLambda (ASTNodeSymbol u_name) param body) (Valid ctx'))
   where
     u_name = "lambda@" ++ ("_" ++ show uuid)
@@ -400,7 +401,7 @@ putMutableNoErrCheck symtyp name node c =
   let c' = symSet c (astnsName name) (inferTypeFromNode c node)
    in case instructionFromAST node c' of
         Invalid s -> Invalid s
-        Valid c'' -> Valid c'' {instructions = instructions c'' ++ [MovStackAddr (Immediate (length (symTable (symbolTable c'')) - 1)) (Reg EAX)]}
+        Valid c'' -> Valid c'' {instructions = instructions c'' ++ [Push (Immediate 0), MovStackAddr (Immediate (length (symTable (symbolTable c'')) - 1)) (Reg EAX)]}
 
 putMutableInstruction :: VarType -> ASTNode -> VarType -> ASTNode -> ValidState Context -> ValidState Context
 putMutableInstruction _ _ _ _ (Invalid s) = Invalid s
@@ -431,6 +432,14 @@ putSetInstruction ctx name node =
     in case newCtx of
       Invalid _ -> Invalid "Error: Variable does't exists" -- error, the variable
       Valid _ -> putSetNoErrCheck ctx name node
+
+putReturnInstruction :: ValidState Context -> ASTNode -> ValidState Context
+putReturnInstruction (Invalid s) _ = Invalid s
+putReturnInstruction ctx node = do
+  let ctx' = instructionFromAST node ctx
+  case ctx' of
+    Invalid s -> Invalid s
+    Valid ctx' -> (Valid ctx' {instructions = instructions ctx' ++ [Ret]})
 
 -- | Implements the following behaviour:
 -- - tests the condition

@@ -80,6 +80,7 @@ data ASTNode
   | ASTNodeSet {astndName :: ASTNode, astndChildren :: ASTNode}
   | ASTNodeType {astntName :: VarType}
   | ASTNodeVariable {astnvName :: ASTNode, astnvType :: VarType}
+  | ASTNodeReturn {astnrValue :: ASTNode}
   deriving (Eq, Generic)
 
 instance Binary ASTNode
@@ -113,6 +114,7 @@ instance Show ASTNode where
   show (ASTNodeSet n c) = "(set: \n\t(name) " ++ show n ++ "\n\t(children) " ++ show c ++ ")"
   show (ASTNodeType n) = "(type: " ++ show n ++ ")"
   show (ASTNodeVariable n t) = "(variable: \n\t(name) " ++ show n ++ "\n\t(type) " ++ show t ++ ")"
+  show (ASTNodeReturn v) = "(return: " ++ show v ++ ")"
   show _ = "(unknown node)"
 
 isSymbolAndParamArray :: [ASTNode] -> Bool
@@ -214,6 +216,8 @@ tokOrExprToASTNode [A (ASTNodeVariable sym typ), A (ASTNodeArray params), T (Tok
 -- tokOrExprToASTNode [A (ASTNodeVariable sym typ), T (TokenInfo TokOpenParen _), A n, T (TokenInfo TokCloseParen _), T (TokenInfo TokOpenCurrBrac _), A body, T (TokenInfo TokCloseCurrBrac _)] = ASTNodeDefine sym (Valid (ASTNodeParamList [n])) [body]
 -- tokOrExprToASTNode [T (TokenInfo TokenType typ), A (ASTNodeParamList [ASTNodeSymbol sym, ASTNodeArray params]), T (TokenInfo TokOpenCurrBrac _), A body, T (TokenInfo TokCloseCurrBrac _)] = ASTNodeDefine (ASTNodeSymbol sym) (Valid (ASTNodeParamList params)) [body]
 
+tokOrExprToASTNode [T (TokenInfo TokenReturn _), A n, T (TokenInfo TokenPointComma _)] = ASTNodeReturn n
+
 tokOrExprToASTNode [T (TokenInfo TokenType typ), A (ASTNodeSymbol sym)] = ASTNodeVariable (ASTNodeSymbol sym) (getTypeFromToken (TokenInfo TokenType typ))
 -- Old language
 
@@ -301,6 +305,7 @@ tokOrExprToASTNode [A (ASTNodeElif _ _ _), A (ASTNodeElif _ _ _)] = ASTNodeError
 tokOrExprToASTNode [A (ASTNodeSet _ _), A (ASTNodeSymbol _)] = ASTNodeError (TokenInfo TokError "cannot resolve input")
 tokOrExprToASTNode [A _, A (ASTNodeVariable _ _)] = ASTNodeError (TokenInfo TokError "cannot resolve input")
 tokOrExprToASTNode [A (ASTNodeVariable _ _), A (ASTNodeArray _)] = ASTNodeError (TokenInfo TokError "cannot resolve input")
+tokOrExprToASTNode [A (ASTNodeReturn _), A n] = ASTNodeError (TokenInfo TokError "cannot resolve input")
 -- tokOrExprToASTNode [A (ASTNodeParamList _), A (ASTNodeParamList _)] = ASTNodeError (TokenInfo TokError "cannot resolve input")
 tokOrExprToASTNode [A n1, T (TokenInfo TokenComma _), A n2] = ASTNodeParamList [n1, n2]
 tokOrExprToASTNode [A (ASTNodeParamList l), T (TokenInfo TokenComma _), A n] = ASTNodeParamList (l ++ [n])

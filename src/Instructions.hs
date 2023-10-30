@@ -103,6 +103,7 @@ instructionTable ctx (Label _ _) = ctx -- labels are preprocessed before executi
 instructionTable ctx (MovStackAddr p1 p2) = movStackAddrImpl ctx p1 p2
 instructionTable ctx (MovFromStackAddr p1 p2) = movFromStackAddrImpl ctx p1 p2
 instructionTable ctx (Alloc int) = allocHeap ctx int
+instructionTable ctx Ret = returnImpl ctx
 instructionTable ctx _ = ctx
 
 allocHeap :: ValidState Context -> Int -> ValidState Context
@@ -174,6 +175,7 @@ instructionTableIO ctx (Label _ _) = (ctx, putStr "label\n") -- labels are prepr
 instructionTableIO (Valid ctx) (MovStackAddr p1 p2) = (movStackAddrImpl (Valid ctx) p1 p2, putStr (show (registers ctx) ++ show (stack ctx) ++ show (symbolTable ctx) ++ "mov stack addr\n"))
 instructionTableIO (Valid ctx) (MovFromStackAddr p1 p2) = (movFromStackAddrImpl (Valid ctx) p1 p2, putStr (show (registers ctx) ++ show (stack ctx) ++ show (symbolTable ctx) ++ "mov from stack addr\n"))
 instructionTableIO ctx (Call str) = callImpl ctx str
+instructionTableIO ctx Ret = (returnImpl ctx, putStr "")
 instructionTableIO ctx ins = (instructionTable ctx ins, putStr "")
 
 evalOneInstructionIO :: Context -> Instruction -> (ValidState Context, IO())
@@ -234,6 +236,16 @@ getInsIndex (Valid context) i = if i < length (instructions context) then instru
 nbInstructions :: ValidState Context -> Int
 nbInstructions (Invalid _) = -1
 nbInstructions (Valid context) = length (instructions context)
+
+checkInstructionRet :: [Instruction] -> [Instruction]
+checkInstructionRet [] = []
+checkInstructionRet inst = if last inst == Ret
+  then inst
+  else checkInstructionRet (init inst)
+
+returnImpl :: ValidState Context -> ValidState Context
+returnImpl (Invalid s) = Invalid s
+returnImpl (Valid c) = (Valid c {instructions = checkInstructionRet (instructions c)})
 
 --
 -- PUSH SECTION
