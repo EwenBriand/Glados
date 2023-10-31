@@ -299,18 +299,6 @@ assemble m = do
               esInfo = 0,
               esData = ElfSectionData (txt `mappend` dataVal)
             }
-          -- ~: ElfSection
-          --   { esName = ".data",
-          --     esType = SHT_PROGBITS,
-          --     esFlags = SHF_WRITE .|. SHF_ALLOC,
-          --     esAddr = 0,
-          --     esAddrAlign = 8,
-          --     esEntSize = 0,
-          --     esN = dataSecN,
-          --     esLink = 0,
-          --     esInfo = 0,
-          --     esData = ElfSectionData dataVal
-          --   }
           ~: ElfSection
             { esName = ".shstrtab",
               esType = SHT_STRTAB,
@@ -603,8 +591,6 @@ convertOneInstruction (Enter) = encodeEnter
 convertOneInstruction (Leave) = encodeLeave
 convertOneInstruction (Call name) = encodeCall name
 convertOneInstruction (Alloc i) = encodeAlloc i
-convertOneInstruction ShowInt = encodeShowInt
-convertOneInstruction ShowBool = encodeShowBool
 convertOneInstruction (Write fd (Immediate buf) len) = encodeWriteString fd (show buf) len
 convertOneInstruction (Write fd (Symbol buf) len) = encodeWriteString fd buf len
 convertOneInstruction i = allJmps i
@@ -641,8 +627,7 @@ encodeWriteString fd buf len = do
   encodePushReg EBX
   encodePushReg EAX
   encodeMovRegImm EDX (P.length buf)
-  -- emit' (f buf_addr)
-  encodeMovRegImm ECX ( 0x401000 + 0x34)
+  encodeMovRegImm ECX ( 0x401000 + 0x34 + addr)
   encodeMovRegImm EBX fd
   encodeMovRegImm EAX 4
   encodeInterrupt
@@ -650,54 +635,7 @@ encodeWriteString fd buf len = do
   encodePopReg EBX
   encodePopReg ECX
   encodePopReg EDX
-  where
-    offsetToImm :: CodeOffset -> Either String Word32
-    offsetToImm (CodeOffset o) =
-        if not $ isBitN 19 o
-                then Left "offset is too big"
-                else
-                    let
-                        immlo = o .&. 3
-                        immhi = (o `shiftR` 2)  .&. 0x7ffff
-                    in
-                        Right $ fromIntegral $ (immhi `shift` 5) .|. (immlo `shift` 29)
-
-    f :: Label -> RInstructionGen
-    f buf_addr instrAddr poolOffset = do
-        imm <- offsetToImm $ findOffset poolOffset buf_addr - instrAddr
-        P.return $ RInstruction $
-                    byteStringToInteger
-                      ( word8ArrayToByteString
-                          ( [0xb8 + registerCode ECX] ++ reverseArray (fillRightByte (reverseArray (encodeImmediate (fromIntegral imm))) 0 4)
-                          )
-                      )
-
-isBitN ::(Num b, Bits b, Ord b) => Int -> b -> Bool
-isBitN bitN w =
-    let
-        m = complement $ (1 `shift` bitN) - 1
-        h = w .&. m
-    in if w >= 0 then h == 0 else h == m
-
--------------------------------------------------------------------------------
--- region ShowInt
--------------------------------------------------------------------------------
-
-encodeShowInt :: MonadState CodeState m => m ()
-encodeShowInt = do
-    addr <- labelNameToAddr "formatInt"
-    encodePushReg EAX
-    encodePushImm addr
-    -- emit $
-
-
--------------------------------------------------------------------------------
--- region ShowBool
--------------------------------------------------------------------------------
-
-encodeShowBool :: MonadState CodeState m => m ()
-encodeShowBool = P.return ()
-
+  
 -------------------------------------------------------------------------------
 -- region Call
 -------------------------------------------------------------------------------

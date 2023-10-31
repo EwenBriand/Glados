@@ -1,5 +1,5 @@
 
-mov.o:     file format elf64-x86-64
+.tmp_test_output2:     file format elf64-x86-64
 
 
 Disassembly of section .text:
