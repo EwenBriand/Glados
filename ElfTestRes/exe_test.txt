@@ -1,0 +1,50 @@
+
+ElfTestRes/exe_test:     file format elf64-x86-64
+
+
+Disassembly of section .text:
+
+0000000000000000 <.text>:
+   0:	c8 00 00 00          	enterq $0x0,$0x0
+   4:	57                   	push   %rdi
+   5:	31 c0                	xor    %eax,%eax
+   7:	8b 45 f8             	mov    -0x8(%rbp),%eax
+   a:	50                   	push   %rax
+   b:	31 c0                	xor    %eax,%eax
+   d:	b8 01 00 00 00       	mov    $0x1,%eax
+  12:	5f                   	pop    %rdi
+  13:	39 c7                	cmp    %eax,%edi
+  15:	74 07                	je     0x1e
+  17:	b8 00 00 00 00       	mov    $0x0,%eax
+  1c:	eb 05                	jmp    0x23
+  1e:	b8 01 00 00 00       	mov    $0x1,%eax
+  23:	83 f8 01             	cmp    $0x1,%eax
+  26:	75 09                	jne    0x31
+  28:	31 c0                	xor    %eax,%eax
+  2a:	b8 01 00 00 00       	mov    $0x1,%eax
+  2f:	eb 20                	jmp    0x51
+  31:	31 c0                	xor    %eax,%eax
+  33:	8b 45 f8             	mov    -0x8(%rbp),%eax
+  36:	50                   	push   %rax
+  37:	31 c0                	xor    %eax,%eax
+  39:	b8 01 00 00 00       	mov    $0x1,%eax
+  3e:	50                   	push   %rax
+  3f:	31 c0                	xor    %eax,%eax
+  41:	8b 45 f8             	mov    -0x8(%rbp),%eax
+  44:	5f                   	pop    %rdi
+  45:	29 f8                	sub    %edi,%eax
+  47:	89 c7                	mov    %eax,%edi
+  49:	e8 b2 ff ff ff       	callq  0x0
+  4e:	5f                   	pop    %rdi
+  4f:	f7 e7                	mul    %edi
+  51:	c9                   	leaveq 
+  52:	c3                   	retq   
+  53:	c8 00 00 00          	enterq $0x0,$0x0
+  57:	31 c0                	xor    %eax,%eax
+  59:	b8 03 00 00 00       	mov    $0x3,%eax
+  5e:	89 c7                	mov    %eax,%edi
+  60:	e8 9b ff ff ff       	callq  0x0
+  65:	31 db                	xor    %ebx,%ebx
+  67:	89 c3                	mov    %eax,%ebx
+  69:	b8 01 00 00 00       	mov    $0x1,%eax
+  6e:	cd 80                	int    $0x80

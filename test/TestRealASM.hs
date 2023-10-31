@@ -43,6 +43,7 @@ import VM
 import ValidState
 import Prelude as P
 import System.Console.CmdArgs.GetOpt (convert)
+import Includes
 
 testEncodeMovqRegImm :: Test
 testEncodeMovqRegImm =
@@ -746,6 +747,40 @@ testEncodeWriteElf = runRunctionalTest impl "ElfTestRes/write_expected.txt"
                   convertOneInstruction (Write 1 (Symbol "42") 2)
                   convertOneInstruction (Write 1 (Immediate 42) 2)
 
+
+
+testEncodeCompileObj :: Test
+testEncodeCompileObj = runRunctionalTest impl "ElfTestRes/obj_test.txt"
+    where
+        impl :: IO ()
+        impl = do
+            src <- P.readFile "tests/tests_from_pdf/factorial_asm.gld" 
+            src' <- resolveIncludes src
+            let ctx = (detectLabels (strToHASM (Valid newContext) src'))
+            
+            case ctx of 
+              Invalid e -> error e
+              Valid c -> compileInFile c ".tmp_test_output" False
+            P.putStrLn ""
+
+
+
+testEncodeCompileExe :: Test
+testEncodeCompileExe = runRunctionalTest impl "ElfTestRes/exe_test.txt"
+    where
+        impl :: IO ()
+        impl = do
+            src <- P.readFile "tests/tests_from_pdf/factorial_asm.gld"
+            src' <- resolveIncludes src
+            let ctx = (detectLabels (strToHASM (Valid newContext) src'))
+            
+            case ctx of 
+              Invalid e -> error e
+              Valid c -> compileInFile c ".tmp_test_output" True
+            P.putStrLn ""
+
+
+
 functionalASMTests :: Test
 functionalASMTests =
   TestList
@@ -779,6 +814,8 @@ functionalASMTests =
       -- testFCallInASM,     -- machine dependent
       -- testXorMovGhostLimb, -- machine dependent
       testEncodeAlloc,
+      testEncodeCompileObj,
+      testEncodeCompileExe,
       testEncodeWriteElf,
       testJeInASM
       ]

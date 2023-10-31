@@ -14,7 +14,7 @@ Disassembly of section .text:
   1b:	cd 80                	int    $0x80
 
 000000000000001d <msg>:
-  1d:	48                   	rex.W
+  1d: 48                   	rex.W
   1e:	65 6c                	gs insb (%dx),%es:(%rdi)
   20:	6c                   	insb   (%dx),%es:(%rdi)
   21:	6f                   	outsl  %ds:(%rsi),(%dx)

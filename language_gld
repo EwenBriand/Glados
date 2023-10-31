@@ -1,16 +1,17 @@
-string name = "John";
-int age = 25;
-char character = 'a';
-bool isAlive = true;
+string name = "John"; // ok
+int age = 25;           // ok
+char character = 'a';  // ok
+bool isAlive = true;  // ok
 float height = 1.75;
 dic k = {}
 a["key"] = "value"
-list l = []
+list l = []     // ok
 int doubleAge = age * 2;
 #commentaire
 print(doubleAge)
 
-int name_function(arg1, arg2){
+int name_function(arg1, arg2)
+{
     return arg1 + arg2;
 }
 
