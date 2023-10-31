@@ -23,7 +23,7 @@ Disassembly of section .text:
   20:	53                   	push   %rbx
   21:	50                   	push   %rax
   22:	ba 02 00 00 00       	mov    $0x2,%edx
-  27:	b9 34 10 40 00       	mov    $0x401034,%ecx
+  27:	b9 36 10 40 00       	mov    $0x401036,%ecx
   2c:	bb 01 00 00 00       	mov    $0x1,%ebx
   31:	b8 04 00 00 00       	mov    $0x4,%eax
   36:	cd 80                	int    $0x80

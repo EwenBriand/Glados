@@ -47,7 +47,6 @@ module EvaluateAST
     putInstructionSequence,
     putASTNodeShow,
     putReturnInstruction,
-    putASTNodeShow,
     putShowInt,
     putShowBool
   )
@@ -121,9 +120,9 @@ instructionFromAST (ASTNodeDeref value index) ctx = putDerefInstruction value in
 instructionFromAST (ASTNodeCast n _) ctx = instructionFromAST n ctx
 
 instructionFromAST (ASTNodeBreak []) ctx = ctx
-instructionFromAST a _ = Invalid ("Error: invalid AST" ++ show a)
 instructionFromAST (ASTNodeShow (x:xs) _type) ctx = instructionFromAST (ASTNodeShow xs _type) (putASTNodeShow x _type ctx)
 instructionFromAST (ASTNodeShow [] _type) ctx = ctx
+instructionFromAST a _ = Invalid ("Error: invalid AST" ++ show a)
 -- instructionFromAST _ _ = Invalid "Error!!!!"
 
 putASTNodeShow :: ASTNode -> VarType -> ValidState Context -> ValidState Context

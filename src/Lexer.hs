@@ -353,6 +353,9 @@ tokOrExprToASTNode [A n, T (TokenInfo TokenCast _), T (TokenInfo TokenType typ)]
 
 tokOrExprToASTNode [A n, T (TokenInfo TokenDeref _), A i] = ASTNodeDeref n i
 -- error
+
+tokOrExprToASTNode [T (TokenInfo TokenShowKeyword _), A (ASTNodeCast i t) , T (TokenInfo TokenPointComma _)] = ASTNodeShow [i] t
+
 tokOrExprToASTNode unresolved = ASTNodeError (TokenInfo TokError (show unresolved))
 
 typeToInt :: VarType -> Int
