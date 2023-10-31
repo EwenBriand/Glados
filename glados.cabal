@@ -33,7 +33,6 @@ library
       Lexer
       Lib
       MakeELF
-      Metaprog
       REPL
       Tokenizer
       ValidState

@@ -47,6 +47,9 @@ getContextOnOps ops = do
     else if srcRaw ops /= "" then do
             src <- readFile (srcRaw ops)
             src' <- resolveIncludes src
+            -- use resolveMacros to print its output in a file
+            src'' <- resolveMacros src'
+            writeFile "macros.gld" src''
             Prelude.return (detectLabels (strToHASM (Valid newContext) src'))
         else do
             putStrLn "Awaiting input: (Ctrl-d to end input)\n"
