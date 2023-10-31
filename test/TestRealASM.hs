@@ -115,6 +115,13 @@ testmovOpcodeCombineRegReg =
 dummyProgramMovStackAddr :: MonadCatch m => StateT CodeState m ()
 dummyProgramMovStackAddr = do
   convertOneInstruction (MovStackAddr (Immediate 0) (Reg EAX))
+  convertOneInstruction (MovStackAddr (Immediate 0) (Reg ECX))
+  convertOneInstruction (MovStackAddr (Immediate 0) (Reg EDX))
+  convertOneInstruction (MovStackAddr (Immediate 0) (Reg EBX))
+  convertOneInstruction (MovStackAddr (Immediate 0) (Reg ESP))
+  convertOneInstruction (MovStackAddr (Immediate 0) (Reg EBP))
+  convertOneInstruction (MovStackAddr (Immediate 0) (Reg ESI))
+  convertOneInstruction (MovStackAddr (Immediate 0) (Reg EDI))
   convertOneInstruction (MovStackAddr (Immediate 1) (Reg EAX)) --  89 b4 24 dc 51 0b 00
 
 testEncodeMovStackAddrImpl :: IO ()
@@ -780,6 +787,96 @@ testEncodeCompileExe = runRunctionalTest impl "ElfTestRes/exe_test.txt"
             P.putStrLn ""
 
 
+testMachineConfig :: Test
+testMachineConfig = TestList
+  [ "testMachineConfigAddress" Test.HUnit.~: mcAddressTest
+  , "testMachineConfigAlign" Test.HUnit.~: mcAlignTest
+  , "testMachineConfigAddress Unknown" Test.HUnit.~: mcAddressTestU
+  , "testMachineConfigAlign Unknown" Test.HUnit.~: mcAlignTestU
+  ]
+
+mcAddressTest :: Assertion
+mcAddressTest = do
+    config <- getMachineConfig EM_AARCH64
+    assertEqual "mcAddress should be 0x400000" (mcAddress config) (0x400000 :: Word64)
+
+mcAlignTest :: Assertion
+mcAlignTest = do
+    config <- getMachineConfig EM_AARCH64
+    assertEqual "mcAlign should be 0x10000" (mcAlign config) (0x10000 :: Word64)
+
+mcAddressTestU :: Assertion
+mcAddressTestU = do
+    config <- getMachineConfig 0
+    assertEqual "mcAddress should be 0x00000" (mcAddress config) (0x00000 :: Word64)
+
+mcAlignTestU :: Assertion
+mcAlignTestU = do
+    config <- getMachineConfig 0
+    assertEqual "mcAlign should be 0x0000" (mcAlign config) (0x0000 :: Word64)
+
+
+codeOffsetTests :: Test
+codeOffsetTests = TestList
+  [ "CodeOffset should have an Eq instance" Test.HUnit.~: CodeOffset 1234 == CodeOffset 1234 ~?= True
+  , "CodeOffset should have a Show instance" Test.HUnit.~: show (CodeOffset 1234) ~?= "CodeOffset {getCodeOffset = 1234}"
+  , "CodeOffset should have an Ord instance" Test.HUnit.~: CodeOffset 1234 `compare` CodeOffset 5678 ~?= LT
+  , "CodeOffset should have a Num instance" Test.HUnit.~: CodeOffset 1234 + CodeOffset 5678 ~?= CodeOffset 6912
+  , "CodeOffset should have an Enum instance" Test.HUnit.~: [CodeOffset 0, CodeOffset 1, CodeOffset 2] ~?= [CodeOffset 0, CodeOffset 1, CodeOffset 2]
+  , "CodeOffset should have a Real instance" Test.HUnit.~: toRational (CodeOffset 1234) ~?= 1234
+  , "CodeOffset should have an Integral instance" Test.HUnit.~: CodeOffset 1234 `div` CodeOffset 10 ~?= CodeOffset 123
+  , "CodeOffset should have a Bits instance" Test.HUnit.~: (CodeOffset 0x1234 .&. CodeOffset 0x00FF) ~?= CodeOffset 0x0034
+  , "CodeOffset should have a FiniteBits instance" Test.HUnit.~: finiteBitSize (CodeOffset 0) ~?= 64
+  ]
+
+rInstructionTests :: Test
+rInstructionTests = TestList
+  [ "RInstruction should have an Eq instance" Test.HUnit.~: RInstruction 1234 == RInstruction 1234 ~?= True
+  , "RInstruction should have a Show instance" Test.HUnit.~: show (RInstruction 1234) ~?= "RInstruction {getInstruction = 1234}"
+  , "RInstruction should have an Ord instance" Test.HUnit.~: RInstruction 1234 `compare` RInstruction 5678 ~?= LT
+  , "RInstruction should have a Num instance" Test.HUnit.~: RInstruction 1234 + RInstruction 5678 ~?= RInstruction 6912
+  ]
+
+
+-- testFindAddrFromLabel :: Test
+-- testFindAddrFromLabel = TestList
+--   [ "findAddrFromLabel should return the code offset for a code reference" Test.HUnit.~: do
+--         let name = "foo"
+--             labels = [("foo", CodeRef 0x1000), ("bar", PoolRef 0x2000)]
+--             state = CodeState (CodeOffset 0x1000) [] [] labels 0 Map.empty Map.empty [] []
+--         result <- evalStateT (findAddrFromLabel name labels) state
+--         assertEqual "result should be 0x1000" result 0x1000
+--   , "findAddrFromLabel should return the pool offset for a pool reference" Test.HUnit.~: do
+--         let name = "bar"
+--             labels = [("foo", CodeRef 0x1000), ("bar", PoolRef 0x2000)]
+--             state = CodeState (CodeOffset 0x1000) [] [] labels 0 Map.empty Map.empty [] []
+--         result <- evalStateT (findAddrFromLabel name labels) state
+--         assertEqual "result should be 0x2000" result 0x2000
+--   , "findAddrFromLabel should delay resolution for an unresolved label" Test.HUnit.~: do
+--         let name = "baz"
+--             labels = [("foo", CodeRef 0x1000), ("bar", PoolRef 0x2000)]
+--             state = CodeState (CodeOffset 0x1000) [] [] labels 0 Map.empty Map.empty [] []
+--         result <- evalStateT (findAddrFromLabel name labels) state
+--         assertEqual "result should be a delay resolution action" (show result) "DelayResolution baz"
+--   , "findAddrFromLabel should handle an empty label list" Test.HUnit.~: do
+--         let name = "foo"
+--             labels = []
+--             state = CodeState (CodeOffset 0x1000) [] [] labels 0 Map.empty Map.empty [] []
+--         result <- evalStateT (findAddrFromLabel name labels) state
+--         assertEqual "result should be a delay resolution action" (show result) "DelayResolution foo"
+--   ]
+
+
+-- testAllJmps :: Test
+-- testAllJmps = TestList
+--   [ "allJmps should throw an error for an unsupported instruction" Test.HUnit.~: do
+--         let instr = (DerefMacro EAX)
+--             state = CodeState (CodeOffset 0) [] [] [] 0 emptyUnresolvedJmps emptyUnresolvedCall [] []
+--         result <- runStateT (convertOneInstruction instr) state
+--         case result of
+--           (err, _) -> assertEqual "result should be an error" (show err) "unsupported instruction: DerefMacro EAX"
+--           _ -> assertFailure "result should be an error"
+--   ]
 
 functionalASMTests :: Test
 functionalASMTests =
@@ -817,5 +914,10 @@ functionalASMTests =
       testEncodeCompileObj,
       testEncodeCompileExe,
       testEncodeWriteElf,
-      testJeInASM
+      testJeInASM,
+      testMachineConfig,
+      codeOffsetTests,
+      rInstructionTests
+      -- testAllJmps
+      -- testFindAddrFromLabel
       ]

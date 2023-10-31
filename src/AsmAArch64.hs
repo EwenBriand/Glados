@@ -16,6 +16,10 @@ module AsmAArch64
     Label,
     RInstructionGen,
     RInstruction (..),
+    CodeOffset (..),
+    RInstruction (..),
+    emptyUnresolvedCall,
+    emptyUnresolvedJmps,
     emit,
     ascii,
     label,
@@ -542,15 +546,11 @@ compileInFile c name exec =
 
 convertOneInstruction :: MonadState CodeState m => Instruction -> m ()
 convertOneInstruction (Mov (Reg r) (Immediate i)) = encodeMovRegImm r i
-convertOneInstruction (Mov (Reg r) (Memory i)) = encodeMovRegMem r i                                                -- not tested
-convertOneInstruction (Mov (Memory i) (Reg r)) = encodeMovMemReg i r                                                -- not tested
 convertOneInstruction (Mov (Reg r1) (Reg r2)) = encodeMovRegReg r1 r2
 convertOneInstruction (Mov (Memory i) (Immediate imm)) = encodeMovMemImm i imm
 convertOneInstruction (MovPtr (Memory i) (Immediate imm)) = encodeMovMemImm i imm                                   -- not tested
-convertOneInstruction (MovPtr (Memory i) (Reg imm)) = encodeMovMemReg i imm                                         -- not tested
 convertOneInstruction (MovPtr (Reg i) (Immediate imm)) = encodeMovRegImm i imm                                   -- not tested
 convertOneInstruction (MovPtr (Reg i) (Reg imm)) = encodeMovRegReg i imm                                         -- not tested
-convertOneInstruction (MovStackAddr (Immediate ptr) (Immediate value)) = encodeMovStackAddrImm ptr value            -- not tested
 convertOneInstruction (MovStackAddr (Immediate ptr) (Reg reg)) = encodeMovStackAddrReg ptr reg
 convertOneInstruction (MovFromStackAddr (Reg reg) (Immediate ptr)) = encodeMovFromStackAddrReg reg ptr
 convertOneInstruction (Push (Reg r)) = encodePushReg r
@@ -580,9 +580,6 @@ convertOneInstruction (And (Reg r1) (Immediate i)) = encodeAndRegImm r1 i
 convertOneInstruction (Not (Reg r)) = encodeNotReg r
 convertOneInstruction (Cmp (Reg r1) (Reg r2)) = encodeCmpRegReg r1 r2
 convertOneInstruction (Cmp (Reg r1) (Immediate i)) = encodeCmpRegImm r1 i
-convertOneInstruction (Cmp (Reg r1) (Memory i)) = encodeCmpRegMem r1 i                              -- not tested
-convertOneInstruction (Cmp (Memory i) (Reg r1)) = encodeCmpMemReg i r1                              -- not tested
-convertOneInstruction (Cmp (Memory i) (Immediate imm)) = encodeCmpMemImm i imm                      -- not tested
 convertOneInstruction (Enter) = encodeEnter
 convertOneInstruction (Leave) = encodeLeave
 convertOneInstruction (Call name) = encodeCall name
@@ -680,28 +677,6 @@ encodeCall name = do
 -- region MOV
 -------------------------------------------------------------------------------
 
-encodeMovrmandmrBasis :: (MonadState CodeState m) => Word8 -> Register -> Int -> m ()
-encodeMovrmandmrBasis opcode r i =
-  emit $
-    RInstruction $
-      ( byteStringToInteger
-          ( word8ArrayToByteString
-              ( [opcode] ++ (rr r) ++ [0x25] ++ encodeImmediate i
-              )
-          )
-      )
-  where
-    rr :: Register -> [Word8]
-    rr EAX = [0x04]
-    rr ECX = [0x0c]
-    rr EDX = [0x14]
-    rr EBX = [0x1c]
-    rr ESP = [0x24]
-    rr EBP = [0x2c]
-    rr ESI = [0x34]
-    rr EDI = [0x3c]
-    rr _ = error ("unsupported register in mov instruction: " ++ show r)
-
 fillRightByte :: [Word8] -> Word8 -> Int -> [Word8]
 fillRightByte fillme fillWith n = fillme ++ P.replicate (n - P.length fillme) fillWith
 
@@ -714,13 +689,6 @@ encodeMovRegImm r i =
             ( [0xb8 + registerCode r] ++ reverseArray (fillRightByte (reverseArray (encodeImmediate i)) 0 4)
             )
         )
-
--- mov reg, mem
-encodeMovRegMem :: (MonadState CodeState m) => Register -> Int -> m ()
-encodeMovRegMem = encodeMovrmandmrBasis 0x8b
-
-encodeMovMemReg :: (MonadState CodeState m) => Int -> Register -> m ()
-encodeMovMemReg i r = encodeMovrmandmrBasis 0x89 r i
 
 movOpcodeCombineRegReg :: Register -> Register -> Word8
 movOpcodeCombineRegReg to from = (registerCode to .|. registerCode from `shiftL` 3) + (0xc0 :: Word8)
@@ -751,19 +719,6 @@ encodeMovMemImm mem imm =
             ( [0xc7, 0x04, 0x25] ++ encodeImmediate mem ++ encodeImmediate imm
             )
         )
-
--- mov [rsp + x], dword y -> movstackaddr x, y
-encodeMovStackAddrImm :: (MonadState CodeState m) => Int -> Int -> m ()
-encodeMovStackAddrImm mem imm =
-  emit $
-    RInstruction $
-      byteStringToInteger
-        ( word8ArrayToByteString
-            -- ( [0xc7, 0x44, 0x24] ++ encodeImmediate (mem) ++ encodeImmediate imm
-            ( [0xc7, 0x6d] ++ encodeImmediate (-(1 + mem) * 8) ++ encodeImmediate imm
-            )
-        )
-
 
 removeNullPrefix :: [Word8] -> [Word8]
 removeNullPrefix [] = []
@@ -1217,34 +1172,6 @@ encodeCmpRegImm r imm =
         ( word8ArrayToByteString
             ([0x83, 0xf8 + registerCode r] ++ removeNullPrefix (reverseArray (encodeImmediate imm)))
         )
-
-encodeCmpMemImm :: (MonadState CodeState m) => Int -> Int -> m ()
-encodeCmpMemImm mem imm =
-  emit $
-    RInstruction $
-      byteStringToInteger
-        ( word8ArrayToByteString
-            ([0x83, 0x3c, 0x25] ++ encodeImmediate mem ++ encodeImmediate imm)
-        )
-
-encodeCmpMemReg :: (MonadState CodeState m) => Int -> Register -> m ()
-encodeCmpMemReg mem reg =
-  emit $
-    RInstruction $
-      byteStringToInteger
-        ( word8ArrayToByteString
-            ([0x39, 0x3c, 0x25] ++ encodeImmediate mem ++ [0xc0 + registerCode reg])
-        )
-
-encodeCmpRegMem :: (MonadState CodeState m) => Register -> Int -> m ()
-encodeCmpRegMem reg mem =
-  emit $
-    RInstruction $
-      byteStringToInteger
-        ( word8ArrayToByteString
-            ([0x3b, 0x3c, 0x25] ++ encodeImmediate mem ++ [0xc0 + registerCode reg])
-        )
-
 
 -------------------------------------------------------------------------------
 -- region Enter leave

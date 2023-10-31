@@ -6,7 +6,11 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 
-module DummyLd (dummyLd) where
+module DummyLd (
+    dummyLd, 
+    getMachineConfig, 
+    MachineConfig (..)
+) where
 
 import Control.Monad.Catch
 import Data.Bits
@@ -27,7 +31,7 @@ data MachineConfig a
 getMachineConfig :: (SingElfClassI a, MonadThrow m) => ElfMachine -> m (MachineConfig a)
 getMachineConfig EM_AARCH64 = return $ MachineConfig 0x400000 0x10000
 getMachineConfig EM_X86_64  = return $ MachineConfig 0x400000 0x1000
-getMachineConfig _          = $chainedError "could not find machine config for this arch"
+getMachineConfig _          = return $ MachineConfig 0x0 0x0
 
 dummyLd' :: forall a m . (MonadThrow m, SingElfClassI a) => ElfListXX a -> Int -> m (ElfListXX a)
 dummyLd' es entryOffset = do
@@ -39,7 +43,6 @@ dummyLd' es entryOffset = do
 
     txtSectionData <- case esData section' of
         ElfSectionData textData -> return textData
-        _ -> $chainedError "could not find correct \".text\" section"
 
     header' <- (elfFindHeader es)
     MachineConfig { .. } <- getMachineConfig (ehMachine header')

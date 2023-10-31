@@ -1,9 +1,16 @@
 
-mov.o:     file format elf64-x86-64
+.tmp_test_output2:     file format elf64-x86-64
 
 
 Disassembly of section .text:
 
 0000000000000000 <.text>:
    0:	89 45 f8             	mov    %eax,-0x8(%rbp)
-   3:	89 45 f0             	mov    %eax,-0x10(%rbp)
+   3:	89 4d f8             	mov    %ecx,-0x8(%rbp)
+   6:	89 55 f8             	mov    %edx,-0x8(%rbp)
+   9:	89 5d f8             	mov    %ebx,-0x8(%rbp)
+   c:	89 65 f8             	mov    %esp,-0x8(%rbp)
+   f:	89 6d f8             	mov    %ebp,-0x8(%rbp)
+  12:	89 75 f8             	mov    %esi,-0x8(%rbp)
+  15:	89 7d f8             	mov    %edi,-0x8(%rbp)
+  18:	89 45 f0             	mov    %eax,-0x10(%rbp)
