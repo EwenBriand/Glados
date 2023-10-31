@@ -1,0 +1,7 @@
+#include {
+    tests/includes/includeme.gld
+    tests/includes/includeme3.gld
+}
+
+(+ x y)
+
