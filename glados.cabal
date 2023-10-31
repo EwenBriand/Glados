@@ -32,11 +32,11 @@ library
       Instructions
       Lexer
       MakeELF
+      Options
       REPL
       Tokenizer
       ValidState
       VM
-      Options
   other-modules:
       Paths_glados
   hs-source-dirs:
@@ -91,13 +91,13 @@ test-suite glados-test
   main-is: Spec.hs
   other-modules:
       TestEvaluateAST
+      TestIncludes
       TestInstructions
       TestLexer
       TestRealASM
       TestTokenizer
       TestValidState
       TestVM
-      TestIncludes
       Paths_glados
   hs-source-dirs:
       test

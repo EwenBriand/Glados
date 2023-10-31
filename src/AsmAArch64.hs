@@ -78,7 +78,7 @@ newtype RRegister (c :: RegisterWidth) = R Word32
 
 newtype CodeOffset = CodeOffset {getCodeOffset :: Int64} deriving (Eq, Show, Ord, Num, Enum, Real, Integral, Bits, FiniteBits)
 
-newtype RInstruction = RInstruction {getInstruction :: Integer} deriving (Eq, Show, Ord, Num) -- , Bits, FiniteBits, num, Real
+newtype RInstruction = RInstruction {getInstruction :: Integer} deriving (Eq, Show, Num) -- , Bits, FiniteBits, num, Real
 
 data Label
   = CodeRef !CodeOffset
@@ -220,12 +220,11 @@ instructionSize = 4
 zeroIndexStringItem :: ElfSymbolXX 'ELFCLASS64
 zeroIndexStringItem = ElfSymbolXX "" 0 0 0 0 0
 
-textSecN, shstrtabSecN, strtabSecN, symtabSecN, dataSecN :: ElfSectionIndex
+textSecN, shstrtabSecN, strtabSecN, symtabSecN :: ElfSectionIndex
 textSecN = 1
 shstrtabSecN = 2
 strtabSecN = 3
 symtabSecN = 4
-dataSecN = 5
 
 makeCodeBuilder :: Integer -> ByteString
 makeCodeBuilder i = word8ArrayToByteString (reverseArray (integerToWord8Array i))
@@ -369,9 +368,6 @@ byteStringToInteger xs =
 word8ArrayToByteString :: [Word8] -> ByteString
 word8ArrayToByteString xs = P.foldr BSL.cons (BSL.pack []) xs
 
-word8ArrayToInteger :: [Word8] -> Integer
-word8ArrayToInteger xs = byteStringToInteger (word8ArrayToByteString xs)
-
 registerCode :: Register -> Word8
 registerCode EAX = 0x00
 registerCode ECX = 0x01
@@ -399,9 +395,6 @@ movqRegImmByteArray r i =
   let opcode = movqOpCodeFromReg r
       immBytes = encodeImmediate i
    in opcode : immBytes
-
-intToWord16 :: Int -> Word16
-intToWord16 i = fromIntegral i :: Word16
 
 encodeImmediate :: Int -> [Word8]
 encodeImmediate n
@@ -453,33 +446,6 @@ contextToElfNoSelfRec :: MonadCatch m => Context -> String -> StateT CodeState m
 contextToElfNoSelfRec c name = do
     blocksToElf (filterBlocksNoSelfRec (blocks c) name)
     createElf (instructions c)
-
-getStartAddrImpl :: MonadCatch m => StateT CodeState m () -> m Int
-getStartAddrImpl st = do
-        CodeState {..} <- execStateT st (CodeState 0 [] [] [] 0 emptyUnresolvedJmps emptyUnresolvedCall [] [])
-        let labels = symbolsRefersed
-        let maybeStart = Data.List.find (\(s, _) -> s == "_start") labels
-        case maybeStart of
-            Just (_, l) -> case l of
-                CodeRef offset -> P.return (fromIntegral offset)
-                PoolRef _ -> error "start symbol is in the pool"
-            Nothing -> error "no start symbol found"
-
-
-getStartAddr :: MonadCatch m => StateT CodeState m () -> Bool -> m Int
-getStartAddr st isExec =
-    if isExec then do
-        getStartAddrImpl st
-    else P.return 0
-
-extractStartAddr :: [(String, Label)] -> Int
-extractStartAddr labels =
-    let maybeStart = Data.List.find (\(s, _) -> s == "_start") labels
-    in case maybeStart of
-        Just (_, l) -> case l of
-            CodeRef offset -> fromIntegral offset
-            PoolRef _ -> 0
-        Nothing -> 0
 
 -- Sets up a few default symbols in .rodata, such as the formats for
 -- the printf syscall, etc
@@ -539,7 +505,7 @@ elfOFile c = let
         assemble elf
 
 compileInFileWrapper :: ValidState Context -> String -> Bool -> IO ()
-compileInFileWrapper (Invalid s) _ _ = P.return()
+compileInFileWrapper (Invalid s) _ _ = P.return ()
 compileInFileWrapper (Valid c) name exec = compileInFile c name exec
 
 compileInFile :: Context -> String -> Bool -> IO ()

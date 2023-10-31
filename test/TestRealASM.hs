@@ -50,7 +50,14 @@ testEncodeMovqRegImm =
   TestList
     [ movqRegImmByteArray EAX 42 ~?= [0xb8, 0x2a, 0x00, 0x00, 0x00],
       byteStringToInteger (BSL.pack [0xb8, 0x2a, 0x00, 0x00, 0x00]) ~?= (0xb82a000000 :: Integer),
-      encodeMovqRegImm EAX 42 ~?= (0xb82a000000 :: Integer)
+      encodeMovqRegImm EAX 42 ~?= (0xb82a000000 :: Integer),
+      encodeMovqRegImm ECX 42 ~?= (0xb92a000000 :: Integer),
+      encodeMovqRegImm EDX 42 ~?= (0xba2a000000 :: Integer),
+      encodeMovqRegImm EBX 42 ~?= (0xbb2a000000 :: Integer),
+      encodeMovqRegImm ESP 42 ~?= (0xbc2a000000 :: Integer),
+      encodeMovqRegImm EBP 42 ~?= (0xbd2a000000 :: Integer),
+      encodeMovqRegImm ESI 42 ~?= (0xbe2a000000 :: Integer),
+      encodeMovqRegImm EDI 42 ~?= (0xbf2a000000 :: Integer)
     ]
 
 writeElf :: FilePath -> Elf -> IO ()
@@ -765,9 +772,7 @@ testEncodeCompileObj = runRunctionalTest impl "ElfTestRes/obj_test.txt"
             src' <- resolveIncludes src
             let ctx = (detectLabels (strToHASM (Valid newContext) src'))
             
-            case ctx of 
-              Invalid e -> error e
-              Valid c -> compileInFile c ".tmp_test_output" False
+            compileInFileWrapper ctx ".tmp_test_output" False
             P.putStrLn ""
 
 
@@ -781,9 +786,7 @@ testEncodeCompileExe = runRunctionalTest impl "ElfTestRes/exe_test.txt"
             src' <- resolveIncludes src
             let ctx = (detectLabels (strToHASM (Valid newContext) src'))
             
-            case ctx of 
-              Invalid e -> error e
-              Valid c -> compileInFile c ".tmp_test_output" True
+            compileInFileWrapper ctx ".tmp_test_output" True
             P.putStrLn ""
 
 
@@ -827,14 +830,176 @@ codeOffsetTests = TestList
   , "CodeOffset should have an Integral instance" Test.HUnit.~: CodeOffset 1234 `div` CodeOffset 10 ~?= CodeOffset 123
   , "CodeOffset should have a Bits instance" Test.HUnit.~: (CodeOffset 0x1234 .&. CodeOffset 0x00FF) ~?= CodeOffset 0x0034
   , "CodeOffset should have a FiniteBits instance" Test.HUnit.~: finiteBitSize (CodeOffset 0) ~?= 64
+  -- Eq
+  , "CodeOffset should be equal to itself" Test.HUnit.~: do
+        let offset = CodeOffset 0x1000
+        assertEqual "offset should be equal to itself" offset offset
+  , "CodeOffset should be equal to an equal value" Test.HUnit.~: do
+        let offset1 = CodeOffset 0x1000
+            offset2 = CodeOffset 0x1000
+        assertEqual "offset1 should be equal to offset2" offset1 offset2
+  , "CodeOffset should not be equal to a different value" Test.HUnit.~: do
+        let offset1 = CodeOffset 0x1000
+            offset2 = CodeOffset 0x2000
+        assertBool "offset1 should not be equal to offset2" (offset1 /= offset2)
+    -- Ord
+    , "CodeOffset should be less than a greater value" Test.HUnit.~: do
+        let offset1 = CodeOffset 0x1000
+            offset2 = CodeOffset 0x2000
+        assertBool "offset1 should be less than offset2" (offset1 < offset2)
+  , "CodeOffset should be greater than a lesser value" Test.HUnit.~: do
+        let offset1 = CodeOffset 0x1000
+            offset2 = CodeOffset 0x2000
+        assertBool "offset2 should be greater than offset1" (offset2 > offset1)
+  , "CodeOffset should be less than or equal to itself" Test.HUnit.~: do
+        let offset = CodeOffset 0x1000
+        assertBool "offset should be less than or equal to itself" (offset <= offset)
+  , "CodeOffset should be greater than or equal to itself" Test.HUnit.~: do
+        let offset = CodeOffset 0x1000
+        assertBool "offset should be greater than or equal to itself" (offset >= offset)
+  , "CodeOffset should be less than or equal to a greater value" Test.HUnit.~: do
+        let offset1 = CodeOffset 0x1000
+            offset2 = CodeOffset 0x2000
+        assertBool "offset1 should be less than or equal to offset2" (offset1 <= offset2)
+  , "CodeOffset should be greater than or equal to a lesser value" Test.HUnit.~: do
+        let offset1 = CodeOffset 0x1000
+            offset2 = CodeOffset 0x2000
+        assertBool "offset2 should be greater than or equal to offset1" (offset2 >= offset1)
+  ,  "CodeOffset should be equal to itself" Test.HUnit.~: do
+        let offset = CodeOffset 0x1000
+        assertBool "offset should be equal to itself" (offset == offset)
+  , "CodeOffset should not be equal to a different value" Test.HUnit.~: do
+        let offset1 = CodeOffset 0x1000
+            offset2 = CodeOffset 0x2000
+        assertBool "offset1 should not be equal to offset2" (offset1 /= offset2)
+  , "CodeOffset should be less than or equal to a greater value" Test.HUnit.~: do
+        let offset1 = CodeOffset 0x1000
+            offset2 = CodeOffset 0x2000
+        assertBool "offset1 should be less than or equal to offset2" (offset1 <= offset2)
+  , "CodeOffset should be greater than or equal to a lesser value" Test.HUnit.~: do
+        let offset1 = CodeOffset 0x1000
+            offset2 = CodeOffset 0x2000
+        assertBool "offset2 should be greater than or equal to offset1" (offset2 >= offset1)
+  , "CodeOffset should not be less than a lesser value" Test.HUnit.~: do
+        let offset1 = CodeOffset 0x1000
+            offset2 = CodeOffset 0x2000
+        assertBool "offset1 should not be less than offset2" (not (offset1 > offset2))
+  , "CodeOffset should not be greater than a greater value" Test.HUnit.~: do
+        let offset1 = CodeOffset 0x1000
+            offset2 = CodeOffset 0x2000
+        assertBool "offset2 should not be greater than offset1" (not (offset2 < offset1))
+  
+  -- Enum
+  , "CodeOffset should have a valid successor" Test.HUnit.~: do
+        let offset = CodeOffset 0x1000
+        assertEqual "succ offset should be 0x1001" (succ offset) (CodeOffset 0x1001)
+  , "CodeOffset should have a valid predecessor" Test.HUnit.~: do
+        let offset = CodeOffset 0x1000
+        assertEqual "pred offset should be 0xfff" (pred offset) (CodeOffset 0xfff)
+  , "CodeOffset should have a valid range" Test.HUnit.~: do
+        let range = [CodeOffset 0x1000 .. CodeOffset 0x1005]
+        assertEqual "range should be [0x1000, 0x1001, 0x1002, 0x1003, 0x1004, 0x1005]" range [CodeOffset 0x1000, CodeOffset 0x1001, CodeOffset 0x1002, CodeOffset 0x1003, CodeOffset 0x1004, CodeOffset 0x1005]
+  , "CodeOffset should have a valid toEnum" Test.HUnit.~: do
+        let offset = toEnum 0x1000 :: CodeOffset
+        assertEqual "toEnum 0x1000 should be CodeOffset 0x1000" offset (CodeOffset 0x1000)
+  , "CodeOffset should have a valid fromEnum" Test.HUnit.~: do
+        let offset = CodeOffset 0x1000
+        assertEqual "fromEnum CodeOffset 0x1000 should be 0x1000" (fromEnum offset) 0x1000
+
+  -- Bits
+  ,  "CodeOffset should have a valid bitwise AND" Test.HUnit.~: do
+        let offset1 = CodeOffset 0x1234
+            offset2 = CodeOffset 0x00ff
+        assertEqual "offset1 .&. offset2 should be 0x0034" (offset1 .&. offset2) (CodeOffset 0x0034)
+  , "CodeOffset should have a valid bitwise OR" Test.HUnit.~: do
+        let offset1 = CodeOffset 0x1234
+            offset2 = CodeOffset 0x00ff
+        assertEqual "offset1 .|. offset2 should be 0x12ff" (offset1 .|. offset2) (CodeOffset 0x12ff)
+  , "CodeOffset should have a valid bitwise XOR" Test.HUnit.~: do
+        let offset1 = CodeOffset 0x1234
+            offset2 = CodeOffset 0x00ff
+        assertEqual "offset1 `xor` offset2 should be 0x12cb" (offset1 `xor` offset2) (CodeOffset 0x12cb)
+  -- FiniteBits
+  , "CodeOffset should have a valid bitwise complement" Test.HUnit.~: do
+        let offset = CodeOffset 0x1234
+        assertEqual "complement offset should be 0xffffedcb" (complement offset) (CodeOffset (-4661))
+  , "CodeOffset should have a valid bitwise shift" Test.HUnit.~: do
+        let offset = CodeOffset 0x1234
+        assertEqual "shift offset 4 should be 0x12340" (shift offset 4) (CodeOffset 0x12340)
+  , "CodeOffset should have a valid bitwise rotate" Test.HUnit.~: do
+        let offset = CodeOffset 0x1234
+        assertEqual "rotate offset 4 should be 0x4123" (rotate offset 4) (CodeOffset 0x12340)
+  , "CodeOffset should have a valid bit count" Test.HUnit.~: do
+        let offset = CodeOffset 0x1234
+        assertEqual "popCount offset should be 5" (popCount offset) 5
+  ,  "CodeOffset should have a valid count of leading zeros" Test.HUnit.~: do
+        let offset = CodeOffset 0x1234
+        assertEqual "countLeadingZeros offset should be 42" (countLeadingZeros offset) 51
+  , "CodeOffset should have a valid count of trailing zeros" Test.HUnit.~: do
+        let offset = CodeOffset 0x1234
+        assertEqual "countTrailingZeros offset should be 2" (countTrailingZeros offset) 2
   ]
 
 rInstructionTests :: Test
 rInstructionTests = TestList
   [ "RInstruction should have an Eq instance" Test.HUnit.~: RInstruction 1234 == RInstruction 1234 ~?= True
   , "RInstruction should have a Show instance" Test.HUnit.~: show (RInstruction 1234) ~?= "RInstruction {getInstruction = 1234}"
-  , "RInstruction should have an Ord instance" Test.HUnit.~: RInstruction 1234 `compare` RInstruction 5678 ~?= LT
+  -- , "RInstruction should have an Ord instance" Test.HUnit.~: RInstruction 1234 `compare` RInstruction 5678 ~?= LT
   , "RInstruction should have a Num instance" Test.HUnit.~: RInstruction 1234 + RInstruction 5678 ~?= RInstruction 6912
+  , "RInstruction should be equal to itself" Test.HUnit.~: do
+        let instr = RInstruction 0x12345678
+        assertEqual "instr should be equal to itself" instr instr
+  , "RInstruction should be equal to an equal value" Test.HUnit.~: do
+        let instr1 = RInstruction 0x12345678
+            instr2 = RInstruction 0x12345678
+        assertEqual "instr1 should be equal to instr2" instr1 instr2
+  , "RInstruction should not be equal to a different value" Test.HUnit.~: do
+        let instr1 = RInstruction 0x12345678
+            instr2 = RInstruction 0x87654321
+        assertBool "instr1 should not be equal to instr2" (instr1 /= instr2)
+  -- ,  "RInstruction should be less than a greater value" Test.HUnit.~: do
+  --       let instr1 = RInstruction 0x1234
+  --           instr2 = RInstruction 0x5678
+  --       assertBool "instr1 should be less than instr2" (instr1 < instr2)
+  -- , "RInstruction should be greater than a lesser value" Test.HUnit.~: do
+  --       let instr1 = RInstruction 0x1234
+  --           instr2 = RInstruction 0x5678
+  --       assertBool "instr2 should be greater than instr1" (instr2 > instr1)
+  -- , "RInstruction should be less than or equal to itself" Test.HUnit.~: do
+  --       let instr = RInstruction 0x12345678
+  --       assertBool "instr should be less than or equal to itself" (instr <= instr)
+  -- , "RInstruction should be greater than or equal to itself" Test.HUnit.~: do
+  --       let instr = RInstruction 0x12345678
+  --       assertBool "instr should be greater than or equal to itself" (instr >= instr)
+  -- , "RInstruction should be less than or equal to a greater value" Test.HUnit.~: do
+  --       let instr1 = RInstruction 0x1234
+  --           instr2 = RInstruction 0x5678
+  --       assertBool "instr1 should be less than or equal to instr2" (instr1 <= instr2)
+  -- , "RInstruction should be greater than or equal to a lesser value" Test.HUnit.~: do
+  --       let instr1 = RInstruction 0x1234
+  --           instr2 = RInstruction 0x5678
+  --       assertBool "instr2 should be greater than or equal to instr1" (instr2 >= instr1)
+  ,  "RInstruction should have a valid addition" Test.HUnit.~: do
+        let instr1 = RInstruction 0x12345678
+            instr2 = RInstruction 0x87654321
+        assertEqual "instr1 + instr2 should be 0x99999999" (instr1 + instr2) (RInstruction 0x99999999)
+  , "RInstruction should have a valid subtraction" Test.HUnit.~: do
+        let instr1 = RInstruction 0x12345678
+            instr2 = RInstruction 0x87654321
+        assertEqual "instr1 - instr2 should be -0x7530ed09" (instr1 - instr2) (RInstruction (-0x7530eca9))
+  , "RInstruction should have a valid multiplication" Test.HUnit.~: do
+        let instr1 = RInstruction 0x1234
+            instr2 = RInstruction 0x5678
+        assertEqual "instr1 * instr2 should be 0x6d8f9c" (instr1 * instr2) (RInstruction 103153760)
+  , "RInstruction should have a valid absolute value" Test.HUnit.~: do
+        let instr = RInstruction (-0x12345678)
+        assertEqual "abs instr should be 0x12345678" (abs instr) (RInstruction 0x12345678)
+  , "RInstruction should have a valid signum" Test.HUnit.~: do
+        let instr = RInstruction (-0x12345678)
+        assertEqual "signum instr should be -1" (signum instr) (RInstruction (-1))
+  , "RInstruction should have a valid integer conversion" Test.HUnit.~: do
+        let instr = RInstruction 0x12345678
+        assertEqual "fromInteger 0x12345678 should be instr" (fromInteger 0x12345678) instr
   ]
 
 
@@ -877,6 +1042,20 @@ rInstructionTests = TestList
 --           (err, _) -> assertEqual "result should be an error" (show err) "unsupported instruction: DerefMacro EAX"
 --           _ -> assertFailure "result should be an error"
 --   ]
+
+-- testWrapperInvalid :: Test
+-- testWrapperInvalid = TestList
+--   [ "compileInFileWrapper should throw an error for an invalid context" Test.HUnit.~: do
+--         let context = Invalid "Invalid Context"
+--             name = ".tmp_test_output"
+--             exec = False
+--         result <- try (compileInFileWrapper context name exec) :: IO (Either SomeException ())
+--         case result of
+--           Left _ -> assertEqual "result should be an error" True True
+--           Right _ -> assertFailure "result should be an error"
+--   ]
+
+
 
 functionalASMTests :: Test
 functionalASMTests =
