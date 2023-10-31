@@ -7,6 +7,7 @@ module Includes (
 import Data.Maybe
 import Data.List
 import System.Environment
+import Debug.Trace
 
 ---------------------------------------------
 -- Utils
@@ -89,19 +90,13 @@ getMacro (MacroList macros) name' = if null macros then Nothing else do
     let macro = head macros
     if name' == name macro then Just macro else getMacro (MacroList (tail macros)) name'
 
-fetchAllMacros :: String -> MacroList
-fetchAllMacros src = if "#macro" `isInfixOf` src then do
-    let (before, after) = break (== '{') src
-    let (macrolist, rest) = break (== '}') (tail after)
-    let (name, args, def, rest') = breakMacro macrolist
-    let macro = Macro {name = name, args = words args, def = def}
-    addMacro (fetchAllMacros rest') macro
-    else newMacroList
-
-removeMacro :: MacroList -> String -> MacroList
-removeMacro (MacroList macros) name' = if null macros then newMacroList else do
-    let macro = head macros
-    if name' == name macro then MacroList (tail macros) else removeMacro (MacroList (tail macros)) name'
+-- breakMacro :: String -> (String, String, String, String)
+-- breakMacro src = do
+--     let (name, rest) = break (== '(') src
+--     let (args, rest') = break (== ')') (tail rest)
+--     let (def, rest'') = break (== '\n') (tail rest')
+--     let rest''' = if null rest'' then [] else tail rest''
+--     (name, args, def, rest''')
 
 breakMacro :: String -> (String, String, String, String)
 breakMacro src = do
@@ -109,7 +104,24 @@ breakMacro src = do
     let (args, rest') = break (== ')') (tail rest)
     let (def, rest'') = break (== '\n') (tail rest')
     let rest''' = if null rest'' then [] else tail rest''
-    (name, args, def, rest''')
+    trace ("Current name: " ++ name) $ (name, args, def, rest''')
+
+
+-- fetchAllMacros :: String -> MacroList
+-- fetchAllMacros src = if "#macro" `isInfixOf` src then do
+--     let (before, after) = break (== '{') src
+--     let (macrolist, rest) = break (== '}') (tail after)
+--     let (name, args, def, rest') = breakMacro macrolist
+--     let macro = Macro {name = name, args = words args, def = def}
+--     addMacro (fetchAllMacros rest') macro
+--     else newMacroList
+
+
+fetchAllMacros :: String -> MacroList
+fetchAllMacros src = do
+    let (name, args, def, rest') = breakMacro src
+    let macro = Macro {name = name, args = words args, def = def}
+    trace ("Current macro: " ++ show macro) $ addMacro (fetchAllMacros rest') macro
 
 replace :: String -> String -> String -> String
 replace [] _ _ = []
@@ -119,26 +131,31 @@ replace src old new = if old `isInfixOf` src then do
     before ++ new ++ replace after' old new
     else src
 
-replaceMacro :: Maybe Macro -> String -> String -> String -> String
-replaceMacro Nothing _ _ _ = []
-replaceMacro (Just macro) args def rest = do
-    let (arg, rest') = break (== ',') args
-    let arg' = if beginsWith "\"" arg then init (tail arg) else arg
-    let arg'' = removeChar '\n' arg'
-    let arg''' = removeChar ' ' arg''
-    let def' = replace def arg''' arg
-    let rest'' = if null rest' then [] else tail rest'
-    if null rest'' then def' else replaceMacro (Just macro) rest'' def' rest''
+replaceMacroByItsDef :: Maybe Macro -> String -> String -> String -> String
+replaceMacroByItsDef Nothing _ _ _ = []
+replaceMacroByItsDef (Just macro) args def rest = do
+    let args' = words args
+    let def' = replace def (head args') (head args')
+    let def'' = replace def' (head (tail args')) (head (tail args'))
+    let def''' = replace def'' (head (tail (tail args'))) (head (tail (tail args')))
+    replace rest (name macro) def'''
+
+detectMacroCall :: String -> String -> Maybe Macro
+detectMacroCall src name' = if name' `isInfixOf` src then do
+    let (before, after) = break (== '(') src
+    let (_, rest) = break (== ')') (tail after)
+    let (name, args, def, rest') = breakMacro before
+    if name == name' then Just Macro {name = name, args = words args, def = def} else detectMacroCall rest name'
+    else Nothing
 
 replaceMacroForEachCall :: String -> String -> String
 replaceMacroForEachCall macrolist src = do
-    -- add every macro to the list
     let macroList = fetchAllMacros macrolist
-    -- parse the source file and replace every macro call with its definition
-    let (name, args, def, rest) = breakMacro src
-    let macro = getMacro macroList name
-    let src' = replaceMacro macro args def rest
-    if null rest then src' else replaceMacroForEachCall macrolist src'
+    let macro = detectMacroCall src (name (head (macros macroList)))
+    if isNothing macro then src else do
+        let macro' = fromJust macro
+        let src' = replaceMacroByItsDef (getMacro macroList (name macro')) (unwords (args macro')) (def macro') src
+        trace ("Current src: " ++ src') $ replaceMacroForEachCall macrolist src'
 
 removeMacroDirective :: String -> String
 removeMacroDirective src = if "#macro" `isInfixOf` src then do
@@ -152,6 +169,6 @@ resolveMacros src = if "#macro" `isInfixOf` src then do
     let (before, after) = break (== '{') src
     let (macrolist, rest) = break (== '}') (tail after)
     let src' = replaceMacroForEachCall macrolist rest
-    src'' <- resolveMacros src'
-    Prelude.return (before ++ src'')
+    let src'' = removeMacroDirective src'
+    Prelude.return src''
     else Prelude.return src
