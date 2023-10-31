@@ -1,7 +1,6 @@
 {-# LANGUAGE BlockArguments #-}
 
 import System.Exit
-import System.Exit (ExitCode (..), exitWith)
 import Test.HUnit
 import Test.HUnit.Text (runTestTT)
 import TestEvaluateAST
@@ -10,7 +9,6 @@ import TestLexer
 import TestRealASM
 import TestTokenizer
 import TestVM
-import TestVM (testBlockShow)
 import TestValidState
 import TestIncludes
 
@@ -20,6 +18,7 @@ testFunctions =
   [ testTokenize,
     testTryTokenizeOne,
     testTokenInfoFields,
+    moreTestsTokOrExprToNode,
     testTokenInfoShow,
     testNoIncludes,
     testWordToToken,
@@ -180,7 +179,8 @@ testFunctions =
     testShowIntImpl,
     TestValidState.testOrd,
     testLoadContext,
-    testBlockInitAllocVarSpace
+    testBlockInitAllocVarSpace,
+    testShowInstanceASTNode
   ]
 
 -- Run all test functions and return the results as a list
