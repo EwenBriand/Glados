@@ -1,6 +1,9 @@
 {-# LANGUAGE PatternGuards #-}
 module Includes (
-    resolveIncludes
+    resolveIncludes,
+    beginsWith,
+    removeChar,
+    getFiles
 ) where
 
 import Data.Maybe

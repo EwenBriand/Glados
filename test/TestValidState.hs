@@ -7,6 +7,7 @@ module TestValidState
     testMonad,
     testFromValidState,
     testShowAndOrd,
+    testOrd
   )
 where
 
@@ -251,3 +252,15 @@ testShowAndOrd =
                z = Invalid "Error"
             in [x] == [y] ~?= False
     ]
+
+testOrd :: Test
+testOrd = TestList
+  [
+    "ValidState Ord" ~: TestCase $ do
+      assertBool "Expected Valid 5 > Valid 3" (Valid 5 > Valid 3)
+      assertBool "Expected Valid 3 < Valid 5" (Valid 3 < Valid 5)
+      assertBool "Expected Valid 5 >= Valid 3" (Valid 5 >= Valid 3)
+      assertBool "Expected Valid 3 <= Valid 5" (Valid 3 <= Valid 5)
+      assertBool "Expected Valid 5 == Valid 5" (Valid 5 == Valid 5)
+      assertBool "Expected Valid 5 /= Valid 3" (Valid 5 /= Valid 3)
+  ]

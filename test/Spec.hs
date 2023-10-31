@@ -12,6 +12,7 @@ import TestTokenizer
 import TestVM
 import TestVM (testBlockShow)
 import TestValidState
+import TestIncludes
 
 -- Define a list of test functions
 testFunctions :: [Test]
@@ -20,6 +21,7 @@ testFunctions =
     testTryTokenizeOne,
     testTokenInfoFields,
     testTokenInfoShow,
+    testNoIncludes,
     testWordToToken,
     testASTNodeFields,
     testShowASTNode,
@@ -90,7 +92,7 @@ testFunctions =
     testIf,
     testPutDefineInstruction,
     testFuncCall,
-    testReturn,
+    TestValidState.testReturn,
     testBind,
     testFunctor,
     testApplicative,
@@ -121,7 +123,7 @@ testFunctions =
     testSetTrueValueFromParam,
     TestVM.testEq,
     testShow,
-    testOrd,
+    TestVM.testOrd,
     testInstructionTable,
     testPutSymbolInstruction,
     testRegInvalids,
@@ -162,7 +164,23 @@ testFunctions =
     testArraysFuncs,
     testExecInstructionsIO,
     testInvalidInstructions,
-    testShowFunctions
+    testShowFunctions,
+    testAllOptionsEvalInstructionIO,
+    testIncludes,
+    testVariousIncludes,
+    testParseLabels,
+    testSetTruValueFromParam2,
+    testEvalInstructionIOIO,
+    testExecuteBlock,
+    testExecuteBlockInvalidOperations,
+    testExecuteBlockInvalidArg,
+    TestInstructions.testReturn,
+    testDerefMacroImpl,
+    testShowBoolImpl,
+    testShowIntImpl,
+    TestValidState.testOrd,
+    testLoadContext,
+    testBlockInitAllocVarSpace
   ]
 
 -- Run all test functions and return the results as a list

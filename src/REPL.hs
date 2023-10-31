@@ -80,7 +80,5 @@ execImpl (Valid c) = logicLoop (execInstructionsIO (Valid c, putStr ""))
 logicLoop :: (ValidState Context, IO()) -> IO()
 logicLoop (Invalid s, io) = io >> putStrLn ("Error: " ++ s) >> exitWith (ExitFailure 84)
 logicLoop (Valid c, io) = if instructionPointer c >= length (instructions c) - 1
-    -- then io >> print (fromValidState (-1) (getTrueValueFromParam (Valid c) (Reg EAX)))
     then io >> putStr ""
     else io >> logicLoop (execInstructionsIO (detectLabels (Valid c), putStr ""))
-    -- io >> logicLoop (execInstructionsIO (detectLabels (Valid c)))

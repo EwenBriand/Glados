@@ -1,5 +1,6 @@
 module TestVM
   ( testIncRegister,
+    testLoadContext,
     testIncRegisterInvalidContext,
     testDecRegister,
     testDecRegisterInvalidContext,
@@ -18,8 +19,11 @@ module TestVM
     testAndRegister,
     testAndRegisterInvalidContext,
     testOrRegister,
+    testBlockInitAllocVarSpace,
     testOrRegisterInvalidContext,
     testXorRegister,
+    testParseLabels,
+    testSetTruValueFromParam2,
     testXorRegisterInvalidContext,
     testNotRegister,
     testNotRegisterInvalidContext,
@@ -83,6 +87,7 @@ import Test.HUnit
 import VM
 import ValidState
 import System.IO.Silently
+import VM (Instruction(Test))
 
 testRegInvalids :: Test
 testRegInvalids = TestList
@@ -1088,4 +1093,33 @@ testLabels = TestList
     "Valid parseLabels" ~: parseLabels (Valid newContext) [Nop] 0 ~?= Valid newContext,
     "Invalid detectLabels" ~: detectLabels (Invalid "Error") ~?= Invalid "Error",
     "Valid detectLabels" ~: detectLabels (Valid newContext) ~?= Valid newContext
+  ]
+
+testLoadContext :: Test
+testLoadContext = TestCase $
+    do
+        c <- loadContext "tests/testLoadContext.test"
+        assertEqual "loaded ok" c (Valid newContext {instructions = [
+            Enter,
+            Xor (Reg EAX) (Reg EAX),
+            Mov (Reg EAX) (Immediate 1)]})
+
+testBlockInitAllocVarSpace :: Test
+testBlockInitAllocVarSpace = TestList [
+    "Invalid blockInitAllocVarSpace" ~: blockInitAllocVarSpace (Invalid "Error") ~?= [],
+    "Valid blockInitAllocVarSpace" ~: blockInitAllocVarSpace (Valid newContext) ~?= [Enter]
+  ]
+
+testParseLabels :: Test
+testParseLabels = TestList [
+    "Invalid parseLabels" ~: parseLabels (Invalid "Error") [] 0 ~?= Invalid "Error",
+    "Empty parseLabels" ~: parseLabels (Valid newContext) [] 0 ~?= Valid newContext,
+    "Valid parseLabels" ~: parseLabels (Valid newContext) [VM.Label "bob" 1, Nop, VM.Label "bobberson" 2] 0 ~?= Valid newContext {labels = Labels (Map.fromList [("bob", 0), ("bobberson", 2)])}
+  ]
+
+testSetTruValueFromParam2 :: Test
+testSetTruValueFromParam2 = TestList [
+    "From memory address (heap)" ~: let ctx = setTrueValueFromParam (Valid newContext {heap = Heap (Map.singleton 0 42)}) (Memory 0) 99 in heapGet ctx 0 ~?= Valid 99,
+    "From symbol" ~: let ctx = setTrueValueFromParam (Valid newContext {symbolTable = SymTable [("foo", GInt), ("bar", GBool)], heap = Heap (Map.singleton 0 42)}) (Symbol "foo") 99 in heapGet ctx 0 ~?= Valid 99,
+    "From invalid symbol" ~: let ctx = setTrueValueFromParam (Valid newContext {symbolTable = SymTable [("foo", GInt), ("bar", GBool)], heap = Heap (Map.singleton 0 42)}) (Symbol "quiche") 99 in heapGet ctx 0 ~?= Invalid "Symbol not found"
   ]
