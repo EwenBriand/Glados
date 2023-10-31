@@ -85,8 +85,8 @@ data ASTNode
   | ASTNodeReturn {astnrValue :: ASTNode}
   | ASTNodeDeref {astndChildren :: ASTNode, astndindex :: ASTNode}
   | ASTNodeCast {astncastee :: ASTNode, astncasttype :: VarType}
-  | ASTNodeBinOps {astnboChildren :: [TokorNode]}
   | ASTNodeShow {astnsChildren :: [ASTNode], astnsType :: VarType}
+  | ASTNodeBinOps {astnboChildren :: [TokorNode]}
   deriving (Eq, Generic)
 
 instance Binary ASTNode
@@ -126,6 +126,7 @@ instance Show ASTNode where
   show (ASTNodeDeref n i) = "(deref: \n\t(name) " ++ show n ++ "\n\t(index) " ++ show i ++ ")"
   show (ASTNodeBinOps l) = "(binops: " ++ show l ++ ")"
   show (ASTNodeShow l t) = "(show: \n\t(type) " ++ show t ++ "\n\t(children) " ++ show l ++ ")"
+  show (ASTNodeBinOps l) = "(binops: " ++ show l ++ ")"
   show _ = "(unknown node)"
 
 isSymbolAndParamArray :: [ASTNode] -> Bool

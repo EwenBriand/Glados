@@ -25,7 +25,8 @@ data Options = Options {
     execute :: Bool,
     compileObject :: String,
     fileExecutable :: String,
-    ast :: Bool
+    ast :: Bool,
+    vroum :: Bool
 } deriving (Show, Data, Typeable)
 
 options :: Options
@@ -37,8 +38,9 @@ options = Options {
     execute = def &= help "Execute the binary loaded / created",
     compileObject = def &= help "The path to the object file to produce" &= typFile,
     fileExecutable = def &= help "The path to the executable file to produce" &= typFile,
-    ast = def &= help "Prints the AST of the source file"
-} &= summary "Very SAD GladOs Compiler & Interpreter V1.0" -- SAD: Simple And Dumb, Splendid And Direct, Service After Death, or maybe just sad ;)
+    ast = def &= help "Prints the AST of the source file",
+    vroum = def &= help "Tries to optimize the generated code to improve execution speed"
+} &= summary "Very SAD GladOs Compiler & Interpreter V1.0" -- SAD: Simple And Dumb, Splendid And Direct, or maybe just sad ;)
 
 getContextOnOps :: Options -> IO (ValidState Context)
 getContextOnOps ops = do
@@ -84,39 +86,23 @@ showAST (Valid c) = do
 
 execOnOps :: IO (ValidState Context) -> Options -> IO ()
 execOnOps ctx ops = do
-    if fileExecutable ops /= "" then
-        do
-        c <- ctx
-        case c of
-            Invalid s -> putStrLn ("Context invalidated: " ++ s) >> exitWith (ExitFailure 84)
-            Valid ct -> compileInFile ct (fileExecutable ops) True
-    else if compileObject ops /= "" then
-        do
-        c <- ctx
-        case c of
-            Invalid s -> putStrLn ("Context invalidated: " ++ s) >> exitWith (ExitFailure 84)
-            Valid ct -> compileInFile ct (compileObject ops) False
-    else
-        putStr ""
     c <- ctx
-    if disassemble ops then
-        showDisassembly c
-    else
-        putStr ""
-    if ast ops then
-        showAST c
-    else putStr ""
-    if execute ops then
-        execImpl c
-    else putStr ""
-    if outputFile ops /= "" then
-        saveContext c (outputFile ops)
-    else putStr ""
-
+    mapM_ (\(cond, exec) -> do
+        if cond then
+            exec c
+        else
+            putStr "") handlers
+    where
+        handlers = [
+            (fileExecutable ops /= "", (\ct -> compileInFileWrapper ct (fileExecutable ops) True)),
+            (compileObject ops /= "", (\ct -> compileInFileWrapper ct (compileObject ops) False)),
+            (disassemble ops == True, showDisassembly),
+            (ast ops == True, showAST),
+            (execute ops == True, execImpl),
+            (outputFile ops /= "", (\ct -> saveContext ct (outputFile ops)))]
 
 switchOnOptions :: Options -> IO ()
 switchOnOptions ops = execOnOps (getContextOnOps ops) ops
-
 
 main :: IO ()
 main = do

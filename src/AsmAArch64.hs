@@ -30,6 +30,8 @@ module AsmAArch64
     binLengthFromRInstruction,
     word16Update2ndByte,
     compileInFile,
+    compileInFileWrapper,
+
     elfOFile
   )
 where
@@ -544,6 +546,10 @@ elfOFile c = let
     elf = contextToElf c True
     in do
         assemble elf
+
+compileInFileWrapper :: ValidState Context -> String -> Bool -> IO ()
+compileInFileWrapper (Invalid s) _ _ = error s
+compileInFileWrapper (Valid c) name exec = compileInFile c name exec
 
 -- not tested
 compileInFile :: Context -> String -> Bool -> IO ()
