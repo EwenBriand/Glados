@@ -3,8 +3,10 @@ int age = 25;           // ok
 char character = 'a';  // ok
 bool isAlive = true;  // ok
 float height = 1.75;
-dic k = {}
-a["key"] = "value"
+struct k = {
+    int ok;
+}
+a.key = "value"
 list l = []     // ok
 int doubleAge = age * 2;
 #commentaire

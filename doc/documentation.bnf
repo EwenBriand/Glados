@@ -94,6 +94,8 @@
 
 <other> ::= <token>
 
+<list_pos> ::= <text> "[" <integer> "]"
+<set_list_pos> ::= <list_pos> " = " <expression>
 <list> ::= "[" <expression>+ "]"
 
 <func> ::= <type> <text> "(" <arg_list> ")" "{" <statement_list> "}"
@@ -134,8 +136,9 @@
 
 <struct_val> ::= <text> "." <text>
 
+<set_struct_val> ::= <struct_val> " = " <expression> <semicolon>
 
 
 
 exemple:
-https://bnfplayground.pauliankline.com/?bnf=%0A%3Cdef_of_var%3E%20%3A%3A%3D%20%3Ctype%3E%20%22%20%22%20%3Ctext%3E%20%3Csemicolon%3E%20%22%5Cn%22%0A%0A%3Cstruct%3E%20%3A%3A%3D%20%22struct%20%22%20%3Ctext%3E%20%22%20%3D%20%22%20%22%7B%5Cn%22%20%3Cdef_of_var%3E%2B%20%22%7D%22%0A%0A%3Cstruct_val%3E%20%3A%3A%3D%20%3Ctext%3E%20%22.%22%20%3Ctext%3E%0A%3Ctype%3E%20%3A%3A%3D%20%22int%22%20%7C%20%22bool%22%20%7C%20%22float%22%20%7C%20%22%40%22%0A%3Csemicolon%3E%20%3A%3A%3D%20%22%3B%22%0A%3Ctext%3E%20%3A%3A%3D%20%3Cletter%3E%2B%0A%3Cletter%3E%20%3A%3A%3D%20%5Ba-z%5D&name=
+https://bnfplayground.pauliankline.com/?bnf=%0A%3Cdef_of_var%3E%20%3A%3A%3D%20%3Ctype%3E%20%22%20%22%20%3Ctext%3E%20%3Csemicolon%3E%20%22%5Cn%22%0A%0A%3Cstruct%3E%20%3A%3A%3D%20%22struct%20%22%20%3Ctext%3E%20%22%20%3D%20%22%20%22%7B%5Cn%22%20%3Cdef_of_var%3E%2B%20%22%7D%22%0A%0A%3Cstruct_val%3E%20%3A%3A%3D%20%3Ctext%3E%20%22.%22%20%3Ctext%3E%0A%3Ctype%3E%20%3A%3A%3D%20%22int%22%20%7C%20%22bool%22%20%7C%20%22float%22%20%7C%20%22%40%22%0A%3Csemicolon%3E%20%3A%3A%3D%20%22%3B%22%0A%3Ctext%3E%20%3A%3A%3D%20%3Cletter%3E%2B%0A%3Cletter%3E%20%3A%3A%3D%20%5Ba-z%5D%0A%3Cexpression%3E%20%3A%3A%3D%20%3Cinteger%3E%0A%20%20%20%20%20%20%20%20%20%20%20%20%7C%20%3Cbool%3E%0A%3Cset_struct_val%3E%20%3A%3A%3D%20%3Cstruct_val%3E%20%22%20%3D%20%22%20%3Cexpression%3E%20%3Csemicolon%3E%0A%3Cdigit%3E%20%3A%3A%3D%20%220%22%20%7C%20%221%22%20%7C%20%222%22%20%7C%20%223%22%20%7C%20%224%22%20%7C%20%225%22%20%7C%20%226%22%20%7C%20%227%22%20%7C%20%228%22%20%7C%20%229%22%0A%0A%3Cbool%3E%20%3A%3A%3D%20%22true%22%20%7C%20%22false%22%20%7C%20%22%23t%22%20%7C%20%22%23f%22%0A%3Cinteger%3E%20%3A%3A%3D%20%3Cdigit%3E%2B%0A&name=
