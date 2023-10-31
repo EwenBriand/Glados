@@ -3,8 +3,6 @@ module Main (main) where
 
 import REPL
 import VM
--- import Lexer
--- import EvaluateAST
 import ValidState
 import System.Console.CmdArgs
 import EvaluateAST (strToHASM)
@@ -84,34 +82,20 @@ showAST (Valid c) = do
 
 execOnOps :: IO (ValidState Context) -> Options -> IO ()
 execOnOps ctx ops = do
-    if fileExecutable ops /= "" then
-        do
-        c <- ctx
-        case c of
-            Invalid s -> putStrLn ("Context invalidated: " ++ s) >> exitWith (ExitFailure 84)
-            Valid ct -> compileInFile ct (fileExecutable ops) True
-    else if compileObject ops /= "" then
-        do
-        c <- ctx
-        case c of
-            Invalid s -> putStrLn ("Context invalidated: " ++ s) >> exitWith (ExitFailure 84)
-            Valid ct -> compileInFile ct (compileObject ops) False
-    else
-        putStr ""
     c <- ctx
-    if disassemble ops then
-        showDisassembly c
-    else
-        putStr ""
-    if ast ops then
-        showAST c
-    else putStr ""
-    if execute ops then
-        execImpl c
-    else putStr ""
-    if outputFile ops /= "" then
-        saveContext c (outputFile ops)
-    else putStr ""
+    mapM_ (\(cond, exec) -> do
+        if cond then
+            exec c
+        else
+            putStr "") handlers
+    where
+        handlers = [
+            (fileExecutable ops /= "", \ct -> compileInFileWrapper ct (fileExecutable ops) True),
+            (compileObject ops /= "", \ct -> compileInFileWrapper ct (compileObject ops) False),
+            (disassemble ops, showDisassembly),
+            (ast ops, showAST),
+            (execute ops, execImpl),
+            (outputFile ops /= "", \ct -> saveContext ct (outputFile ops))]
 
 
 switchOnOptions :: Options -> IO ()

@@ -188,7 +188,7 @@ regNot :: ValidState Context -> Register -> ValidState Context
 regNot (Invalid s) _ = Invalid s
 regNot (Valid context) register = Valid context {registers = Registers (Map.adjust complement register (regs (registers context)))}
 
--- | Gets the value of a register.
+-- | Gets the value of a register
 regGet :: ValidState Context -> Register -> ValidState Int
 regGet (Invalid s) _ = Invalid s
 regGet (Valid context) register = case Map.lookup register (regs (registers context)) of

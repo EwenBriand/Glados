@@ -90,7 +90,7 @@ testFunctions =
     testIf,
     testPutDefineInstruction,
     testFuncCall,
-    testReturn,
+    TestValidState.testReturn,
     testBind,
     testFunctor,
     testApplicative,
@@ -162,7 +162,16 @@ testFunctions =
     testArraysFuncs,
     testExecInstructionsIO,
     testInvalidInstructions,
-    testShowFunctions
+    testShowFunctions,
+    testAllOptionsEvalInstructionIO,
+    testEvalInstructionIOIO,
+    testExecuteBlock,
+    testExecuteBlockInvalidOperations,
+    testExecuteBlockInvalidArg,
+    TestInstructions.testReturn,
+    testDerefMacroImpl,
+    testShowBoolImpl,
+    testShowIntImpl
   ]
 
 -- Run all test functions and return the results as a list

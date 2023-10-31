@@ -30,6 +30,7 @@ module AsmAArch64
     binLengthFromRInstruction,
     word16Update2ndByte,
     compileInFile,
+    compileInFileWrapper,
     elfOFile
   )
 where
@@ -545,7 +546,10 @@ elfOFile c = let
     in do
         assemble elf
 
--- not tested
+compileInFileWrapper :: ValidState Context -> String -> Bool -> IO ()
+compileInFileWrapper (Invalid s) _ _ = P.return()
+compileInFileWrapper (Valid c) name exec = compileInFile c name exec
+
 compileInFile :: Context -> String -> Bool -> IO ()
 compileInFile c name exec =
   if exec

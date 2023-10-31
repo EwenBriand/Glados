@@ -69,7 +69,16 @@ module TestInstructions
     testMyJbe,
     testSetupfunctionStack,
     testExecInstructionsIO,
-    testInvalidInstructions
+    testInvalidInstructions,
+    testAllOptionsEvalInstructionIO,
+    testEvalInstructionIOIO,
+    testExecuteBlock,
+    testExecuteBlockInvalidOperations,
+    testExecuteBlockInvalidArg,
+    testReturn,
+    testDerefMacroImpl,
+    testShowBoolImpl,
+    testShowIntImpl
   )
 where
 
@@ -84,7 +93,8 @@ import Lexer
 import Test.HUnit
 import VM
 import ValidState
-import VM (Block(Block))
+import REPL
+import VM (Context(Context))
 
 testMovImpl :: Bool
 testMovImpl =
@@ -881,6 +891,120 @@ testExecInstructionsIO = TestList
 
 giveMeBlock :: Block
 giveMeBlock = Block "foo" (Valid newContext) []
+
+testAllOptionsEvalInstructionIO :: Test
+testAllOptionsEvalInstructionIO = TestList
+  [
+    "Invalid execInstructionsIO" ~: case execInstructionsIO (Invalid "Error", putStr "coucou") of
+      (Invalid s, io) -> assertEqual "Error message" s "Error"
+      _ -> assertFailure "Expected an invalid state",
+    "Valid execInstructionsIO with no instructions" ~: case execInstructionsIO (Valid newContext, putStr "") of
+      (Valid context, io) -> assertEqual "Context" context newContext
+      _ -> assertFailure "Expected a valid state",
+    "Valid execInstructionsIO with instructions" ~: case execInstructionsIO (Valid (contextWithInstructions {
+        instructions = [Mov (Reg EAX) (Immediate 5)]
+    }), putStr "") of
+      (Valid context, io) -> assertEqual "Context" context (fromValidState newContext (regSet (Valid contextWithInstructions {
+            instructions = [Mov (Reg EAX) (Immediate 5)],
+            instructionPointer = 1
+        }) EAX 5))
+      _ -> assertFailure "Expected a valid state",
+    "severalInstructions" ~: case execInstructionsIO (Valid (contextWithInstructions {
+        instructions = [Mov (Reg EAX) (Immediate 5), Mov (Reg EBX) (Immediate 6)]
+    }), putStr "") of
+      (Valid context, io) -> assertEqual "Context" context (fromValidState newContext (regSet (regSet (Valid contextWithInstructions {
+            instructions = [Mov (Reg EAX) (Immediate 5), Mov (Reg EBX) (Immediate 6)],
+            instructionPointer = 2
+        }) EBX 6) EAX 5))
+      _ -> assertFailure "Expected a valid state"]
+  where
+    contextWithInstructions = newContext
+
+testEvalInstructionIOIO :: Test
+testEvalInstructionIOIO = TestCase $
+    case execInstructionsIO (Valid newContext, putStr "hello there") of
+        (Valid context, io) -> putStr "hello there"
+        _ -> assertFailure "Expected a valid state"
+
+-- testExecBlockOk :: (ValidState Context, IO()) -> Test
+-- testExecBlockOk (Invalid _, _) = assertFailure "Contexst is invalid in exec blocks"
+-- testExecBlockOk (Valid context, io) = True ~?= True
+
+-- testExecuteBlock :: Test
+-- testExecuteBlock = TestCase $
+--     testExecBlockOk execImpl (detectLabels (strToHASM (Valid newContext) "(define foo (lambda (x) (if (eq? x 0) then 0 else (foo (- x 1)))))(foo 5)"))
+
+-- testExecBlockOk :: IO() -> Test
+-- testExecBlockOk io = TestCase $
+--     io
+
+-- testExecuteBlock :: Test
+-- testExecuteBlock = testExecBlockOk (execImpl (detectLabels (strToHASM (Valid newContext) "(define foo (lambda (x) (if (eq? x 0) then 0 else (foo (- x 1)))))(foo 5)")))
+
+testExecuteBlock :: Test
+testExecuteBlock = TestCase $
+    case c of
+        (Invalid _, _) -> assertFailure "Context is invalid in exec blocks"
+        _ -> putStr ""
+    where
+        c = executeBlock (Valid newContext) (Block "Hello Block!" (Valid newContext {instructions = [Mov (Reg EAX) (Immediate 5)]}) [])
+
+testExecuteBlockInvalidOperations :: Test
+testExecuteBlockInvalidOperations = TestCase $
+    case c of
+        (Invalid _, _) -> putStr ""
+        _ -> assertFailure "Context is invalid in exec blocks"
+    where
+        c = executeBlock (Valid newContext) (Block "Hello Block!" (Valid newContext {instructions = [Mov (Immediate 1) (Reg EAX)]}) [])
+
+testExecuteBlockInvalidArg :: Test
+testExecuteBlockInvalidArg = TestCase $
+    case c of
+        (Invalid _, _) -> putStr ""
+        _ -> assertFailure "Context is not invalid"
+    where
+        c = executeBlock (Invalid "no") (Block "Hello Block!" (Valid newContext {instructions = [Mov (Reg EAX) (Immediate 5)]}) [])
+
+testReturn :: Test
+testReturn = TestList
+    [
+        "check instruction ret empty" ~: checkInstructionRet [] ~?= [],
+        "check instruction ret" ~: checkInstructionRet [Mov (Reg EAX) (Immediate 3), Ret, ShowInt] ~?= [Mov (Reg EAX) (Immediate 3), Ret],
+        "returnImpl" ~: returnImpl (Valid newContext {instructions =  [Mov (Reg EAX) (Immediate 3), Ret, ShowInt] }) ~?= Valid newContext { instructions = [Mov (Reg EAX) (Immediate 3), Ret]},
+        "returnImpl invalid ctx" ~: returnImpl (Invalid "nope") ~?= Invalid "nope"]
+
+testDerefMacroImpl :: Test
+testDerefMacroImpl = TestList
+    [
+        "invalid: address not allocated" ~: derefMacroImpl (Valid newContext) EAX ~?= Invalid "Address not allocated",
+        "return 0" ~: (let (a, ctx) = (heapAllocRange (Valid newContext) 10) in
+            regGet (derefMacroImpl (regSet ctx EAX 1) EAX)) EAX ~?= Valid 0,
+        "invalid context in argument" ~: derefMacroImpl (Invalid "nope") EAX ~?= Invalid "nope"]
+
+testShowIntImpl :: Test
+testShowIntImpl = TestList
+  [
+    "Invalid showIntImpl" ~: case showIntImpl (Invalid "Error") of
+      (Invalid s, _) -> assertEqual "Error message" s "Error"
+      _ -> assertFailure "Expected an invalid state",
+    "Valid showIntImpl" ~: case showIntImpl (Valid newContext) of
+      (Valid _, _) -> assertBool "Expected valid state" True
+      _ -> assertFailure "Expected a valid state"
+  ]
+
+testShowBoolImpl :: Test
+testShowBoolImpl = TestList
+  [
+    "Invalid showBoolImpl" ~: case showBoolImpl (Invalid "Error") of
+      (Invalid s, _) -> assertEqual "Error message" s "Error"
+      _ -> assertFailure "Expected an invalid state",
+    "Valid showBoolImpl" ~: case showBoolImpl (Valid newContext) of
+      (Valid _, _) -> assertBool "Expected valid state" True
+      _ -> assertFailure "Expected a valid state",
+    "Valid showbool true" ~: case showBoolImpl (regSet (Valid newContext) EAX 1) of
+        (Valid context, io) -> assertEqual "Context" context (fromValidState newContext (regSet (Valid context) EAX 1))
+        _ -> assertFailure "Expected a valid state"
+  ]
 
 testInvalidInstructions :: Test
 testInvalidInstructions = TestList

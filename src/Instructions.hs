@@ -49,7 +49,12 @@ module Instructions
     subImpl,
     andImpl,
     orImpl,
-    notImpl
+    notImpl,
+    checkInstructionRet,
+    returnImpl,
+    derefMacroImpl,
+    showBoolImpl,
+    showIntImpl
   )
 where
 

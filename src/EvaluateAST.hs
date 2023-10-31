@@ -135,10 +135,12 @@ putASTNodeShow n _type c = case _type of
 putShowInt :: ValidState Context -> ASTNode -> ValidState Context
 putShowInt (Invalid s) _ = Invalid s
 putShowInt (Valid c) (ASTNodeInteger val) = Valid c {instructions = instructions c ++ [Write 1 (Symbol (show val)) (length (show val))]}
+putShowInt _ _ = Invalid "Error: invalid argument for show int"
 
 putShowBool :: ValidState Context -> ASTNode -> ValidState Context
 putShowBool (Invalid s) _ = Invalid s
 putShowBool (Valid c) (ASTNodeBoolean val) = Valid c {instructions = instructions c ++ [ShowBool]}
+putShowBool _ _ = Invalid "Error: invalid argument for show boolean"
 
 paramsRegisters :: [Register]
 paramsRegisters = [EDI, ESI, EDX, ECX]

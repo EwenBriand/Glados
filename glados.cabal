@@ -31,7 +31,6 @@ library
       Includes
       Instructions
       Lexer
-      Lib
       MakeELF
       REPL
       Tokenizer
