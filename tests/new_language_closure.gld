@@ -1,0 +1,13 @@
+@ test(int z)
+{
+    @ ar = [];
+    for (int i = 0; i < 10; i++)
+    {
+        ar[i] = lambda() { print(i); };
+    }
+    return ar;
+}
+
+b = test(0);
+b[0]();
+b[1]();

@@ -79,6 +79,8 @@ data Token
 -- | Keywords
   | TokenShowKeyword -- The "show" keyword, to print a value
   | TokenAsKeyword -- The "as" keyword, to perform a cast
+  | TokenPoint
+  | TokenKeywordStruct
 
   deriving (Eq, Show, Generic)
 
@@ -149,6 +151,8 @@ wordToTok "::" = TokenInfo {token = TokenDeref, value = "deref"}
 wordToTok "as" = TokenInfo {token = TokenCast, value = "as"}
 wordToTok "show" = TokenInfo {token = TokenShowKeyword, value = "show"}
 wordToTok "as" = TokenInfo {token = TokenAsKeyword, value = "as"}
+wordToTok "." = TokenInfo {token = TokenPoint, value = "."}
+wordToTok "struct" = TokenInfo {token = TokenKeywordStruct, value = "struct"}
 wordToTok str
   | all isAlpha str = TokenInfo {token = TokSymbol, value = str}
   | all isDigit str = TokenInfo {token = TokInteger, value = str}
