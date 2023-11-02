@@ -183,7 +183,10 @@ testFunctions =
     testLoadContext,
     testBlockInitAllocVarSpace,
     testShowInstanceASTNode,
-    functionalVMTests
+    functionalVMTests,
+    testIsSymbolAndParamArray,
+    moreTestFunctions,
+    testLexerConstructor
   ]
 
 -- Run all test functions and return the results as a list
