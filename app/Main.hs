@@ -50,7 +50,7 @@ getContextOnOps ops = do
             -- use resolveMacros to print its output in a file
             src'' <- resolveMacros src'
             writeFile "macros.gld" src''
-            Prelude.return (detectLabels (strToHASM (Valid newContext) src'))
+            Prelude.return (detectLabels (strToHASM (Valid newContext) src''))
         else do
             putStrLn "Awaiting input: (Ctrl-d to end input)\n"
             hFlush stdout

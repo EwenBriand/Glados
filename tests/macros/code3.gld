@@ -1,0 +1,7 @@
+#macro {
+    NEG(x) (-x)
+    ADD(x) + 1
+    MULT(x y) x * y
+}
+
+MULT(2, (ADD(1) NEG(NEG(2))))
