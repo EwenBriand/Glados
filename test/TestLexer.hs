@@ -11,7 +11,10 @@ module TestLexer
     testShowVarType,
     testShowTokorNode,
     moreTestsTokOrExprToNode,
-    testShowInstanceASTNode
+    testShowInstanceASTNode,
+    testIsSymbolAndParamArray,
+    moreTestFunctions,
+    testLexerConstructor
   )
 where
 
@@ -218,6 +221,7 @@ testShowInstanceASTNode = TestList
     "ASTNodeBreak" ~: show (ASTNodeBreak []) ~?= "(break: [])",
     "ASTNodeEq" ~: show (ASTNodeEq []) ~?= "(eq: [])",
     "ASTNodeInferior" ~: show (ASTNodeInferior []) ~?= "(inferior: [])",
+    "ASTNodeWhile" ~: show (ASTNodeWhile (ASTNodeBoolean True) []) ~?= "(while: \n\t(condition) " ++ show (ASTNodeBoolean True) ++ "\n\t(then) [])",
     "ASTNodeSet" ~: show (ASTNodeSet (ASTNodeSymbol "name") (ASTNodeInteger 3)) ~?= "(set: \n\t(name) " ++ show (ASTNodeSymbol "name") ++ "\n\t(children) " ++ show (ASTNodeInteger 3) ++ ")",
     "ASTNodeVariable" ~: show (ASTNodeVariable (ASTNodeSymbol "name") GInt) ~?= "(variable: \n\t(name) " ++ show (ASTNodeSymbol "name") ++ "\n\t(type) " ++ show GInt ++ ")\n",
     "ASTNodeReturn" ~: show (ASTNodeReturn (ASTNodeInteger 2)) ~?= "(return: " ++ show (ASTNodeInteger 2) ++ ")",
@@ -317,3 +321,74 @@ moreTestsTokOrExprToNode = TestList [
     -- "contains param list " ~:  containsParamList [ASTNodeInteger 1, ASTNodeParamList [ASTNodeInteger 2]] ~?= True,
     -- "check check" ~: check ASTNodeInstructionSequence ([ASTNodeInteger 1, ASTNodeParamList [ASTNodeInteger 2]]) ~?= ASTNodeInstructionSequence [ASTNodeInteger 1, ASTNodeInteger 2]
     ]
+
+testIsSymbolAndParamArray :: Test
+testIsSymbolAndParamArray = TestList
+  [
+    "ASTNodeSymbol" ~: isSymbolAndParamArray [ASTNodeSymbol "String", ASTNodeInteger 4, ASTNodeInteger 3] ~?= True,
+    "AstNodeLambda" ~: isSymbolAndParamArray [ASTNodeLambda (ASTNodeSymbol "String") (Invalid "Error") [], ASTNodeInteger 3] ~?= True
+  ]
+
+moreTestFunctions :: Test
+moreTestFunctions = TestList
+  [
+    "expendParamList Array" ~: expendParamList [ASTNodeArray [], ASTNodeInteger 4] ~?= expendParamList [] ++ expendParamList [ASTNodeInteger 4],
+    "expendParamList ParamList" ~: expendParamList [ASTNodeParamList [], ASTNodeInteger 4] ~?= expendParamList [] ++ expendParamList [ASTNodeInteger 4],
+    "isThisReallyAnArrayOrIsItATrap" ~: isThisReallyAnArrayOrIsItATrap (ASTNodeError (TokenInfo {token = TokEmpty, value = ""})) ~?= ASTNodeError (TokenInfo {token = TokEmpty, value = ""}),
+    "getTypeFromToken" ~: getTypeFromToken (TokenInfo TokenType "bool") ~?= GBool,
+    "getTypeFromToken" ~: getTypeFromToken (TokenInfo TokenType "int") ~?= GInt,
+    "getTypeFromToken" ~: getTypeFromToken (TokenInfo TokenType "void") ~?= GVoid,
+    "getTypeFromToken" ~: getTypeFromToken (TokenInfo TokenType "@") ~?= GPtr,
+    "getTypeFromToken" ~: getTypeFromToken (TokenInfo TokenType "undefined") ~?= GUndefinedType,
+    "getTypeFromToken" ~: getTypeFromToken (TokenInfo TokenType "bob") ~?= GUndefinedType,
+    "getTypeFromNodeValue" ~: getTypeFromNodeValue (ASTNodeInteger 3) ~?= GInt,
+    "getTypeFromNodeValue" ~: getTypeFromNodeValue (ASTNodeBoolean True) ~?= GBool,
+    "getTypeFromNodeValue" ~: getTypeFromNodeValue (ASTNodeSymbol "bob") ~?= GUndefinedType,
+    "getTypeFromNodeValue" ~: getTypeFromNodeValue (ASTNodeArray []) ~?= GPtr,
+    "getTypeFromNodeValue" ~: getTypeFromNodeValue (ASTNodeCast (ASTNodeInteger 4) GInt) ~?= GInt,
+    "mergeBinOps" ~: mergeBinOps [A (ASTNodeBinOps [])] ~?= ASTNodeBinOps [],
+    "mergeBinOps" ~: mergeBinOps [] ~?= ASTNodeError (TokenInfo TokError "Invalid binary operation: []"),
+    "mergeBinOps" ~: mergeBinOps [A (ASTNodeBinOps [A (ASTNodeInteger 3)]), T (TokenInfo TokOperatorPlus "+"), A (ASTNodeBinOps [A (ASTNodeInteger 3)])] ~?= ASTNodeBinOps [A (ASTNodeInteger 3), T (TokenInfo TokOperatorPlus "+"), A (ASTNodeInteger 3)],
+    "mergeBinOps" ~: mergeBinOps [A (ASTNodeBinOps [A (ASTNodeInteger 3)]), T (TokenInfo TokOperatorPlus "+"), A (ASTNodeInteger 2)] ~?= ASTNodeBinOps [A (ASTNodeInteger 3), T (TokenInfo TokOperatorPlus "+"), A (ASTNodeInteger 2)],
+    "mergeBinOps" ~: mergeBinOps [A (ASTNodeInteger 3), T (TokenInfo TokOperatorPlus "+"), A (ASTNodeBinOps [A (ASTNodeInteger 3)])] ~?= ASTNodeBinOps [A (ASTNodeInteger 3), T (TokenInfo TokOperatorPlus "+"), A (ASTNodeInteger 3)],
+    "typeToInt" ~: typeToInt GUndefinedType ~?= 1,
+    "typeToInt" ~: typeToInt GInt ~?= 2,
+    "typeToInt" ~: typeToInt GBool ~?= 3,
+    "typeToInt" ~: typeToInt GVoid ~?= 4,
+    "typeToInt" ~: typeToInt GPtr ~?= 5,
+    "intToType" ~: intToType (Valid 1) ~?= Valid GUndefinedType,
+    "intToType" ~: intToType (Valid 2) ~?= Valid GInt,
+    "intToType" ~: intToType (Valid 3) ~?= Valid GBool,
+    "intToType" ~: intToType (Valid 4) ~?= Valid GVoid,
+    "intToType" ~: intToType (Valid 5) ~?= Valid GPtr,
+    "instructionSequenceExpandParamList" ~: instructionSequenceExpandParamList (ASTNodeInstructionSequence []) ~?= ASTNodeInstructionSequence (expandParamLists [])
+  ]
+
+testLexerConstructor :: Test
+testLexerConstructor = TestList
+  [
+    "ASTNodeEq" ~: show (astneChildren ASTNodeEq { astneChildren = [] }) ~?= "[]",
+    "ASTNodeMutable" ~: show ( astnmSymType (ASTNodeMutable (ASTNodeType GInt) (ASTNodeSymbol "bob") (ASTNodeType GInt) (ASTNodeInteger 3))) ~?= show (ASTNodeType GInt),
+    "ASTNodeMutable" ~: show ( astnmName (ASTNodeMutable (ASTNodeType GInt) (ASTNodeSymbol "bob") (ASTNodeType GInt) (ASTNodeInteger 3))) ~?= show (ASTNodeSymbol "bob"),
+    "ASTNodeMutable" ~: show ( astnmValueType (ASTNodeMutable (ASTNodeType GInt) (ASTNodeSymbol "bob") (ASTNodeType GInt) (ASTNodeInteger 3))) ~?= show (ASTNodeType GInt),
+    "ASTNodeMutable" ~: show ( astnmChildren (ASTNodeMutable (ASTNodeType GInt) (ASTNodeSymbol "bob") (ASTNodeType GInt) (ASTNodeInteger 3))) ~?= show (ASTNodeInteger 3),
+    "ASTNodeInferior" ~: show ( astniChildren (ASTNodeInferior [])) ~?= "[]",
+    "ASTNodeIf" ~: show ( astniCondition (ASTNodeIf (ASTNodeBoolean True) [] (Valid []))) ~?= show (ASTNodeBoolean True),
+    "ASTNodeIf" ~: show ( astniThen (ASTNodeIf (ASTNodeBoolean True) [] (Valid []))) ~?= "[]",
+    "ASTNodeIf" ~: show ( astniElse (ASTNodeIf (ASTNodeBoolean True) [] (Valid []))) ~?= "Valid []",
+    "ASTNodePrint" ~: show ( astnPrint (ASTNodePrint (ASTNodeInteger 4))) ~?= show (ASTNodeInteger 4),
+    "ASTNodeDefine" ~: show ( astndParams (ASTNodeDefine (ASTNodeSymbol "ddd") (Valid (ASTNodeInteger 4)) [])) ~?= show (Valid (ASTNodeInteger 4)),
+    "ASTNodeDefine" ~: show ( astndBody (ASTNodeDefine (ASTNodeSymbol "ddd") (Valid (ASTNodeInteger 4)) [])) ~?= "[]",
+    "ASTNodeCapture" ~: show ( astncChildren (ASTNodeCapture [])) ~?= "[]",
+    "ASTNodeFunctionCall" ~: show ( astnfName (ASTNodeFunctionCall "Name" [])) ~?= "\"Name\"",
+    "ASTNodeFunctionCall" ~: show ( astfnParams (ASTNodeFunctionCall "Name" [])) ~?= "[]",
+    "ASTNodeType" ~: show ( astntName (ASTNodeType GInt)) ~?= show GInt,
+    "ASTNodeVariable" ~: show ( astnvName (ASTNodeVariable (ASTNodeSymbol "Var") GInt)) ~?= show (ASTNodeSymbol "Var"),
+    "ASTNodeVariable" ~: show ( astnvType (ASTNodeVariable (ASTNodeSymbol "Var") GInt)) ~?= "GInt",
+    "ASTNodeReturn" ~: show ( astnrValue (ASTNodeReturn (ASTNodeInteger 4))) ~?= show (ASTNodeInteger 4),
+    "ASTNodeDeref" ~: show ( astndindex (ASTNodeDeref (ASTNodeInteger 5) (ASTNodeInteger 5))) ~?= show (ASTNodeInteger 5),
+    "ASTNodeCast" ~: show ( astncastee (ASTNodeCast (ASTNodeSymbol "Var") GInt)) ~?= show (ASTNodeSymbol "Var"),
+    "ASTNodeCast" ~: show ( astncasttype (ASTNodeCast (ASTNodeSymbol "Var") GInt)) ~?= "GInt",
+    "ASTNodeShow" ~: show ( astnsType (ASTNodeShow [] GInt)) ~?= show GInt,
+    "ASTNodeBinOps" ~: show ( astnboChildren (ASTNodeBinOps [])) ~?= "[]"
+  ]

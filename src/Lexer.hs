@@ -20,7 +20,16 @@ module Lexer
     getTypeFromNodeValue,
     getTypeFromToken,
     expandParamLists,
-    mergeBinOps
+    mergeBinOps,
+    isSymbolAndParamArray,
+    expendParamList,
+    isThisReallyAnArrayOrIsItATrap,
+    getTypeFromToken,
+    getTypeFromNodeValue,
+    typeToInt,
+    intToType,
+    instructionSequenceExpandParamList,
+    containsParamList
   )
 where
 
