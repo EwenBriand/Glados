@@ -1,6 +1,6 @@
 #macro {
-    F(x) (fact x)
+    P(x) (print x)
 }
 
 (define (fact x)(if (eq? x 1)1(* x (fact (- x 1)))))
-F(3)
+(if (eq? (fact 3) 6) P(6) P(0))

@@ -2,7 +2,8 @@ module TestIncludes
 (
     testNoIncludes,
     testIncludes,
-    testVariousIncludes
+    testVariousIncludes,
+    functionalIncTests
 ) where
 
 import Lexer
@@ -43,4 +44,17 @@ testVariousIncludes = TestList [
     src <- readFile "tests/includes/code2.gld"
     src' <- resolveIncludes src
     assertBool "source changed" (src /= src'))
+  ]
+
+testResolvMacro :: Test
+testResolvMacro = TestCase (do
+    src <- readFile "tests/macros/code3.gld"
+    src' <- resolveMacros src
+    src'' <- readFile "tests/macros/code3.txt"
+    assertBool "source changed" (src'' == src'))
+
+functionalIncTests :: Test
+functionalIncTests =
+  TestList [
+    testResolvMacro
   ]

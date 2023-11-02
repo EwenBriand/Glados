@@ -16,6 +16,7 @@ import TestIncludes
 testFunctions :: [Test]
 testFunctions =
   [ testTokenize,
+  functionalIncTests,
     functionalASTTests,
     testTryTokenizeOne,
     testTokenInfoFields,
