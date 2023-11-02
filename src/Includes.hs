@@ -4,7 +4,11 @@ module Includes (
     resolveMacros,
     beginsWith,
     removeChar,
-    getFiles
+    getFiles,
+    breakEndArgs,
+    replaceAllArgsOfMacro,
+    MacroList(..),
+    Macro(..),
 ) where
 
 import Data.Maybe
@@ -68,12 +72,12 @@ resolveIncludes src = if "#include" `isInfixOf` src then do
 
 data Macro = Macro {
     name :: String,
-    args :: [String],
-    def :: String
+    args2 :: [String],
+    def2 :: String
 }
 
 instance Show Macro where
-    show (Macro name args def) = "Macro:\n\t(name) " ++ name ++ "\n\t(args) " ++ show args ++ "\n\t(def) " ++ def ++ "\n"
+    show (Macro name args2 def2) = "Macro:\n\t(name) " ++ name ++ "\n\t(args2) " ++ show args2 ++ "\n\t(def) " ++ def2 ++ "\n"
 
 data MacroList = MacroList {
     macros :: [Macro]
@@ -85,31 +89,14 @@ newMacroList = MacroList {macros = []}
 addMacro :: MacroList -> Macro -> MacroList
 addMacro (MacroList macros) macro = MacroList {macros = macro : macros}
 
--- breakMacro :: String -> (String, String, String, String)
--- breakMacro src = do
---     let (name, rest) = break (== '(') src
---     let (args, rest') = break (== ')') (tail rest)
---     let (def, rest'') = break (== '\n') (tail rest')
---     let rest''' = if null rest'' then [] else tail rest''
---     (name, args, def, rest''')
-
 breakMacro :: String -> (String, String, String, String)
 breakMacro src = do
     let (name, rest) = break (== '(') src
-    let (args, rest') = break (== ')') (tail rest)
-    let (def, rest'') = break (== '\n') (tail rest')
+    let (args2, rest') = break (== ')') (tail rest)
+    let (def2, rest'') = break (== '\n') (tail rest')
     let rest''' = if null rest'' then [] else tail rest''
-    trace ("Current name: " ++ name) $ (name, args, def, rest''')
+    trace ("Current name: " ++ name) $ (name, args2, def2, rest''')
 
-
--- fetchAllMacros :: String -> MacroList
--- fetchAllMacros src = if "#macro" `isInfixOf` src then do
---     let (before, after) = break (== '{') src
---     let (macrolist, rest) = break (== '}') (tail after)
---     let (name, args, def, rest') = breakMacro macrolist
---     let macro = Macro {name = name, args = words args, def = def}
---     addMacro (fetchAllMacros rest') macro
---     else newMacroList
 
 removeWhitespace :: String -> String
 removeWhitespace = filter (not . isSpace)
@@ -117,8 +104,8 @@ removeWhitespace = filter (not . isSpace)
 fetchAllMacros :: String -> MacroList
 fetchAllMacros "" = newMacroList
 fetchAllMacros src = do
-    let (name, args, def, rest') = breakMacro src
-    let macro = Macro {name = removeWhitespace name, args = words args, def = removeWhitespace def}
+    let (name, args2, def2, rest') = breakMacro src
+    let macro = Macro {name = removeWhitespace name, args2 = words args2, def2 = removeWhitespace def2}
     trace ("Current macro: " ++ show macro) $ addMacro (fetchAllMacros rest') macro
 
 replaceSubstring :: String -> String -> String -> String
@@ -130,16 +117,16 @@ replaceSubstring str old new = go str
       | otherwise = c : go cs
 
 replaceAllArgsOfMacro :: String -> [String] -> [String] -> String
-replaceAllArgsOfMacro def [] _ = def
-replaceAllArgsOfMacro def _ [] = def
-replaceAllArgsOfMacro def (arg:args) (arg':args') = do
-    let def' = replaceSubstring def arg arg'
-    replaceAllArgsOfMacro def' args args'
+replaceAllArgsOfMacro def2 [] _ = def2
+replaceAllArgsOfMacro def2 _ [] = def2
+replaceAllArgsOfMacro def2 (arg:args2) (arg':args2') = do
+    let def2' = replaceSubstring def2 arg arg'
+    replaceAllArgsOfMacro def2' args2 args2'
 
 replaceMacro :: Macro -> String -> [String] -> String
 replaceMacro macro src list_arg = do
-    let def'' = replaceAllArgsOfMacro (def macro) (args macro) list_arg
-    replaceSubstring src ((name macro) ++ "(" ++ findsArgs macro src ++ ")") def''
+    let def2'' = replaceAllArgsOfMacro (def2 macro) (args2 macro) list_arg
+    replaceSubstring src ((name macro) ++ "(" ++ findsArgs macro src ++ ")") def2''
 
 removePrefix :: String -> String -> String
 removePrefix "" _ = ""
@@ -160,8 +147,8 @@ findsArgs macro src =
     let src' = removePrefix src (name macro)
     in if null src' then ""
        else let (_, after') = break (== '(') src'
-                (args, _) = breakEndArgs (tail after') 1
-            in trace ("find args " ++ show args) $ args
+                (args2, _) = breakEndArgs (tail after') 1
+            in trace ("find args " ++ show args2) $ args2
 
 splitArgs :: String -> [String]
 splitArgs "" = []
@@ -175,9 +162,9 @@ splitArgs src = do
 
 replaceAllMacroCall :: Macro -> String -> String
 replaceAllMacroCall macro src = do
-    let args = splitArgs (findsArgs macro src)
-    if length args > 0 then do
-            let src' = replaceMacro macro src args
+    let args2 = splitArgs (findsArgs macro src)
+    if length args2 > 0 then do
+            let src' = replaceMacro macro src args2
             trace ("replace " ++ show macro ++ " in " ++ src') $ replaceAllMacroCall macro src'
         else src
 

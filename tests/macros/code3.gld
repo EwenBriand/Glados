@@ -4,4 +4,4 @@
     MULT(x y) x * y
 }
 
-MULT(2, (ADD(1) NEG(NEG(2))))
+MULT("2", (ADD(1) NEG(NEG(2))))
