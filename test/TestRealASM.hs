@@ -770,7 +770,8 @@ testEncodeCompileObj = runRunctionalTest impl "ElfTestRes/obj_test.txt"
         impl = do
             src <- P.readFile "tests/tests_from_pdf/factorial_asm.gld" 
             src' <- resolveIncludes src
-            let ctx = (detectLabels (strToHASM (Valid newContext) src'))
+            src'' <- resolveMacros src'
+            let ctx = (detectLabels (strToHASM (Valid newContext) src''))
             
             compileInFileWrapper ctx ".tmp_test_output" False
             P.putStrLn ""
@@ -784,7 +785,8 @@ testEncodeCompileExe = runRunctionalTest impl "ElfTestRes/exe_test.txt"
         impl = do
             src <- P.readFile "tests/tests_from_pdf/factorial_asm.gld"
             src' <- resolveIncludes src
-            let ctx = (detectLabels (strToHASM (Valid newContext) src'))
+            src'' <- resolveMacros src'
+            let ctx = (detectLabels (strToHASM (Valid newContext) src''))
             
             compileInFileWrapper ctx ".tmp_test_output" True
             P.putStrLn ""
