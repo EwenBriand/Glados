@@ -118,7 +118,7 @@ import ValidState
 data SyscallCode
   = SCExit
   | SCEasyPrint
-  deriving (Show, Eq, Ord, Generic)
+  deriving (Show, Eq, Generic)
 
 instance Binary SyscallCode
 
@@ -592,7 +592,7 @@ data Instruction
   | ShowInt
   | ShowBool
   | Write Int Param Int
-  deriving (Eq, Ord, Show, Generic)
+  deriving (Eq, Show, Generic)
 
 instance Binary Instruction
 

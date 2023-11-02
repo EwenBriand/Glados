@@ -48,7 +48,13 @@ module EvaluateAST
     putASTNodeShow,
     putReturnInstruction,
     putShowInt,
-    putShowBool
+    putShowBool,
+    putBinOpsInstruction,
+    evalBinOpStack,
+    matchOperatorToNode,
+    buildOpStack,
+    hasHigherPriorityThan,
+    getPriority
   )
 where
 

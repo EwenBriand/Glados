@@ -95,7 +95,7 @@
 <other> ::= <token>
 
 <list_pos> ::= <text> "[" <integer> "]"
-<set_list_pos> ::= <list_pos> " = " <expression>
+<set_list_pos> ::= <list_pos> " = " <expression> <semicolon>
 <list> ::= "[" <expression>+ "]"
 
 <func> ::= <type> <text> "(" <arg_list> ")" "{" <statement_list> "}"

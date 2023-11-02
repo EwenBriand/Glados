@@ -76,7 +76,8 @@ module TestVM
     testNextUUIDValid,
     testIps,
     testHasmNStackPush,
-    testLabels
+    testLabels,
+    functionalVMTests
   )
 where
 
@@ -1122,4 +1123,131 @@ testSetTruValueFromParam2 = TestList [
     "From memory address (heap)" ~: let ctx = setTrueValueFromParam (Valid newContext {heap = Heap (Map.singleton 0 42)}) (Memory 0) 99 in heapGet ctx 0 ~?= Valid 99,
     "From symbol" ~: let ctx = setTrueValueFromParam (Valid newContext {symbolTable = SymTable [("foo", GInt), ("bar", GBool)], heap = Heap (Map.singleton 0 42)}) (Symbol "foo") 99 in heapGet ctx 0 ~?= Valid 99,
     "From invalid symbol" ~: let ctx = setTrueValueFromParam (Valid newContext {symbolTable = SymTable [("foo", GInt), ("bar", GBool)], heap = Heap (Map.singleton 0 42)}) (Symbol "quiche") 99 in heapGet ctx 0 ~?= Invalid "Symbol not found"
+  ]
+
+testSyscallCodeShow :: Test
+testSyscallCodeShow = TestList
+  [ "SCExit should show as \"SCExit\"" ~: do
+        assertEqual "show SCExit should be \"SCExit\"" (show SCExit) "SCExit"
+  , "SCEasyPrint should show as \"SCEasyPrint\"" ~: do
+        assertEqual "show SCEasyPrint should be \"SCEasyPrint\"" (show SCEasyPrint) "SCEasyPrint"
+  ]
+
+testRegistersEq :: Test
+testRegistersEq = TestList
+  [ "Registers should be equal to itself" ~: do
+        let regs = Registers (Map.fromList [(EAX, 0x1000), (EBX, 0x2000)])
+        assertEqual "regs should be equal to itself" regs regs
+  , "Registers should be equal to an equal value" ~: do
+        let regs1 = Registers (Map.fromList [(EAX, 0x1000), (EBX, 0x2000)])
+            regs2 = Registers (Map.fromList [(EAX, 0x1000), (EBX, 0x2000)])
+        assertEqual "regs1 should be equal to regs2" regs1 regs2
+  , "Registers should not be equal to a different value" ~: do
+        let regs1 = Registers (Map.fromList [(EAX, 0x1000), (EBX, 0x2000)])
+            regs2 = Registers (Map.fromList [(EAX, 0x1000), (EBX, 0x3000)])
+        assertBool "regs1 should not be equal to regs2" (regs1 /= regs2)
+  ]
+
+testStackEq :: Test
+testStackEq = TestList
+  [ "Stack should be equal to itself" ~: do
+        let stack = Stack [1, 2, 3]
+        assertEqual "stack should be equal to itself" stack stack
+  , "Stack should be equal to an equal value" ~: do
+        let stack1 = Stack [1, 2, 3]
+            stack2 = Stack [1, 2, 3]
+        assertEqual "stack1 should be equal to stack2" stack1 stack2
+  , "Stack should not be equal to a different value" ~: do
+        let stack1 = Stack [1, 2, 3]
+            stack2 = Stack [1, 2, 4]
+        assertBool "stack1 should not be equal to stack2" (stack1 /= stack2)
+  ]
+
+testHeapEq :: Test
+testHeapEq = TestList
+  [ "Heap should be equal to itself" ~: do
+        let heap = Heap (Map.fromList [(0x1000, 0x1234), (0x2000, 0x5678)])
+        assertEqual "heap should be equal to itself" heap heap
+  , "Heap should be equal to an equal value" ~: do
+        let heap1 = Heap (Map.fromList [(0x1000, 0x1234), (0x2000, 0x5678)])
+            heap2 = Heap (Map.fromList [(0x1000, 0x1234), (0x2000, 0x5678)])
+        assertEqual "heap1 should be equal to heap2" heap1 heap2
+  , "Heap should not be equal to a different value" ~: do
+        let heap1 = Heap (Map.fromList [(0x1000, 0x1234), (0x2000, 0x5678)])
+            heap2 = Heap (Map.fromList [(0x1000, 0x1234), (0x2000, 0x5679)])
+        assertBool "heap1 should not be equal to heap2" (heap1 /= heap2)
+  ]
+
+
+testSymTableEq :: Test
+testSymTableEq = TestList
+  [ "SymTable should be equal to itself" ~: do
+        let symTable = SymTable [("x", GInt), ("y", GBool)]
+        assertEqual "symTable should be equal to itself" symTable symTable
+  , "SymTable should be equal to an equal value" ~: do
+        let symTable1 = SymTable [("x", GInt), ("y", GBool)]
+            symTable2 = SymTable [("x", GInt), ("y", GBool)]
+        assertEqual "symTable1 should be equal to symTable2" symTable1 symTable2
+  , "SymTable should not be equal to a different value" ~: do
+        let symTable1 = SymTable [("x", GInt), ("y", GBool)]
+            symTable2 = SymTable [("x", GInt), ("y", GVoid)]
+        assertBool "symTable1 should not be equal to symTable2" (symTable1 /= symTable2)
+  ]
+
+testLabelsEq :: Test
+testLabelsEq = TestList
+  [ "Labels should be equal to itself" ~: do
+        let labels = Labels (Map.fromList [("label1", 0x1000), ("label2", 0x2000)])
+        assertEqual "labels should be equal to itself" labels labels
+  , "Labels should be equal to an equal value" ~: do
+        let labels1 = Labels (Map.fromList [("label1", 0x1000), ("label2", 0x2000)])
+            labels2 = Labels (Map.fromList [("label1", 0x1000), ("label2", 0x2000)])
+        assertEqual "labels1 should be equal to labels2" labels1 labels2
+  , "Labels should not be equal to a different value" ~: do
+        let labels1 = Labels (Map.fromList [("label1", 0x1000), ("label2", 0x2000)])
+            labels2 = Labels (Map.fromList [("label1", 0x1000), ("label2", 0x3000)])
+        assertBool "labels1 should not be equal to labels2" (labels1 /= labels2)
+  ]
+
+testFlagsEq :: Test
+testFlagsEq = TestList
+  [ "Flags should be equal to itself" ~: do
+        let flags = Flags (Map.fromList [(ZF, True), (CF, False)])
+        assertEqual "flags should be equal to itself" flags flags
+  , "Flags should be equal to an equal value" ~: do
+        let flags1 = Flags (Map.fromList [(ZF, True), (CF, False)])
+            flags2 = Flags (Map.fromList [(ZF, True), (CF, False)])
+        assertEqual "flags1 should be equal to flags2" flags1 flags2
+  , "Flags should not be equal to a different value" ~: do
+        let flags1 = Flags (Map.fromList [(ZF, True), (CF, False)])
+            flags2 = Flags (Map.fromList [(ZF, False), (CF, False)])
+        assertBool "flags1 should not be equal to flags2" (flags1 /= flags2)
+  ]
+
+testBlockMapEq :: Test
+testBlockMapEq = TestList
+  [ "BlockMap should be equal to itself" ~: do
+        let blockMap = BlockMap (Map.fromList [("block1", Block "foo" (Valid newContext) []), ("block2", Block "foo2" (Valid newContext) [])])
+        assertEqual "blockMap should be equal to itself" blockMap blockMap
+  , "BlockMap should be equal to an equal value" ~: do
+        let blockMap1 = BlockMap (Map.fromList [("block1", Block "foo" (Valid newContext) []), ("block2", Block "foo2" (Valid newContext) [])])
+            blockMap2 = BlockMap (Map.fromList [("block1", Block "foo" (Valid newContext) []), ("block2", Block "foo2" (Valid newContext) [])])
+        assertEqual "blockMap1 should be equal to blockMap2" blockMap1 blockMap2
+  , "BlockMap should not be equal to a different value" ~: do
+        let blockMap1 = BlockMap (Map.fromList [("block1", Block "foo" (Valid newContext) []), ("block2", Block "foo2" (Valid newContext) [])])
+            blockMap2 = BlockMap (Map.fromList [("block1", Block "foo" (Valid newContext) []), ("block2", Block "foo2" (Valid newContext) [GInt])])
+        assertBool "blockMap1 should not be equal to blockMap2" (blockMap1 /= blockMap2)
+  ]
+
+functionalVMTests :: Test
+functionalVMTests =
+  TestList [
+    testSyscallCodeShow,
+    testRegistersEq,
+    testStackEq,
+    testHeapEq,
+    testSymTableEq,
+    testLabelsEq,
+    testFlagsEq,
+    testBlockMapEq
   ]

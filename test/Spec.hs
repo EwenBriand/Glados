@@ -16,6 +16,7 @@ import TestIncludes
 testFunctions :: [Test]
 testFunctions =
   [ testTokenize,
+    functionalASTTests,
     testTryTokenizeOne,
     testTokenInfoFields,
     moreTestsTokOrExprToNode,
@@ -180,7 +181,8 @@ testFunctions =
     TestValidState.testOrd,
     testLoadContext,
     testBlockInitAllocVarSpace,
-    testShowInstanceASTNode
+    testShowInstanceASTNode,
+    functionalVMTests
   ]
 
 -- Run all test functions and return the results as a list
