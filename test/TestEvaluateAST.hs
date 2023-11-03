@@ -63,7 +63,6 @@ testInstructionFromAST =
           ),
       "instruction invalid context" ~: instructionFromAST (ASTNodeInteger 123) (Invalid "nop") ~?= Invalid "nop",
       "instruction AstSymbol" ~: instructionFromAST (ASTNodeSymbol "oui") (Valid newContext) ~?= Invalid "Symbol or Function not found: oui",
-      -- "instruction if clause" ~: instructionFromAST (ASTNodeIf (ASTNodeArray []) thenBlock elseBlock) (Valid newContext)
       "instruction Eq" ~: instructionFromAST (ASTNodeEq [ASTNodeInteger 3, ASTNodeInteger 3]) (Valid newContext) ~?= putEqInstruction [ASTNodeInteger 3, ASTNodeInteger 3] (Valid newContext),
       "instruction Inferior" ~: instructionFromAST (ASTNodeInferior [ASTNodeInteger 4, ASTNodeInteger 4]) (Valid newContext) ~?= putInferiorInstruction [ASTNodeInteger 4, ASTNodeInteger 4] (Valid newContext),
       "instruction Superior" ~: instructionFromAST (ASTNodeSuperior [ASTNodeInteger 5, ASTNodeInteger 5]) (Valid newContext) ~?= putSuperiorInstruction [ASTNodeInteger 5, ASTNodeInteger 5] (Valid newContext),
@@ -73,7 +72,6 @@ testInstructionFromAST =
       "instruction ParamList" ~: instructionFromAST (ASTNodeParamList []) (Valid newContext) ~?= Valid newContext,
       "instruction Mutable" ~: instructionFromAST (ASTNodeMutable (ASTNodeType GInt) (ASTNodeSymbol "var") (ASTNodeType GInt) (ASTNodeInteger 4)) (Valid newContext) ~?= putMutableInstruction GInt (ASTNodeSymbol "var") GInt (ASTNodeInteger 4) (Valid newContext),
       "instruction Node Array" ~: instructionFromAST (ASTNodeArray []) (Valid newContext) ~?= astNodeArrayToHASM (Valid newContext) (ASTNodeArray []),
-      -- "instruction Print" ~: instructionFromAST (ASTNodePrint (ASTNodeInteger 4)) (Valid newContext {instructions = []}) ~?= putPrintInstruction (Valid newContext) (ASTNodePrint (ASTNodeInteger 4)),
       "instruction Bool" ~: instructionFromAST (ASTNodeBoolean False) (Valid newContext) ~?= putBoolInstruction 0 (Valid newContext),
       "instruction Define" ~: instructionFromAST (ASTNodeLambda (ASTNodeSymbol "func") (Valid (ASTNodeInteger 4)) []) (Valid newContext) ~?= putDefineInstruction (Valid newContext) (ASTNodeSymbol "func") (Valid (ASTNodeInteger 4)) [],
       "instruction While" ~: instructionFromAST (ASTNodeWhile (ASTNodeInteger 1) []) (Valid newContext) ~?= putWhileInstruction (Valid newContext) (ASTNodeInteger 1) [],
@@ -81,8 +79,6 @@ testInstructionFromAST =
       "instruction Break" ~: instructionFromAST (ASTNodeBreak []) (Valid newContext) ~?= Valid newContext,
       "instruction Break" ~: instructionFromAST (ASTNodeBreak [ASTNodeInteger 4, ASTNodeInteger 4, ASTNodeInteger 4]) (Valid newContext) ~?= instructionFromAST (ASTNodeBreak [ASTNodeInteger 4, ASTNodeInteger 4]) (instructionFromAST (ASTNodeInteger 4) (Valid newContext)),
       "instruction Error" ~: instructionFromAST (ASTNodeError (TokenInfo TokenBool "String")) (Valid newContext) ~?= Invalid "Error: invalid AST(Error: String)"
-      -- "instruction NodeShow" ~: instructionFromAST (ASTNodeShow [] GInt) (Valid newContext) ~?= Valid newContext,
-      -- "instruction NodeShow" ~: instructionFromAST (ASTNodeShow [ASTNodeInteger 4] GInt) (Valid newContext) ~?= instructionFromAST (ASTNodeShow [] GInt) (putASTNodeShow (ASTNodeInteger 4) GInt (Valid newContext))
     ]
 
 testShowFunctions :: Test
@@ -116,8 +112,6 @@ testAstPushExec =
     context2 = execInstructions c
     c = instructionFromAST (ASTNodeSum [ASTNodeInteger 40, ASTNodeInteger 10]) (Valid newContext)
 
--- (+ 40 10)
-
 testAstPushExec2 :: Int
 testAstPushExec2 =
   fromValidState (-1) (regGet context2 EAX)
@@ -125,15 +119,12 @@ testAstPushExec2 =
     context2 = execInstructions c
     c = instructionFromAST (ASTNodeSub [(ASTNodeSum [ASTNodeInteger 40, ASTNodeInteger 10]), (ASTNodeSum [(ASTNodeSum [ASTNodeInteger 40, ASTNodeInteger 10]), (ASTNodeSum [ASTNodeInteger 40, ASTNodeInteger 10])])]) (Valid newContext)
 
--- (- (+ 40 10) (+ (+ 40 10) (+ 40 10))
 testAstPushExec3 :: Int
 testAstPushExec3 =
   fromValidState (-1) (regGet context2 EAX)
   where
     context2 = execInstructions c
     c = instructionFromAST (ASTNodeMul [ASTNodeInteger 5, ASTNodeInteger 10]) (Valid newContext)
-
--- (* 5 10)
 
 testAstPushExec4 :: Int
 testAstPushExec4 =
@@ -142,15 +133,12 @@ testAstPushExec4 =
     context2 = execInstructions c
     c = instructionFromAST (ASTNodeDiv [ASTNodeInteger 100, ASTNodeInteger 2]) (Valid newContext)
 
--- (/ 100 2)
 testAstPushExec5 :: Int
 testAstPushExec5 =
   fromValidState (-1) (regGet context2 EAX)
   where
     context2 = execInstructions c
     c = instructionFromAST (ASTNodeMod [ASTNodeInteger 10, ASTNodeInteger 4]) (Valid newContext)
-
--- (% 10 4)
 
 testAstToInstr :: Test
 testAstToInstr =
@@ -198,7 +186,6 @@ testputDefineInstruction :: Test
 testputDefineInstruction =
   TestList
     [
-      -- "instruction from ast Node define" ~: instructionFromAST (ASTNodeDefine (ASTNodeSymbol "oui") (Valid (ASTNodeInteger 42)) ([])) (Valid newContext) ~?= Valid newContext {instructions = [Xor (Reg EAX) (Reg EAX), Mov (Reg EAX) (Immediate 42), MovStackAddr (Immediate 0) (Reg EAX)], symbolTable = SymTable {symTable = [("oui", GInt)]}}
     ]
 
 testMovFromStackAddr :: Test
@@ -227,7 +214,6 @@ testFuncCall =
   TestList
     [ "ast fun call with arguments" ~: testASTFunCallArgsImpl
         ~?= [
-              -- ASTNodeInstructionSequence [ASTNodeDefine (ASTNodeSymbol "foo") (Valid (ASTNodeParamList [ASTNodeSymbol "a"])) [ASTNodeInteger 1], ASTNodeArray ([ASTNodeSymbol "foo", ASTNodeInteger 1])]],
               ASTNodeInstructionSequence [ASTNodeDefine (ASTNodeSymbol "foo") (Valid (ASTNodeParamList [ASTNodeSymbol "a"])) [ASTNodeInteger 1], (ASTNodeFunctionCall "foo" [ASTNodeInteger 1])]
             ],
       "fun call no arguments: " ~: testFunCallNoArgs
@@ -301,7 +287,6 @@ testInvalidFuncs = TestList
     "Invalid putMutableInstruction" ~: putMutableInstruction GInt (ASTNodeInteger 2) GInt (ASTNodeInteger 2) (Invalid "Error") ~?= Invalid "Error",
     "Invalid putSetInstruction" ~: putSetInstruction (Invalid "Error") (ASTNodeInteger 2) (ASTNodeInteger 2) ~?= Invalid "Error",
     "Valid putSetInstruction" ~: putSetInstruction (Valid newContext) (ASTNodeSymbol "Test") (ASTNodeInteger 2) ~?= Invalid "Error: Variable does't exists",
-    -- "Valid putSetInstruction" ~: putSetInstruction (Valid newContext) (ASTNodeSymbol "Test2432") (ASTNodeInteger 2) ~?= putSetNoErrCheck (Valid newContext) (ASTNodeSymbol "Test2432") (ASTNodeInteger 2),
     "Invalid putIfInstruction" ~: putIfInstruction (Invalid "Error") (ASTNodeInteger 1) ~?= Invalid "Error",
     "Invalid putIfInstruction" ~: putIfInstruction (Valid newContext) (ASTNodeInteger 1) ~?= Invalid "Invalid arguments to if clause",
     "Invalid ifPutCondition" ~: ifPutCondition (Invalid "Error") (ASTNodeBoolean True) 0 ~?= Invalid "Error",
@@ -524,11 +509,6 @@ testInstructionFromAST2 = TestList
             state = Valid newContext
             expected = Valid (newContext {instructions = [Xor (Reg EAX) (Reg EAX), Mov (Reg EAX) (Immediate 42), Ret]})
         assertEqual "instructionFromAST should handle an ASTNodeReturn" (instructionFromAST input state) expected
-  -- , "instructionFromAST should handle an ASTNodeBreak" ~: do
-  --       let input = ASTNodeBreak [ASTNodeLambda (ASTNodeSymbol "f") (Valid (ASTNodeParamList [])) [ASTNodeParamList [ASTNodeInteger 1]], ASTNodeFunctionCall "f" [ASTNodeInteger 2]]
-  --           state = Valid newContext
-  --           expected = Invalid "Symbol or Function not found: f"
-  --       assertEqual "instructionFromAST should handle an ASTNodeBreak" (instructionFromAST input state) expected
   , "instructionFromAST should handle an ASTNodeDeref" ~: do
         let input = ASTNodeDeref (ASTNodeSymbol "x") (ASTNodeInteger 0)
             state = Valid newContext
@@ -586,16 +566,6 @@ testInstructionFromAST2 = TestList
             state = Valid newContext
             expected = Valid (newContext {uuids = 1, instructions = [Xor (Reg EAX) (Reg EAX), Mov (Reg EAX) (Immediate 1), Cmp (Reg EAX) (Immediate 1), Jne "_0else", VM.Label  "_0then" 5, Xor (Reg EAX) (Reg EAX), Mov (Reg EAX) (Immediate 2), Xor (Reg EAX) (Reg EAX), Mov (Reg EAX) (Immediate 3), Jmp "_0end", VM.Label  "_0else" 10, Xor (Reg EAX) (Reg EAX), Mov (Reg EAX) (Immediate 4), Xor (Reg EAX) (Reg EAX), Mov (Reg EAX) (Immediate 5), VM.Label  "_0end" 16]})
         assertEqual "instructionFromAST should handle an elif statement with a multi-argument then block and a multi-argument else block" (instructionFromAST input state) expected
-  -- , "instructionFromAST should handle a define statement with a single-argument body" ~: do
-  --       let input = ASTNodeDefine (ASTNodeSymbol "foo") (Valid (ASTNodeArray [ASTNodeInteger 42])) [ASTNodeParamList [ASTNodeInteger 1]]
-  --           state = Valid newContext
-  --           expected = Valid (newContext {instructions = []})
-  --       assertEqual "instructionFromAST should handle a define statement with a single-argument body" (instructionFromAST input state) expected
-  -- , "instructionFromAST should handle a define statement with a multi-argument body" ~: do
-  --       let input = ASTNodeDefine (ASTNodeSymbol "foo") (Valid (ASTNodeArray [ASTNodeInteger 42, ASTNodeInteger 24])) [ASTNodeParamList [ASTNodeInteger 1, ASTNodeInteger 2]]
-  --           state = Valid newContext
-  --           expected = Valid (newContext {instructions = []})
-  --       assertEqual "instructionFromAST should handle a define statement with a multi-argument body" (instructionFromAST input state) expected
   ]
 
 functionalASTTests :: Test

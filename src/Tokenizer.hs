@@ -13,72 +13,55 @@ import Data.Char (isAlpha, isDigit)
 import GHC.Generics (Generic)
 import Data.Binary
 
--- | A token is a representation of a word in the language.
--- For example, "define" is a token, "123" is a token, etc.
--- When creating or deleting a token, do not forget to update the wordToTok function
--- to reflect those changes !!!
 data Token
-  = -- | A variable name, function name, etc.
-    TokSymbol
-  | -- | Representation of an integer, e.g. "123"
-    TokInteger
-  | TokOperatorPlus -- The sum operator, "+"
-  | TokOperatorMinus -- The subtraction operator, "-"
-  | TokOperatorMul -- The multiplication operator, "*"
-  | TokOperatorDiv -- The division operator, "/"
-  | TokOperatorMod -- The modulo operator, "%"
-  | TokKeywordMutable -- The "mutable" keyword, used to define a symbol
-  | TokKeywordDefine -- The "define" keyword, used to define a macro
-  | TokLambda -- The "lambda" keyword, used to define a function
-  | TokComment -- Converts the rest of the line into a comment
-  | TokOpenParen -- The open parenthesis character
-  | TokCloseParen -- The close parenthesis character
-  | -- | Any other character not mentioned above
-    TokError
-  | -- | The empty token
-    TokEmpty
-  | -- | A whitespace character
-    TokWhitespace
-  | -- | A newline character
-    TokNewLine
-  | -- | A boolean value
-    TokenBool
-  | -- | The "if" keyword
-    TokenKeywordIf
-  | -- | The "then" keyword
-    TokenKeywordThen
-  | -- | The "else" keyword
-    TokenKeywordElse
-  | -- | The "partial expression" keyword
-    TokenKeywordPartialExpression
-  | -- | The "eq?" keyword
-    TokenEqual
-  | -- | The "<" keyword
-    TokenInferior
+  = TokSymbol
+  | TokInteger
+  | TokOperatorPlus 
+  | TokOperatorMinus 
+  | TokOperatorMul 
+  | TokOperatorDiv 
+  | TokOperatorMod 
+  | TokKeywordMutable 
+  | TokKeywordDefine 
+  | TokLambda 
+  | TokComment 
+  | TokOpenParen 
+  | TokCloseParen 
+  | TokError
+  | TokEmpty
+  | TokWhitespace
+  | TokNewLine
+  | TokenBool
+  | TokenKeywordIf
+  | TokenKeywordThen
+  | TokenKeywordElse
+  | TokenKeywordPartialExpression
+  | TokenEqual
+  | TokenInferior
   | TokenInferiorEq
   | TokenSuperior
   | TokenSuperiorEq
   | TokenNotEqual
-  | TokenSymPrint -- The "print" keyword
-  | TokOpenBrac -- The open bracket character
-  | TokCloseBrac -- The close bracket character
-  | TokOpenCurrBrac -- The open curly bracket character
-  | TokCloseCurrBrac -- The close curly bracket character
-  -- | TokenInt
-  | TokenEq -- The "=" operator
-  | TokenPointComma -- The ";" operator
-  | TokenComma -- The "," operator
-  | TokenElif -- The "elif" keyword
-  | TokenKeywordWhile -- The "while" keyword
-  | TokenKeywordFor -- The "for" keyword
-  | TokenType -- int, bool, float, etc. keywords
-  | TokenReturn -- The "return" keyword
-  | TokenDeref -- operator to dereference pointers
-  | TokenCast -- operator to cast a value to a type
-  | TokenInclude -- keyword to include a file
--- | Keywords
-  | TokenShowKeyword -- The "show" keyword, to print a value
-  | TokenAsKeyword -- The "as" keyword, to perform a cast
+  | TokenSymPrint 
+  | TokOpenBrac 
+  | TokCloseBrac 
+  | TokOpenCurrBrac 
+  | TokCloseCurrBrac 
+  | TokenEq 
+  | TokenPointComma 
+  | TokenComma 
+  | TokenElif 
+  | TokenKeywordWhile 
+  | TokenKeywordFor 
+  | TokenType 
+  | TokenReturn 
+  | TokenDeref 
+  | TokenCast 
+  | TokenInclude 
+  | TokenShowKeyword
+  | TokenAsKeyword 
+  | TokenPoint
+  | TokenKeywordStruct
 
   deriving (Eq, Show, Generic)
 
@@ -91,13 +74,10 @@ instance Binary TokenInfo
 instance Show TokenInfo where
   show (TokenInfo _ v) = v
 
--- | @params:
---     str: the string to tokenize
--- @return: a token that matches the string, or TokError
 wordToTok :: String -> TokenInfo
 wordToTok "" = TokenInfo {token = TokEmpty, value = ""}
-wordToTok "mutable" = TokenInfo {token = TokKeywordMutable, value = "mutable"} -- used to define mutable variables
-wordToTok "define" = TokenInfo {token = TokKeywordDefine, value = "define"} -- used to define macros
+wordToTok "mutable" = TokenInfo {token = TokKeywordMutable, value = "mutable"}
+wordToTok "define" = TokenInfo {token = TokKeywordDefine, value = "define"} 
 wordToTok "+" = TokenInfo {token = TokOperatorPlus, value = "+"}
 wordToTok "add" = TokenInfo {token = TokOperatorPlus, value = "add"}
 wordToTok "-" = TokenInfo {token = TokOperatorMinus, value = "-"}
@@ -149,6 +129,8 @@ wordToTok "::" = TokenInfo {token = TokenDeref, value = "deref"}
 wordToTok "as" = TokenInfo {token = TokenCast, value = "as"}
 wordToTok "show" = TokenInfo {token = TokenShowKeyword, value = "show"}
 wordToTok "as" = TokenInfo {token = TokenAsKeyword, value = "as"}
+wordToTok "." = TokenInfo {token = TokenPoint, value = "."}
+wordToTok "struct" = TokenInfo {token = TokenKeywordStruct, value = "struct"}
 wordToTok str
   | all isAlpha str = TokenInfo {token = TokSymbol, value = str}
   | all isDigit str = TokenInfo {token = TokInteger, value = str}

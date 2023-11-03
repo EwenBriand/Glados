@@ -12,7 +12,6 @@ import TestVM
 import TestValidState
 import TestIncludes
 
--- Define a list of test functions
 testFunctions :: [Test]
 testFunctions =
   [ testTokenize,
@@ -84,7 +83,7 @@ testFunctions =
     testOr,
     testNot,
     testPushInstr,
-    testAstToInstr {- testArrToHASM,-} {- testStrToHASM, -},
+    testAstToInstr,
     testInstructionList,
     testMovStackAddr,
     testputDefineInstruction,
@@ -189,7 +188,6 @@ testFunctions =
     testLexerConstructor
   ]
 
--- Run all test functions and return the results as a list
 runTests :: IO [Counts]
 runTests = sequence [runTestTT test | test <- testFunctions]
 

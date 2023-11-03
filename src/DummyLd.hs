@@ -23,9 +23,8 @@ import Data.ByteString.Lazy as BSL
 
 data MachineConfig a
     = MachineConfig
-        { mcAddress :: WordXX a -- ^ Virtual address of the executable segment
-        , mcAlign   :: WordXX a -- ^ Required alignment of the executable segment
-                                --   in physical memory (depends on max page size)
+        { mcAddress :: WordXX a 
+        , mcAlign   :: WordXX a 
         }
 
 getMachineConfig :: (SingElfClassI a, MonadThrow m) => ElfMachine -> m (MachineConfig a)

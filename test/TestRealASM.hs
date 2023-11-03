@@ -129,7 +129,7 @@ dummyProgramMovStackAddr = do
   convertOneInstruction (MovStackAddr (Immediate 0) (Reg EBP))
   convertOneInstruction (MovStackAddr (Immediate 0) (Reg ESI))
   convertOneInstruction (MovStackAddr (Immediate 0) (Reg EDI))
-  convertOneInstruction (MovStackAddr (Immediate 1) (Reg EAX)) --  89 b4 24 dc 51 0b 00
+  convertOneInstruction (MovStackAddr (Immediate 1) (Reg EAX))
 
 testEncodeMovStackAddrImpl :: IO ()
 testEncodeMovStackAddrImpl = do
@@ -180,7 +180,6 @@ runRunctionalTest func path = TestCase $ do
       P.putStrLn expected'
       P.putStrLn "output:"
       P.putStrLn output'
-  -- assertBool "functional test ok" $ expected' == output'
 
 testRunStackAddr :: Test
 testRunStackAddr = runRunctionalTest testEncodeMovStackAddrImpl "ElfTestRes/movStackAddr_expected.txt"
@@ -946,7 +945,6 @@ rInstructionTests :: Test
 rInstructionTests = TestList
   [ "RInstruction should have an Eq instance" Test.HUnit.~: RInstruction 1234 == RInstruction 1234 ~?= True
   , "RInstruction should have a Show instance" Test.HUnit.~: show (RInstruction 1234) ~?= "RInstruction {getInstruction = 1234}"
-  -- , "RInstruction should have an Ord instance" Test.HUnit.~: RInstruction 1234 `compare` RInstruction 5678 ~?= LT
   , "RInstruction should have a Num instance" Test.HUnit.~: RInstruction 1234 + RInstruction 5678 ~?= RInstruction 6912
   , "RInstruction should be equal to itself" Test.HUnit.~: do
         let instr = RInstruction 0x12345678
@@ -959,28 +957,6 @@ rInstructionTests = TestList
         let instr1 = RInstruction 0x12345678
             instr2 = RInstruction 0x87654321
         assertBool "instr1 should not be equal to instr2" (instr1 /= instr2)
-  -- ,  "RInstruction should be less than a greater value" Test.HUnit.~: do
-  --       let instr1 = RInstruction 0x1234
-  --           instr2 = RInstruction 0x5678
-  --       assertBool "instr1 should be less than instr2" (instr1 < instr2)
-  -- , "RInstruction should be greater than a lesser value" Test.HUnit.~: do
-  --       let instr1 = RInstruction 0x1234
-  --           instr2 = RInstruction 0x5678
-  --       assertBool "instr2 should be greater than instr1" (instr2 > instr1)
-  -- , "RInstruction should be less than or equal to itself" Test.HUnit.~: do
-  --       let instr = RInstruction 0x12345678
-  --       assertBool "instr should be less than or equal to itself" (instr <= instr)
-  -- , "RInstruction should be greater than or equal to itself" Test.HUnit.~: do
-  --       let instr = RInstruction 0x12345678
-  --       assertBool "instr should be greater than or equal to itself" (instr >= instr)
-  -- , "RInstruction should be less than or equal to a greater value" Test.HUnit.~: do
-  --       let instr1 = RInstruction 0x1234
-  --           instr2 = RInstruction 0x5678
-  --       assertBool "instr1 should be less than or equal to instr2" (instr1 <= instr2)
-  -- , "RInstruction should be greater than or equal to a lesser value" Test.HUnit.~: do
-  --       let instr1 = RInstruction 0x1234
-  --           instr2 = RInstruction 0x5678
-  --       assertBool "instr2 should be greater than or equal to instr1" (instr2 >= instr1)
   ,  "RInstruction should have a valid addition" Test.HUnit.~: do
         let instr1 = RInstruction 0x12345678
             instr2 = RInstruction 0x87654321
@@ -1003,60 +979,6 @@ rInstructionTests = TestList
         let instr = RInstruction 0x12345678
         assertEqual "fromInteger 0x12345678 should be instr" (fromInteger 0x12345678) instr
   ]
-
-
--- testFindAddrFromLabel :: Test
--- testFindAddrFromLabel = TestList
---   [ "findAddrFromLabel should return the code offset for a code reference" Test.HUnit.~: do
---         let name = "foo"
---             labels = [("foo", CodeRef 0x1000), ("bar", PoolRef 0x2000)]
---             state = CodeState (CodeOffset 0x1000) [] [] labels 0 Map.empty Map.empty [] []
---         result <- evalStateT (findAddrFromLabel name labels) state
---         assertEqual "result should be 0x1000" result 0x1000
---   , "findAddrFromLabel should return the pool offset for a pool reference" Test.HUnit.~: do
---         let name = "bar"
---             labels = [("foo", CodeRef 0x1000), ("bar", PoolRef 0x2000)]
---             state = CodeState (CodeOffset 0x1000) [] [] labels 0 Map.empty Map.empty [] []
---         result <- evalStateT (findAddrFromLabel name labels) state
---         assertEqual "result should be 0x2000" result 0x2000
---   , "findAddrFromLabel should delay resolution for an unresolved label" Test.HUnit.~: do
---         let name = "baz"
---             labels = [("foo", CodeRef 0x1000), ("bar", PoolRef 0x2000)]
---             state = CodeState (CodeOffset 0x1000) [] [] labels 0 Map.empty Map.empty [] []
---         result <- evalStateT (findAddrFromLabel name labels) state
---         assertEqual "result should be a delay resolution action" (show result) "DelayResolution baz"
---   , "findAddrFromLabel should handle an empty label list" Test.HUnit.~: do
---         let name = "foo"
---             labels = []
---             state = CodeState (CodeOffset 0x1000) [] [] labels 0 Map.empty Map.empty [] []
---         result <- evalStateT (findAddrFromLabel name labels) state
---         assertEqual "result should be a delay resolution action" (show result) "DelayResolution foo"
---   ]
-
-
--- testAllJmps :: Test
--- testAllJmps = TestList
---   [ "allJmps should throw an error for an unsupported instruction" Test.HUnit.~: do
---         let instr = (DerefMacro EAX)
---             state = CodeState (CodeOffset 0) [] [] [] 0 emptyUnresolvedJmps emptyUnresolvedCall [] []
---         result <- runStateT (convertOneInstruction instr) state
---         case result of
---           (err, _) -> assertEqual "result should be an error" (show err) "unsupported instruction: DerefMacro EAX"
---           _ -> assertFailure "result should be an error"
---   ]
-
--- testWrapperInvalid :: Test
--- testWrapperInvalid = TestList
---   [ "compileInFileWrapper should throw an error for an invalid context" Test.HUnit.~: do
---         let context = Invalid "Invalid Context"
---             name = ".tmp_test_output"
---             exec = False
---         result <- try (compileInFileWrapper context name exec) :: IO (Either SomeException ())
---         case result of
---           Left _ -> assertEqual "result should be an error" True True
---           Right _ -> assertFailure "result should be an error"
---   ]
-
 
 
 functionalASMTests :: Test
@@ -1099,6 +1021,4 @@ functionalASMTests =
       testMachineConfig,
       codeOffsetTests,
       rInstructionTests
-      -- testAllJmps
-      -- testFindAddrFromLabel
       ]

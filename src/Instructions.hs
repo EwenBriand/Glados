@@ -58,9 +58,6 @@ module Instructions
   )
 where
 
--- labelAlloc,
-
--- labelAlloc,
 
 import Debug.Trace
 import Data.Bits
@@ -71,7 +68,6 @@ import ValidState (ValidState(Valid))
 import VM (Context(Context))
 
 instructionTable :: ValidState Context -> Instruction -> ValidState Context
--- instructionTable ctx instr = fst (instructionTableIO ctx instr)
 instructionTable (Invalid s) _ = Invalid s
 instructionTable ctx (Mov r1 r2) = movImpl ctx r1 r2
 instructionTable ctx (Cmp r1 r2) = allCmp ctx r1 r2
@@ -107,7 +103,7 @@ instructionTable ctx Nop = ctx
 instructionTable ctx (IMul _ _) = ctx
 instructionTable ctx Enter = enterImpl (fromValidState newContext ctx)
 instructionTable ctx Leave = leaveImpl ctx
-instructionTable ctx (Label _ _) = ctx -- labels are preprocessed before executing
+instructionTable ctx (Label _ _) = ctx
 instructionTable ctx (MovStackAddr p1 p2) = movStackAddrImpl ctx p1 p2
 instructionTable ctx (MovFromStackAddr p1 p2) = movFromStackAddrImpl ctx p1 p2
 instructionTable ctx (Alloc int) = allocHeap ctx int
@@ -138,10 +134,6 @@ blkSetupCtx ctx (Block name bc paramsTypes) = Block name c' paramsTypes
       Valid c -> Valid (c {blocks = blocks ctx, instructionPointer = 0})
     c'' = setupfunctionStack (Valid ctx) (stackClear bc) paramsTypes [EDI, ESI, EDX, ECX]
 
--- c' = Block name (execInstructions (detectLabels (setupFunctionStack bc ctx))) paramsTypes
----
---- IO Logic
----
 
 instructionTableIO :: ValidState Context -> Instruction -> (ValidState Context, IO ())
 instructionTableIO (Invalid s) _ = (Invalid s, putStrLn s)
@@ -165,9 +157,6 @@ execInstructionsIO (context, prevIO) =
         then (context, prevIO)
         else evalOneInstructionIO (fromValidState newContext context) (getInsIndex context (fromValidState (-1) (ipGet context)))
 
----
---- Context Logic
----
 
 executeBlock :: ValidState Context -> Block -> (ValidState Context, IO ())
 executeBlock (Invalid s) _ = (Invalid s, putStr "")
@@ -185,12 +174,9 @@ callImpl (Valid c) symName = case blockGet (Valid c) symName of
   Invalid s -> (Invalid s, putStr "")
   Valid block -> executeBlock (Valid c) block
 
--- | Evaluates one instruction and Prelude.returns the resulting context. Does not increase the instruction count.
 evalOneInstruction :: Context -> Instruction -> ValidState Context
 evalOneInstruction ctx = instructionTable (Valid ctx)
 
--- | Executes all the instructions until the instruction pointer reaches the end of the program.
--- Increases the instruction pointer after each call.
 execInstructions :: ValidState Context -> ValidState Context
 execInstructions context =
   case c of
@@ -231,7 +217,6 @@ derefMacroImpl ctx r = do
     index <- regGet ctx r
     let addr = value + index
     val <- heapGet ctx addr
-    -- Invalid ("address is " ++ show addr ++ " valud is " ++ show value ++ " and index is " ++ show index ++ " and content is " ++ show val)
     regSet ctx EAX val
 
 
@@ -304,7 +289,6 @@ setStackIndex (Valid ctx) idx value =
       { stack = Stack (setArrayIndex idx value (pile (stack ctx)))
       }
 
--- sets the value at ebp + address
 movStackAddrImpl :: ValidState Context -> Param -> Param -> ValidState Context
 movStackAddrImpl (Invalid s) _ _ = Invalid s
 movStackAddrImpl ctx to from = case getTrueValueFromParam ctx from of
@@ -531,9 +515,6 @@ notImpl ctx p1 = c
 -- Enter SECTION
 --
 
--- | The enter instruction is equivalent to the following pseudo-code:
--- push ebp
--- mov ebp, esp
 enterImpl :: Context -> ValidState Context
 enterImpl ctx = movImpl c (Reg EBP) (Reg ESP)
   where
@@ -543,9 +524,6 @@ enterImpl ctx = movImpl c (Reg EBP) (Reg ESP)
 -- Leave SECTION
 --
 
--- | The leave instruction is equivalent to the following pseudo-code:
--- mov esp, ebp
--- pop ebp
 leaveImpl :: ValidState Context -> ValidState Context
 leaveImpl ctx = ctx1
   where

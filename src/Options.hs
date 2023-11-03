@@ -40,7 +40,7 @@ options = Options {
     compileObject = def &= help "The path to the object file to produce" &= typFile,
     fileExecutable = def &= help "The path to the executable file to produce" &= typFile,
     ast = def &= help "Prints the AST of the source file"
-} &= summary "Very SAD GladOs Compiler & Interpreter V1.0" -- SAD: Simple And Dumb, Splendid And Direct, Service After Death, or maybe just sad ;)
+} &= summary "Very SAD GladOs Compiler & Interpreter V1.0"
 
 getContextOnOps :: Options -> IO (ValidState Context)
 getContextOnOps ops = do

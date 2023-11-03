@@ -344,7 +344,6 @@ testStackPushPopPeekImpl :: Bool
 testStackPushPopPeekImpl =
   fromValidState 0 value == 2
   where
-    -- caution, the code executes from the bottom to the top
     (_, c) = case stackPop (stackPush (stackPush (Valid newContext) 2) 3) of
       (Invalid s) -> ((Invalid s), (Invalid s))
       Valid (one, Valid two) -> (Valid one, Valid two)
@@ -364,7 +363,6 @@ testStackDupImpl :: Bool
 testStackDupImpl =
   fromValidState 0 value == 2
   where
-    -- caution, the code executes from the bottom to the top
     (_, c) = case stackPop (stackPush (stackPush (Valid newContext) 2) 3) of
       (Invalid s) -> ((Invalid s), (Invalid s))
       Valid (one, Valid two) -> (Valid one, Valid two)

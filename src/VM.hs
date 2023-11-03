@@ -113,8 +113,6 @@ import ValidState
 -- SYSCALLS
 ---------------------------------------------------------------------------
 
--- when adding a syscall value don't forget to add it to the codeFromValidStateInt function
--- Valid below
 data SyscallCode
   = SCExit
   | SCEasyPrint
@@ -126,7 +124,7 @@ codeFromValidStateInt :: ValidState Int -> SyscallCode
 codeFromValidStateInt (Invalid _) = SCExit
 codeFromValidStateInt (Valid i) = case i of
   1 -> SCExit
-  4 -> SCEasyPrint -- this IS a real syscall
+  4 -> SCEasyPrint
   _ -> SCExit
 
 callExit :: ValidState Context -> ValidState Context
@@ -138,34 +136,22 @@ callEasyPrint ctx = case getTrueValueFromParam ctx (Reg ECX) of
   (Invalid s) -> putStrLn "Register error"
   Valid val -> truePrintValue ctx (Reg EBX) (Reg ECX)
 
--- Valid val -> print "val221431231dffgdgf"
---     -- Valid val -> sys
--- callEasyPrint ctx = sysPrintValue ctx (inferTy)
-
--- | Gets a syscall Code from EAX (int) returns the SyscallCode value associated
 codeFromEAX :: Context -> SyscallCode
 codeFromEAX ctx = codeFromValidStateInt (getTrueValueFromParam (Valid ctx) (Reg EAX))
 
--- | executes a syscall from its code. (use SyscallCode datatype)
 execSyscall :: ValidState Context -> SyscallCode -> (ValidState Context, IO ())
 execSyscall (Invalid s) _ = (Invalid s, putStr s)
--- print
 execSyscall (Valid ctx) SCEasyPrint = (Valid ctx, callEasyPrint (Valid ctx))
--- execSyscall (Valid ctx) SCEasyPrint = (Valid ctx, putStr "print")
--- exit
 execSyscall (Valid ctx) SCExit = (callExit (Valid ctx), putStr "exit")
 
 execSyscallWrapper :: ValidState Context -> (ValidState Context, IO ())
 execSyscallWrapper (Invalid s) = (Invalid s, putStr "")
 execSyscallWrapper (Valid ctx) = execSyscall (Valid ctx) (codeFromEAX ctx)
 
--- execSyscallWrapper ctx = fst (ctx, Valid (putStrLn "Io00000000000000000"))
-
 -------------------------------------------------------------------------------
 -- REGISTERS
 -------------------------------------------------------------------------------
 
--- | The registers of the VM. Cf assembly registers.
 data Register = EAX | EBX | ECX | EDX | ESI | EDI | EBP | ESP | E8 | E9
   deriving (Eq, Ord, Show, Generic)
 
@@ -271,8 +257,6 @@ stackPop (Valid context) = case pile (stack context) of
   [] -> Invalid "Empty stack"
   arr -> Valid (last arr, Valid context {stack = Stack (init arr), registers = Registers (Map.adjust (subtract 1) ESP (regs (registers context)))})
 
---   (x : xs) -> Valid (x, Valid context {stack = Stack xs, registers = Registers (Map.adjust (subtract 1) ESP (regs (registers context)))})
-
 -- | Peeks a value from the stack.
 stackPeek :: ValidState Context -> ValidState (Int, ValidState Context)
 stackPeek (Invalid s) = Invalid s
@@ -339,12 +323,6 @@ addressDoesntExist m address = case Map.lookup address m of
   Just _ -> False
 
 -- | Sets the value of a symbol in the heap.
--- @params:
---     context: the context of the VM
---     address: the address of the symbol
---     value: the value to set
--- @return: the new context, or Invalid s if the address is negative or if the
--- address is not allocated.
 heapSet :: ValidState Context -> Int -> Int -> ValidState Context
 heapSet (Invalid s) _ _ = Invalid s
 heapSet (Valid context) address value
@@ -353,7 +331,6 @@ heapSet (Valid context) address value
   | otherwise = Valid context {heap = Heap (Map.insert address value (mem (heap context)))}
 
 -- | Gets the value of a symbol in the heap. If the address isnt allocated, it
--- Prelude.returns Invalid s.
 heapGet :: ValidState Context -> Int -> ValidState Int
 heapGet (Invalid s) _ = Invalid s
 heapGet (Valid context) address = case Map.lookup address (mem (heap context)) of
@@ -645,7 +622,6 @@ blockAdd :: ValidState Context -> String -> ValidState Context
 blockAdd (Invalid s) _ = Invalid s
 blockAdd (Valid c) name = case Map.lookup name (blockMap (blocks c)) of
   Just _ -> Invalid ("Block already defined: " ++ name)
-  -- Nothing -> Valid c {blocks = BlockMap (Map.insert name (Block name (Valid c) []) (blockMap (blocks c)))}
   Nothing -> Valid c {blocks = BlockMap (Map.insert name (Block name (Valid newContext) []) (blockMap (blocks c)))}
 
 blockReplace :: ValidState Context -> ValidState Block -> ValidState Context
@@ -719,7 +695,6 @@ nextUUIDValid (Valid context) = (uuids context, context {uuids = uuids context +
 ipSet :: ValidState Context -> Int -> ValidState Context
 ipSet (Invalid s) _ = Invalid s
 ipSet (Valid context) value =
-  --   if value < 0 || value >= length (instructions context) -- to decoment when we have the real instructions count
   if value < 0
     then Invalid "Invalid instruction pointer value"
     else Valid context {instructionPointer = value}
@@ -737,20 +712,6 @@ ipInc (Valid context) =
     then Invalid "Invalid instruction pointer value"
     else Valid context {instructionPointer = instructionPointer context + 1}
 
--- | Executes the next instruction.
--- TODO CALL THE ACTUAL INSTRUCTION
--- TODO ADD NEW INSTRUCTION TO THE PILE
--- TODO ADD NEW INSTRUCTION TO THE PILE
--- ipNext :: ValidState Context -> ValidState Context
--- ipNext (Invalid s) = Invalid s
--- ipNext (Valid context) = case instructionPointer context + 1 >= length (instructions context) of
---     True -> Invalid s
---     False -> Valid context { instructionPointer = instructionPointer context + 1 }
-
--- | Evaluates one instruction and Prelude.returns the resulting context. Does not increase the instruction count.
--- evalOneInstruction :: Context -> Instruction -> ValidState Context
--- evalOneInstruction c i = instructionTable
-
 -- | Push instruction on the ins pile
 insPush :: ValidState Context -> Instruction -> ValidState Context
 insPush (Invalid s) _ = Invalid s
@@ -760,13 +721,6 @@ hasmNStackPush :: Int -> [Instruction]
 hasmNStackPush 0 = []
 hasmNStackPush n = Push (Immediate 0) : hasmNStackPush (n - 1)
 
--- | @helps: allocates space in the stack for the block's variables using the information
--- in the symbol table. Moves ESP accordingly. The generated instructions should be used
--- before using the instructions in the block.
--- It is equivalent to :
--- push ebp
--- mov ebp, esp
--- sub esp, <size the space needed for all variables>
 blockInitAllocVarSpace :: ValidState Context -> [Instruction]
 blockInitAllocVarSpace (Invalid _) = []
 blockInitAllocVarSpace (Valid c) =

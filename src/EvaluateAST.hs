@@ -58,24 +58,12 @@ module EvaluateAST
   )
 where
 
--- import qualified Data.ValidState
--- import Lexer
---     ( ASTNode(ASTNodeMutable, ASTNodeError, ASTNodeInteger,
---               ASTNodeSymbol, ASTNodeSum, ASTNodeSub, ASTNodeMul, ASTNodeDiv,
---               ASTNodeMod, astnsName, ASTNodeParamList, ASTNodeArray, strToAST) )
-
--- import VM (Context (..), Instruction (..), Param (..), Register (..), regGet, stackGetPointer, stackPush, symGet, symSet, labelSet, blockInitAllocVarSpace, symGetTotalSize)
-
 import Lexer
 import VM
 import ValidState
 import System.IO.Error (catchIOError)
 import Control.Exception (try)
 import Tokenizer
-
--- -- | Evaluates the AST and push the instructions into the context.
--- evaluateAST :: ASTNode -> Context -> ValidState Context
--- evaluateAST (ASTNodeError _) ctx = (Invalid "Error")
 
 instructionFromAST :: ASTNode -> ValidState Context -> ValidState Context
 instructionFromAST _ (Invalid s) = Invalid s
@@ -117,6 +105,8 @@ instructionFromAST (ASTNodeWhile cond [(ASTNodeParamList body)]) ctx = putWhileI
 instructionFromAST (ASTNodeWhile cond body) ctx = putWhileInstruction ctx cond body
 instructionFromAST (ASTNodeSet name value) ctx = putSetInstruction ctx name value
 instructionFromAST (ASTNodeReturn value) ctx = putReturnInstruction ctx value
+instructionFromAST (ASTNodeStruct name params) ctx = putStructInstruction ctx (ASTNodeSymbol name) params
+instructionFromAST (ASTNodeStructVariable name value) ctx = putStructVariableInstruction ctx name value
 instructionFromAST (ASTNodeBreak [ASTNodeLambda _ param body, ASTNodeFunctionCall _ params]) ctx = instructionFromAST (ASTNodeBreak [(ASTNodeFunctionCall u_name params)]) (instructionFromAST (ASTNodeLambda (ASTNodeSymbol u_name) param body) (Valid ctx'))
   where
     u_name = "lambda@" ++ ("_" ++ show uuid)
@@ -129,7 +119,6 @@ instructionFromAST (ASTNodeBreak []) ctx = ctx
 instructionFromAST (ASTNodeShow (x:xs) _type) ctx = instructionFromAST (ASTNodeShow xs _type) (putASTNodeShow x _type ctx)
 instructionFromAST (ASTNodeShow [] _type) ctx = ctx
 instructionFromAST a _ = Invalid ("Error: invalid AST" ++ show a)
--- instructionFromAST _ _ = Invalid "Error!!!!"
 
 putASTNodeShow :: ASTNode -> VarType -> ValidState Context -> ValidState Context
 putASTNodeShow n _type c = case _type of
@@ -174,10 +163,10 @@ pushParamTypeToBlock (Valid blk) (x : xs) =
 
 declSymbolBlock :: Block -> [ASTNode] -> ValidState Block
 declSymbolBlock blk [] = Valid blk
-declSymbolBlock blk (ASTNodeVariable  (ASTNodeSymbol paramName) typ : ps) = case symSet (blockContext blk) paramName typ of -- Todo set types here
+declSymbolBlock blk (ASTNodeVariable  (ASTNodeSymbol paramName) typ : ps) = case symSet (blockContext blk) paramName typ of 
   Invalid s -> Invalid ("While declaring parameter: \n\t" ++ s)
   Valid ctx -> declSymbolBlock (blk {blockContext = Valid ctx}) ps
-declSymbolBlock blk (ASTNodeSymbol paramName : ps) = case symSet (blockContext blk) paramName (GUndefinedType) of -- Todo set types here
+declSymbolBlock blk (ASTNodeSymbol paramName : ps) = case symSet (blockContext blk) paramName (GUndefinedType) of 
   Invalid s -> Invalid ("While declaring parameter: \n\t" ++ s)
   Valid ctx -> declSymbolBlock (blk {blockContext = Valid ctx}) ps
 declSymbolBlock _ _ = Invalid "Error: invalid parameter: expected symbol"
@@ -216,34 +205,40 @@ putDefineInstruction (Valid c) name params body = case blockAdd (Valid c) (astns
       Invalid s -> Invalid ("While parsing the parameters of the function: \n" ++ s)
       Valid blk' -> evaluateBlock (Valid ctx) (copyParentBlocks ctx blk') params body
 
+putStructInstruction :: ValidState Context -> ASTNode -> [ASTNode] -> ValidState Context
+putStructInstruction (Invalid s) _ _ = Invalid s
+putStructInstruction (Valid c) _ [] = (Valid c)
+putStructInstruction (Valid c) (ASTNodeSymbol name) ((ASTNodeVariable (ASTNodeSymbol nameV) typV):body) = do
+  ctx <- putMutableInstruction typV (ASTNodeSymbol (name ++ "." ++ nameV)) typV value (Valid c)
+  putStructInstruction (Valid ctx) (ASTNodeSymbol name) body
+  where
+    value = case typV of
+      GInt -> ASTNodeInteger 0
+      GBool -> ASTNodeBoolean False
+      _ -> ASTNodeInteger 0
+
+putStructVariableInstruction :: ValidState Context -> ASTNode -> ASTNode -> ValidState Context
+putStructVariableInstruction (Invalid s) _ _ = Invalid s
+putStructVariableInstruction (Valid c) (ASTNodeSymbol name) (ASTNodeSymbol variable) = putSymbolInstruction (name ++ "." ++ variable) (Valid c)
+
 putParamListInstruction :: ValidState Context -> [ASTNode] -> ValidState Context
 putParamListInstruction (Invalid s) _ = Invalid s
 putParamListInstruction ctx [] = ctx
 putParamListInstruction ctx x = instructionFromAST (ASTNodeInstructionSequence x) ctx
 
--- 4 is the syscall for out in asm
 putPrintInstruction :: ValidState Context -> ASTNode -> ValidState Context
 putPrintInstruction (Invalid s) _ = Invalid s
 putPrintInstruction ctx node = do
   ctx' <- instructionFromAST node ctx
   Valid ctx' {instructions = instructions ctx' ++ [Xor (Reg EBX) (Reg EBX), Mov (Reg EBX) (Immediate (typeToInt (inferTypeFromNode (Valid ctx') node))), Xor (Reg ECX) (Reg ECX), Mov (Reg ECX) (Reg EAX), Xor (Reg EAX) (Reg EAX), Mov (Reg EAX) (Immediate 4), Interrupt]}
 
--- 5 is for 4 (numeric) + 1
--- putPrintInstruction (Valid ctx) = Valid ctx {instructions = instructions ctx ++ [Mov (Reg EAX) 4, Mov (Reg EBX) 1, Mov (Reg ECX) (Reg ), Mov (Reg EDX) 5, Interrupt]}
-
 putDerefInstruction :: ASTNode -> ASTNode -> ValidState Context -> ValidState Context
 putDerefInstruction value index ctx = do
-    indexCtx <- instructionFromAST index ctx -- store the index in eax by evaluating the index node
-    let ctx' = indexCtx {instructions = instructions indexCtx ++ [Nop, Push (Reg EAX)]} -- push the index to the stack
+    indexCtx <- instructionFromAST index ctx 
+    let ctx' = indexCtx {instructions = instructions indexCtx ++ [Nop, Push (Reg EAX)]} 
     valueCtx <- instructionFromAST value (Valid ctx')
-    let ctx'' = valueCtx {instructions = instructions valueCtx ++ [Pop (Reg EBX), DerefMacro EBX]} -- pop the index from the stack and dereference it
-    ValidState.return ctx'' -- return the context
-
-    -- ValidState.return valueCtx
-
-    -- valueInstr <- instructionFromAST value ctx
-    -- indexInstr <- instructionFromAST index (Valid valueInstr {instructions = instructions valueInstr ++ [Push (Reg EAX)]})
-    -- ValidState.return indexInstr {instructions = instructions indexInstr ++ [Pop (Reg EBX), DerefMacro EBX]}
+    let ctx'' = valueCtx {instructions = instructions valueCtx ++ [Pop (Reg EBX), DerefMacro EBX]} 
+    ValidState.return ctx'' 
 
 putInstructionSequence :: [ASTNode] -> ValidState Context -> ValidState Context
 putInstructionSequence _ (Invalid s) = Invalid s
@@ -407,35 +402,15 @@ putWhileCondition ctx cond uuid = do
                    ]
           }
 
--- putDefineInstruction :: ASTNode -> ASTNode -> ValidState Context -> ValidState Context
--- putDefineInstruction _ _ (Invalid "Error") = (Invalid "Error")
--- putDefineInstruction name node ctx = do
---   let newCtx = instructionFromAST name ctx
---   case newCtx of
---     Valid _ -> (Invalid "Error")
---     (Invalid "Error") -> do
---       let ctx' = symSet ctx (astnsName name) 4
---       let s = symGet ctx' (astnsName name)
---       let ctx'' = instructionFromAST node ctx'
---       case ctx'' of
---         (Invalid "Error") -> (Invalid "Error")
---         Valid ctx''' ->  do
---           let res = symGetTotalSize ctx''
---           let res' = case res of
---                 (Invalid "Error") -> 0
---                 Valid res'' -> res''
---           case s of
---             (Invalid "Error") -> (Invalid "Error")
---             Valid s' -> do
---               let val = res' - s'
---               Prelude.return ( ctx''' {instructions = instructions ctx''' ++ [MovStackAddr (Immediate val) (Reg EAX)]})
-
 inferTypeFromNode :: ValidState Context -> ASTNode -> VarType
 inferTypeFromNode (Invalid _) _ = GUndefinedType
 inferTypeFromNode _ (ASTNodeCast _ t) = t
 inferTypeFromNode _ (ASTNodeInteger _) = GInt
 inferTypeFromNode _ (ASTNodeBoolean _) = GBool
 inferTypeFromNode _ (ASTNodeArray _) = GPtr
+inferTypeFromNode c (ASTNodeStructVariable (ASTNodeSymbol name) (ASTNodeSymbol variable)) = case symGetFull c (name ++ "." ++ variable) of
+  (Invalid _) -> GUndefinedType
+  Valid (_, t) -> t
 inferTypeFromNode c (ASTNodeSymbol name) = case symGetFull c name of
   (Invalid _) -> GUndefinedType
   Valid (_, t) -> t
@@ -459,12 +434,20 @@ putMutableInstruction _ _ _ _ (Invalid s) = Invalid s
 putMutableInstruction symtyp name valtyp node ctx =
   let newCtx = instructionFromAST name ctx
    in case newCtx of
-        Valid _ -> Invalid "Error: Variable already exists" -- error, the variable already exists!
-        -- Invalid _ -> putMutableNoErrCheck symtyp name vartyp node ctx
+        Valid _ -> Invalid "Error: Variable already exists"
         Invalid _ -> if symtyp == valtyp then putMutableNoErrCheck symtyp name node ctx else Invalid ("Error: type mismatch:\n\tCannot assign " ++ show name ++ " of type " ++ show symtyp ++ " to value " ++ show node ++ " of type " ++ show valtyp)
 
 putSetNoErrCheck :: ValidState Context -> ASTNode -> ASTNode -> ValidState Context
 putSetNoErrCheck (Invalid s) _ _ = Invalid s
+putSetNoErrCheck ctx (ASTNodeStructVariable name vartyp) node = do
+  let ctx' = instructionFromAST node ctx
+    in case ctx' of
+      Invalid s -> Invalid s
+      Valid ctx' -> (Valid ctx' {instructions = instructions ctx' ++ [MovStackAddr (Immediate addr) (Reg EAX)]})
+      where
+        addr = case symGet ctx (astnsName name) of
+          Invalid _ -> 0
+          Valid addr' -> addr'
 putSetNoErrCheck ctx name node = do
   let ctx' = instructionFromAST node ctx
     in case ctx' of
@@ -481,7 +464,7 @@ putSetInstruction (Invalid s) _ _ = Invalid s
 putSetInstruction ctx name node =
   let newCtx = instructionFromAST name ctx
     in case newCtx of
-      Invalid _ -> Invalid "Error: Variable does't exists" -- error, the variable
+      Invalid _ -> Invalid "Error: Variable does't exists"
       Valid _ -> putSetNoErrCheck ctx name node
 
 putReturnInstruction :: ValidState Context -> ASTNode -> ValidState Context
@@ -492,20 +475,6 @@ putReturnInstruction ctx node = do
     Invalid s -> Invalid s
     Valid ctx' -> (Valid ctx' {instructions = instructions ctx' ++ [Ret]})
 
--- | Implements the following behaviour:
--- - tests the condition
--- stores the result in EAX
--- - if the condition is true, executes the then block and jumps after the else block
--- - if the condition is false, jumps to the else block and executes it
--- This is equivalent to the following nasm code:
--- cmp eax, 0
--- je <uuid>_else
--- <uuid>_then:
--- ...; executes the instructions in the then block
--- jmp <uuid>_end
--- <uuid>_else:
--- ...; executes the instructions of the children
--- <uuid>_end:
 putIfInstruction :: ValidState Context -> ASTNode -> ValidState Context
 putIfInstruction (Invalid s) _ = Invalid s
 putIfInstruction (Valid c) (ASTNodeIf cond thenBlock elseBlock) =
@@ -570,16 +539,13 @@ astNodeArrayToHASMLoopBody (Valid ctx) (x : xs) = case instructionFromAST x (Val
           c
             { instructions =
                 instructions c
-                  ++ [ MovPtr (Reg ESI) (Reg EAX), -- storing the value of the child node in the allocated memory
+                  ++ [ MovPtr (Reg ESI) (Reg EAX), 
                        Add ESI (Immediate 1)
                      ]
             }
       )
-      xs -- incrementing the pointer to the next element of the array
+      xs 
 
--- | @params:
---     ctx: the context to use
---     arr: the array to convert to HASM
 astNodeArrayToHASM :: ValidState Context -> ASTNode -> ValidState Context
 astNodeArrayToHASM (Invalid s) _ = Invalid s
 astNodeArrayToHASM ctx (ASTNodeArray []) = ctx
@@ -597,9 +563,9 @@ labelImpl = labelSet
 
 hASMPointerAlloc :: Int -> [Instruction]
 hASMPointerAlloc size =
-  [ Mov (Reg EAX) (Immediate 0x2d), -- syscall number for sbrk, malloc & puts ptr to eax after exec
-    Alloc size, -- size of the array in ebx
-    Mov (Reg EBX) (Reg EAX) -- we put the pointer to the array in ebx
+  [ Mov (Reg EAX) (Immediate 0x2d),
+    Alloc size,
+    Mov (Reg EBX) (Reg EAX)
   ]
 
 aSTNodeArrayToHASMPreLoop :: ValidState Context -> [ASTNode] -> ValidState Context
@@ -611,7 +577,7 @@ aSTNodeArrayToHASMPreLoop (Valid ctx) arr =
           instructions ctx
             ++ hasmBackupRegisters [EBX, ESI]
             ++ hASMPointerAlloc (length arr)
-            ++ [Mov (Reg ESI) (Reg EBX)] -- esi will be used to iterate over the array
+            ++ [Mov (Reg ESI) (Reg EBX)]
       }
 
 astNodeArrayToHASMEnd :: ValidState Context -> ValidState Context
@@ -623,7 +589,7 @@ astNodeArrayToHASMEnd (Valid ctx) =
           instructions ctx
             ++ [ Mov (Reg EAX) (Reg EBX)
                ]
-            ++ hasmRestoreRegisters [EBX, ESI] -- we put the pointer to the array in eax
+            ++ hasmRestoreRegisters [EBX, ESI] 
       }
 
 strToHASM :: ValidState Context -> String -> ValidState Context
@@ -632,7 +598,6 @@ strToHASM (Valid ctx) str = c'
   where
     c' = case c of
       (Invalid s) -> Invalid s
-      -- Valid c2 -> Valid c2 {instructions = blockInitAllocVarSpace (Valid c2) ++ instructions c2}
       Valid c2 -> Valid c2 {instructions = [Enter] ++ instructions c2}
     c = case strToAST str of
       ASTNodeError e -> Invalid ("Error: not a valid expression: " ++ show e)
@@ -683,8 +648,8 @@ evalBinOpStack _ (a, b) = Invalid ("Error: unbalanced stack: \n" ++ show a ++ "\
 
 
 putBinOpsInstruction :: [TokorNode] -> ValidState Context -> ValidState Context
-putBinOpsInstruction _ (Invalid s) = Invalid s                                 -- error
-putBinOpsInstruction [A (ASTNodeBinOps [A left, T (TokenInfo op _), A right])] ctx =         -- trivial case, one operation
+putBinOpsInstruction _ (Invalid s) = Invalid s
+putBinOpsInstruction [A (ASTNodeBinOps [A left, T (TokenInfo op _), A right])] ctx =
     instructionFromAST (matchOperatorToNode op left right) ctx
-putBinOpsInstruction l (Valid c) = evalBinOpStack (Valid c) (buildOpStack l)   -- complex case, multiple operations
+putBinOpsInstruction l (Valid c) = evalBinOpStack (Valid c) (buildOpStack l)
 

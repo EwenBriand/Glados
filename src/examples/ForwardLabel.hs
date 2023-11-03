@@ -17,7 +17,6 @@ ok = "ok\n"
 bad :: String
 bad = "bad\n"
 
--- | syscalls
 sysExit, sysWrite :: Word16
 sysWrite = 64
 sysExit = 93

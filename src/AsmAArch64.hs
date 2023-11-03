@@ -78,15 +78,12 @@ newtype RRegister (c :: RegisterWidth) = R Word32
 
 newtype CodeOffset = CodeOffset {getCodeOffset :: Int64} deriving (Eq, Show, Ord, Num, Enum, Real, Integral, Bits, FiniteBits)
 
-newtype RInstruction = RInstruction {getInstruction :: Integer} deriving (Eq, Show, Num) -- , Bits, FiniteBits, num, Real
+newtype RInstruction = RInstruction {getInstruction :: Integer} deriving (Eq, Show, Num)
 
 data Label
   = CodeRef !CodeOffset
   | PoolRef !CodeOffset
 
--- Args:
--- Offset of the Rinstruction
--- Offset of the pool
 type RInstructionGen = CodeOffset -> CodeOffset -> Either String RInstruction
 
 data CodeState = CodeState
@@ -95,8 +92,8 @@ data CodeState = CodeState
     codeReversed :: [RInstructionGen],
     symbolsRefersed :: [(String, Label)],
     codeBinLength :: Int,
-    unresolvedJmps :: Data.Map.Map String [(CodeOffset, Int)], -- Binary offset and index of the corresponding instruction
-    unresolvedCall :: Data.Map.Map String [(CodeOffset, Int)], -- Binary offset and index of the corresponding instruction
+    unresolvedJmps :: Data.Map.Map String [(CodeOffset, Int)], 
+    unresolvedCall :: Data.Map.Map String [(CodeOffset, Int)], 
     dataSec :: [Word8],
     dataRef :: [(String, Int)]
   }
@@ -108,7 +105,7 @@ addUnresolvedJmp :: MonadState CodeState m => String -> CodeOffset -> m ()
 addUnresolvedJmp name offset = do
   CodeState {..} <- get
   let codelen = P.length codeReversed
-  let newMap = Data.Map.insertWith (++) name [(offset, codelen)] unresolvedJmps -- triple checked, these values are OK
+  let newMap = Data.Map.insertWith (++) name [(offset, codelen)] unresolvedJmps 
   put $ CodeState offsetInPool poolReversed codeReversed symbolsRefersed codeBinLength newMap unresolvedCall dataSec dataRef
 
 getUnresolvedJmps :: MonadState CodeState m => String -> m [(CodeOffset, Int)]
@@ -236,10 +233,8 @@ assemble :: MonadCatch m => StateT CodeState m () -> m Elf
 assemble m = do
   CodeState {..} <- execStateT m (CodeState 0 [] [] [] 0 emptyUnresolvedJmps emptyUnresolvedCall [] [])
 
-  -- resolve txt
-
-  let poolOffset = instructionSize * fromIntegral (P.length codeReversed)     -- not tested
-      poolOffsetAligned = align 8 poolOffset                                  -- not tested
+  let poolOffset = instructionSize * fromIntegral (P.length codeReversed)
+      poolOffsetAligned = align 8 poolOffset
 
       f :: (RInstructionGen, CodeOffset) -> Either String RInstruction
       f (ff, n) = ff n poolOffsetAligned
@@ -254,7 +249,7 @@ assemble m = do
             steBind = STB_Global
             steType = STT_NoType
             steShNdx = textSecN
-            steValue = fromIntegral $ findOffset poolOffset r        -- not tested
+            steValue = fromIntegral $ findOffset poolOffset r
             steSize = 0 :: Word64
          in ElfSymbolXX {..}
 
@@ -264,7 +259,7 @@ assemble m = do
             steBind = STB_Global
             steType = STT_NoType
             steShNdx = textSecN
-            steValue = fromIntegral $ r + (calcSize txt)        -- not tested
+            steValue = fromIntegral $ r + (calcSize txt)
             steSize = 0 :: Word64
          in ElfSymbolXX {..}
 
@@ -280,12 +275,10 @@ assemble m = do
     P.return $
       Elf SELFCLASS64 $
         ElfHeader
-          { ehData = ELFDATA2LSB, -- little endian
-          -- {  ehData = ELFDATA2MSB, -- big endian
+          { ehData = ELFDATA2LSB, 
             ehOSABI = ELFOSABI_SYSV,
             ehABIVersion = 0,
             ehType = ET_REL,
-            -- ehType = ET_EXEC,
             ehMachine = EM_X86_64,
             ehEntry = 0,
             ehFlags = 0
@@ -447,8 +440,6 @@ contextToElfNoSelfRec c name = do
     blocksToElf (filterBlocksNoSelfRec (blocks c) name)
     createElf (instructions c)
 
--- Sets up a few default symbols in .rodata, such as the formats for
--- the printf syscall, etc
 setupConstants :: MonadState CodeState m => m ()
 setupConstants = do
     labelFormatInt <- emitPool 0 $ BSLC.pack "%d"
@@ -489,8 +480,6 @@ extractEntryAddress st = do
             PoolRef _ -> error "start symbol is in the pool"
         Nothing -> error "no start symbol found"
 
--- changeHeader :: MonadCatch m => m  -> m Elf
-
 elfExe :: MonadCatch m => Context -> m Elf
 elfExe c = let
     elf = contextToElf c True
@@ -518,9 +507,9 @@ convertOneInstruction :: MonadState CodeState m => Instruction -> m ()
 convertOneInstruction (Mov (Reg r) (Immediate i)) = encodeMovRegImm r i
 convertOneInstruction (Mov (Reg r1) (Reg r2)) = encodeMovRegReg r1 r2
 convertOneInstruction (Mov (Memory i) (Immediate imm)) = encodeMovMemImm i imm
-convertOneInstruction (MovPtr (Memory i) (Immediate imm)) = encodeMovMemImm i imm                                   -- not tested
-convertOneInstruction (MovPtr (Reg i) (Immediate imm)) = encodeMovRegImm i imm                                   -- not tested
-convertOneInstruction (MovPtr (Reg i) (Reg imm)) = encodeMovRegReg i imm                                         -- not tested
+convertOneInstruction (MovPtr (Memory i) (Immediate imm)) = encodeMovMemImm i imm
+convertOneInstruction (MovPtr (Reg i) (Immediate imm)) = encodeMovRegImm i imm
+convertOneInstruction (MovPtr (Reg i) (Reg imm)) = encodeMovRegReg i imm
 convertOneInstruction (MovStackAddr (Immediate ptr) (Reg reg)) = encodeMovStackAddrReg ptr reg
 convertOneInstruction (MovFromStackAddr (Reg reg) (Immediate ptr)) = encodeMovFromStackAddrReg reg ptr
 convertOneInstruction (Push (Reg r)) = encodePushReg r
@@ -558,7 +547,6 @@ convertOneInstruction (Write fd (Immediate buf) len) = encodeWriteString fd (sho
 convertOneInstruction (Write fd (Symbol buf) len) = encodeWriteString fd buf len
 convertOneInstruction i = allJmps i
 
--- execAsm (Valid c) = execState (assemble (Rinstructions c)) (CodeState 0 [] [] [])
 
 -------------------------------------------------------------------------------
 -- Instructions opcodes
@@ -672,14 +660,11 @@ encodeMovRegReg rto rfrom =
             [0x89, movOpcodeCombineRegReg rto rfrom]
         )
 
--- mov reg const
 encodeMovqRegImm :: Register -> Int -> Integer
 encodeMovqRegImm r i =
   byteStringToInteger
     (word8ArrayToByteString (movqRegImmByteArray r i))
 
--- mov mem, reg
--- ex: mov [42], dword 16
 encodeMovMemImm :: (MonadState CodeState m) => Int -> Int -> m ()
 encodeMovMemImm mem imm =
   emit $
@@ -701,7 +686,6 @@ encodeMovStackAddrReg mem reg =
       byteStringToInteger
         ( word8ArrayToByteString
             ( [0x89, rr reg] ++ removeNullPrefix (reverseArray (encodeImmediate (-(1 + mem) * 8))))
-            -- ( [0x89, rr reg, 0x24] ++ removeNullPrefix (reverseArray (encodeImmediate mem))
         )
   where
     rr :: Register -> Word8
@@ -735,18 +719,6 @@ encodeMovFromStackAddrReg reg mem =
             rr EDI = 0x7d
             rr r = error ("Unsuported registers in mov instruction: " ++ show r)
 
---   where
---     rr :: Register -> Word8
---     rr EAX = 0x44
---     rr ECX = 0x4c
---     rr EDX = 0x54
---     rr EBX = 0x5c
---     rr ESP = 0x64
---     rr EBP = 0x6c
---     rr ESI = 0x74
---     rr EDI = 0x7c
---     rr r = error ("unsupported register in mov instruction: " ++ show r)
-
 -------------------------------------------------------------------------------
 -- region Push
 -------------------------------------------------------------------------------
@@ -771,8 +743,6 @@ encodePushImm imm =
     where
         is = if imm == 0 then [0x0] else removeNullPrefix (reverseArray (encodeImmediate imm))
 
--- push [42]
--- push [register] is not used by our compiler
 encodePushMem :: (MonadState CodeState m) => Int -> m ()
 encodePushMem mem =
   emit $
@@ -826,7 +796,6 @@ encodeXorRegImm r imm =
             ([0x83, 0xf0 + registerCode r] ++ removeNullPrefix (reverseArray (encodeImmediate imm)))
         )
 
--- we do not use other xor variants in the compiler
 
 -------------------------------------------------------------------------------
 -- region Label
@@ -837,11 +806,11 @@ setElt _ _ [] = []
 setElt 0 x (_ : xs) = x : xs
 setElt n x (y : xs) = y : setElt (n - 1) x xs
 
-word16Update2ndByte :: Integer -> Word8 -> Integer -- the integer is assumed to be encoded on two bytes
+word16Update2ndByte :: Integer -> Word8 -> Integer 
 word16Update2ndByte i w = if (i .&. 0x00ff) == 0 then i else
     (i .&. 0xff00) .|. (fromIntegral w :: Integer)
 
-word16Update2ndByteCall :: Integer -> Word8 -> Integer -- the integer is assumed to be encoded on two bytes
+word16Update2ndByteCall :: Integer -> Word8 -> Integer 
 word16Update2ndByteCall i w = (i .&. 0xff00000000) .|. (fromIntegral w `shiftL` 24 :: Integer)
 
 updateJmpInstr :: (MonadState CodeState m) => Int -> Int -> RInstructionGen -> Bool -> m ()
@@ -876,12 +845,11 @@ resolveJmps labelAddr (x : xs) bool = do
         impl (jmpOffset, jmpInstrIndex') call = do
             code <- gets codeReversed
             let delta = if call
-                        then ((findLabelOffset code) - jmpInstrIndex' - 1) -- solve call
-                        -- else fromIntegral jmpOffset :: Int                 -- solve jmp
+                        then ((findLabelOffset code) - jmpInstrIndex' - 1) 
                         else (fromIntegral labelAddr - fromIntegral jmpOffset - 2) :: Int
+
             let jmpInstrIndex = (P.length code - 1 - jmpInstrIndex')
             let instrGen = code !! jmpInstrIndex
-            -- updateJmpInstr jmpInstrIndex'' delta instrGen call
             updateJmpInstr jmpInstrIndex delta instrGen call
 
 encodeLabel :: (MonadState CodeState m) => String -> m ()
@@ -897,37 +865,6 @@ encodeLabel name = do
   unresolvedC <- getUnresolvedCall name
   resolveJmps labelAddr unresolvedC True
   clearUnresolvedCall name
-
-
--- add reg -> im ok and reg -> reg ok
--- Inc ok
--- Dec ok
--- Neg ok
--- Sub reg -> im ok and reg -> reg ok
--- Div  ok
--- Mult ok
--- jmp  ok
--- Call
--- Int ok
--- Ret ok
--- Alloc
--- xor ok
--- or  reg -> im ok and reg -> reg ok
--- and reg -> im ok and reg -> reg ok
--- not reg -> im ok and reg -> reg ok
--- cmp reg -> im ok and reg -> reg ok
--- je
--- jne
--- jg
--- jge
--- jl
--- jle
--- ja
--- jae
--- jb
--- jbe
--- Enter
--- Leave
 
 -------------------------------------------------------------------------------
 -- region Add
@@ -1216,7 +1153,7 @@ encodeAlloc i = do
 
 delayResolution :: (MonadState CodeState m) => String -> m Int
 delayResolution name = do
-    binLen <- gets codeBinLength -- this is the index of jmp in the binary, I triple checked
+    binLen <- gets codeBinLength
     addUnresolvedJmp name (CodeOffset . fromIntegral $ binLen)
     P.return 42
 

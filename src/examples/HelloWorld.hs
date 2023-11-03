@@ -13,7 +13,6 @@ import AsmAArch64
 msg :: String
 msg = "Hello World!\n"
 
--- | syscalls
 sysExit, sysWrite :: Word16
 sysWrite = 64
 sysExit = 93

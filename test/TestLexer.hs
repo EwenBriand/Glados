@@ -22,6 +22,7 @@ import Lexer
 import Test.HUnit
 import Tokenizer
 import ValidState
+import Lexer
 
 testInstructionList :: Test
 testInstructionList =
@@ -114,7 +115,6 @@ testTokOrExprToNode =
     [ "node error" ~: tokOrExprToASTNode [] ~?= ASTNodeError (TokenInfo TokError ""),
       "node integer" ~: tokOrExprToASTNode [T (TokenInfo TokInteger "123")] ~?= ASTNodeInteger 123,
       "node symbol" ~: tokOrExprToASTNode [T (TokenInfo TokSymbol "abc")] ~?= ASTNodeSymbol "abc",
-      -- "node define" ~: tokOrExprToASTNode [T (TokenInfo TokOpenParen "("), T (TokenInfo TokKeywordDefine "define"), A (ASTNodeSymbol "foo"), A (ASTNodeInteger 123), T (TokenInfo TokCloseParen ")")] ~?= ASTNodeDefine (ASTNodeSymbol "foo") (ASTNodeArray [(ASTNodeInteger 123)]),
       "node param 1" ~: tokOrExprToASTNode [A (ASTNodeParamList [ASTNodeInteger 1]), A (ASTNodeInteger 2)] ~?= ASTNodeParamList [ASTNodeInteger 1, ASTNodeInteger 2],
       "node sum" ~: tokOrExprToASTNode [T (TokenInfo TokOpenParen "("), T (TokenInfo TokOperatorPlus "+"), A (ASTNodeParamList [ASTNodeInteger 1, ASTNodeInteger 2]), T (TokenInfo TokCloseParen ")")] ~?= ASTNodeSum [ASTNodeInteger 1, ASTNodeInteger 2],
       "node sub" ~: tokOrExprToASTNode [T (TokenInfo TokOpenParen "("), T (TokenInfo TokOperatorMinus "-"), A (ASTNodeParamList [ASTNodeInteger 1, ASTNodeInteger 2]), T (TokenInfo TokCloseParen ")")] ~?= ASTNodeSub [ASTNodeInteger 1, ASTNodeInteger 2],
@@ -135,8 +135,6 @@ testTryToMatch =
       "node match simple sum" ~: tryToMatch [] (T (TokenInfo TokError "")) [T (TokenInfo TokOpenParen "("), T (TokenInfo TokOperatorPlus "+"), A (ASTNodeParamList [ASTNodeInteger 123, ASTNodeInteger 678]), T (TokenInfo TokCloseParen ")")] ~?= (A (ASTNodeSum [ASTNodeInteger 123, ASTNodeInteger 678]), [])
     ]
 
--- try to parse the tokens that make the following expression: (+ 1 (+ 2 3))
--- the test should Prelude.return a sum node that contains an integer node and another sum node
 testBuildASTIterate :: Test
 testBuildASTIterate =
   TestList
@@ -149,15 +147,11 @@ testBuildASTIterate =
 testBuildAST :: Test
 testBuildAST =
   TestList
-    [ -- (+ 123 678)
+    [ 
       "build ast sum" ~: buildAST [T (TokenInfo TokOpenParen "("), T (TokenInfo TokOperatorPlus "+"), T (TokenInfo TokInteger "123"), T (TokenInfo TokInteger "678"), T (TokenInfo TokCloseParen ")")] ~?= ASTNodeSum [ASTNodeInteger 123, ASTNodeInteger 678],
-      -- (+ 123 (+ 678 000))
       "build ast nested sum 1" ~: buildAST [T (TokenInfo TokOpenParen "("), T (TokenInfo TokOperatorPlus "+"), T (TokenInfo TokInteger "123"), T (TokenInfo TokOpenParen "("), T (TokenInfo TokOperatorPlus "+"), T (TokenInfo TokInteger "678"), T (TokenInfo TokInteger "000"), T (TokenInfo TokCloseParen ")"), T (TokenInfo TokCloseParen ")")] ~?= ASTNodeSum [ASTNodeInteger 123, ASTNodeSum [ASTNodeInteger 678, ASTNodeInteger 0]],
-      -- (+ (+ 123 678) 000)
       "build ast nested sum 2" ~: buildAST [T (TokenInfo TokOpenParen "("), T (TokenInfo TokOperatorPlus "+"), T (TokenInfo TokOpenParen "("), T (TokenInfo TokOperatorPlus "+"), T (TokenInfo TokInteger "123"), T (TokenInfo TokInteger "678"), T (TokenInfo TokCloseParen ")"), T (TokenInfo TokInteger "000"), T (TokenInfo TokCloseParen ")")] ~?= ASTNodeSum [ASTNodeSum [ASTNodeInteger 123, ASTNodeInteger 678], ASTNodeInteger 0],
-      -- (+ (+ 123) 2)
       "build ast error invalid expr" ~: buildAST [T (TokenInfo TokOpenParen "("), T (TokenInfo TokOperatorPlus "+"), T (TokenInfo TokOpenParen "("), T (TokenInfo TokOperatorPlus "+"), T (TokenInfo TokInteger "123"), T (TokenInfo TokCloseParen ")"), T (TokenInfo TokInteger "2"), T (TokenInfo TokCloseParen ")")] ~?= ASTNodeError (TokenInfo TokError "[(,+,(,+,(int: 123),),(int: 2),)]"),
-      -- empty
       "build ast empty" ~: buildAST [] ~?= ASTNodeError (TokenInfo TokError "empty")
     ]
 
@@ -183,17 +177,11 @@ testTryBuildInstructionList =
 
 testStrToAST :: Test
 testStrToAST = TestList [
-    -- (+ 123 678)
     "build str to ast sum" ~: strToAST "(+ 123 678)" ~?= ASTNodeSum [ASTNodeInteger 123, ASTNodeInteger 678],
-    -- (+ (+ 123) 2)
     "build str to ast invalid" ~: strToAST "(+ (+ 123) 2)" ~?= ASTNodeError (TokenInfo TokError "[(,+,(,+,(int: 123),),(int: 2),)]"),
-    -- Define keyword taking everything as array (Needs to be fix)
-    -- (define foo 123)
-    -- "declare var foo with value 123" ~: strToAST "(mutable foo 123)" ~?= ASTNodeMutable (ASTNodeSymbol "foo") (ASTNodeArray [(ASTNodeInteger 123)]),
     "declare function foo with value (+ 1 2)" ~: strToAST "(define foo (+ 1 2))" ~?= ASTNodeDefine (ASTNodeSymbol "foo") (Invalid ("foo" ++ " does not take any parameters")) [(ASTNodeSum [ASTNodeInteger 1, ASTNodeInteger 2])],
     "build if" ~: strToAST "(if #t 1 2)" ~?= ASTNodeIf (ASTNodeBoolean True) [(ASTNodeInteger 1)] (Valid [(ASTNodeInteger 2)])
     ]
-    -- "declare function foo with parameters (a b) and value (+ a b)" ~: strToAST "(define foo (a b) (+ a b))" ~?= ASTNodeDefine (ASTNodeSymbol "foo") (Valid (ASTNodeParamList [ASTNodeSymbol "a", ASTNodeSymbol "b"])) (ASTNodeSum [ASTNodeSymbol "a", ASTNodeSymbol "b"])]
 
 testShowInstanceASTNode :: Test
 testShowInstanceASTNode = TestList
@@ -229,6 +217,8 @@ testShowInstanceASTNode = TestList
     "ASTNodeDeref" ~: show (ASTNodeDeref (ASTNodeSymbol "name") (ASTNodeInteger 4)) ~?= "(deref: \n\t(name) " ++ show (ASTNodeSymbol "name") ++ "\n\t(index) " ++ show (ASTNodeInteger 4) ++ ")",
     "ASTNodeShow" ~: show (ASTNodeShow [] GInt) ~?= "(show: \n\t(type) " ++ show GInt ++ "\n\t(children) [])",
     "ASTNodeBinOps" ~: show (ASTNodeBinOps []) ~?= "(binops: [])",
+    "ASTNodeStruct" ~: show (ASTNodeStruct "test" []) ~?= "(struct: \n\t(name) " ++ "test" ++ "\n\t(children) [])",
+    "ASTNodeStructVariable" ~: show (ASTNodeStructVariable (ASTNodeInteger 5) (ASTNodeInteger 5)) ~?= "(structvariable: \n\t(name) " ++ show (ASTNodeInteger 5) ++ "\n\t(children) " ++ show (ASTNodeInteger 5) ++ ")",
     "ASTSuperior Unknown" ~: show (ASTNodeSuperior []) ~?= "(unknown node)"
   ]
 
@@ -240,7 +230,6 @@ moreTestsTokOrExprToNode = TestList [
     "astnodeelif 4" ~: tokOrExprToASTNode [T (TokenInfo TokenKeywordIf ""), A (ASTNodeArray [ASTNodeBoolean True]), T (TokenInfo TokOpenCurrBrac ""), A (ASTNodeInteger 1), T (TokenInfo TokCloseCurrBrac "")] ~?= ASTNodeIf (head [ASTNodeBoolean True]) [ASTNodeInteger 1] (Invalid "1"),
     "astnodeelif 5" ~: tokOrExprToASTNode [T (TokenInfo TokenKeywordIf ""), A (ASTNodeBoolean True), T (TokenInfo TokOpenCurrBrac ""), A (ASTNodeInteger 1), T (TokenInfo TokCloseCurrBrac "")] ~?= ASTNodeIf (ASTNodeBoolean True) [ASTNodeInteger 1] (Invalid "2"),
     "astnodewhile 1" ~: tokOrExprToASTNode [T (TokenInfo TokenKeywordWhile ""), A (ASTNodeBoolean True), T (TokenInfo TokOpenCurrBrac ""), A (ASTNodeInteger 1), T (TokenInfo TokCloseCurrBrac "")] ~?= ASTNodeWhile (ASTNodeBoolean True) [ASTNodeInteger 1],
-    -- "astnodewhile 2" ~: tokOrExprToASTNode [T (TokenInfo TokenKeywordWhile ""), A (ASTNodeArray [ASTNodeBoolean True]), T (TokenInfo TokOpenCurrBrac ""), A (ASTNodeInteger 1), T (TokenInfo TokCloseCurrBrac "")] ~?= ASTNodeWhile (head [ASTNodeBoolean True]) [ASTNodeInteger 1],
     "astnodeset 1" ~: tokOrExprToASTNode [A (ASTNodeSymbol "bob"), T (TokenInfo TokenEq ""), A (ASTNodeInteger 1), T (TokenInfo TokenPointComma "")] ~?= ASTNodeSet (ASTNodeSymbol "bob") (ASTNodeInteger 1),
     "astnodeset 2" ~: tokOrExprToASTNode [A (ASTNodeSymbol "bob"), T (TokenInfo TokOperatorPlus ""), T (TokenInfo TokOperatorPlus ""), T (TokenInfo TokenPointComma "")] ~?= ASTNodeSet (ASTNodeSymbol "bob") (ASTNodeSum [ASTNodeSymbol "bob", ASTNodeInteger 1]),
     "astnodeset 3" ~: tokOrExprToASTNode [A (ASTNodeSymbol "bob"), T (TokenInfo TokOperatorMinus ""), T (TokenInfo TokOperatorMinus ""), T (TokenInfo TokenPointComma "")] ~?= ASTNodeSet (ASTNodeSymbol "bob") (ASTNodeSub [ASTNodeSymbol "bob", ASTNodeInteger 1]),
@@ -261,19 +250,15 @@ moreTestsTokOrExprToNode = TestList [
     "astnode mutable " ~: tokOrExprToASTNode [A (ASTNodeVariable (ASTNodeSymbol "bob") GInt), T (TokenInfo TokenEq ""), A (ASTNodeInteger 1), T (TokenInfo TokenPointComma "")] ~?= ASTNodeMutable (ASTNodeType GInt) (ASTNodeSymbol "bob") (ASTNodeType (getTypeFromNodeValue (ASTNodeInteger 1))) (ASTNodeInteger 1),
     "astnode mutable " ~: tokOrExprToASTNode [A (ASTNodeMutable (ASTNodeType GInt) (ASTNodeSymbol "bob") (ASTNodeType GInt) (ASTNodeInteger 1)), T (TokenInfo TokenPointComma "")] ~?= ASTNodeMutable (ASTNodeType GInt)  (ASTNodeSymbol "bob") (ASTNodeType GInt) (ASTNodeInteger 1),
     "astnode mutable " ~: tokOrExprToASTNode [A (ASTNodeVariable (ASTNodeSymbol "bob") GInt), T (TokenInfo TokenEq ""), A (ASTNodeInteger 1)] ~?= ASTNodeMutable (ASTNodeType GInt) (ASTNodeSymbol "bob") (ASTNodeType (getTypeFromNodeValue (ASTNodeInteger 1))) (ASTNodeInteger 1),
-    -- "astnode function call " ~: tokOrExprToASTNode [A (ASTNodeSymbol "bob"), T (TokenInfo TokOpenParen ""), A (ASTNodeParamList [ASTNodeInteger 1]), T (TokenInfo TokCloseParen ""), T (TokenInfo TokenPointComma "")] ~?= ASTNodeFunctionCall (ASTNodeSymbol "bob") [ASTNodeInteger 1],
     "astnode function call " ~: tokOrExprToASTNode [A (ASTNodeSymbol "bob"), T (TokenInfo TokOpenParen ""), A (ASTNodeInteger 1), T (TokenInfo TokCloseParen ""), T (TokenInfo TokenPointComma "")] ~?= ASTNodeFunctionCall "bob" [ASTNodeInteger  1],
     "ast node define " ~: tokOrExprToASTNode [A (ASTNodeVariable (ASTNodeSymbol "bob") GInt), T (TokenInfo TokOpenParen ""), A (ASTNodeInteger 1), T (TokenInfo TokCloseParen ""), T (TokenInfo TokOpenCurrBrac ""), A (ASTNodeInteger 1), T (TokenInfo TokCloseCurrBrac "")] ~?= ASTNodeDefine (ASTNodeSymbol "bob") (Valid (ASTNodeParamList [ASTNodeInteger 1])) [ASTNodeInteger 1],
     "ast node define " ~: tokOrExprToASTNode [A (ASTNodeParamList [ASTNodeVariable (ASTNodeSymbol "bob") GInt, ASTNodeArray [ASTNodeInteger 1]]), T (TokenInfo TokOpenCurrBrac ""), A (ASTNodeInteger 1), T (TokenInfo TokCloseCurrBrac "")] ~?= ASTNodeDefine (ASTNodeSymbol "bob") (Valid (ASTNodeParamList [ASTNodeInteger 1])) [ASTNodeInteger 1],
-    -- "ast node define " ~: tokOrExprToASTNode [A (ASTNodeVariable (ASTNodeSymbol "bob") GInt), A (ASTNodeArray [ASTNodeInteger 1]), T (TokenInfo TokOpenCurrBrac ""), A (ASTNodeInteger 1), T (TokenInfo TokCloseCurrBrac "")] ~?= ASTNodeDefine (ASTNodeSymbol "bob") (Valid (ASTNodeParamList ASTNodeInteger 1)) [ASTNodeInteger 1],
     "astnode node capture " ~: tokOrExprToASTNode [T (TokenInfo TokOpenBrac ""), T (TokenInfo TokCloseBrac "")] ~?= ASTNodeCapture [],
     "astnode return " ~: tokOrExprToASTNode [T (TokenInfo TokenReturn ""), A (ASTNodeInteger 1), T (TokenInfo TokenPointComma "")] ~?= ASTNodeReturn (ASTNodeInteger 1),
     "another variable " ~: tokOrExprToASTNode [T (TokenInfo TokenType "int"), A (ASTNodeSymbol "bob")] ~?= ASTNodeVariable (ASTNodeSymbol "bob") (getTypeFromToken (TokenInfo TokenType "int")),
     "negative integer " ~: tokOrExprToASTNode [T (TokenInfo TokOpenParen ""), T (TokenInfo TokOperatorMinus ""), A (ASTNodeInteger 1), T (TokenInfo TokCloseParen "")] ~?= ASTNodeInteger (-1),
     "function call with simbol and integer " ~: tokOrExprToASTNode [A (ASTNodeArray [ASTNodeSymbol "bob", ASTNodeInteger 1])] ~?= ASTNodeFunctionCall "bob" [ASTNodeInteger 1],
     "lambda with variable " ~: tokOrExprToASTNode [T (TokenInfo TokOpenParen ""), T (TokenInfo TokLambda ""), A (ASTNodeParamList [ASTNodeFunctionCall "bob" [ASTNodeInteger 2], ASTNodeInteger 3]), T (TokenInfo TokCloseParen "")] ~?= ASTNodeLambda (ASTNodeSymbol "") (Valid (ASTNodeParamList (ASTNodeSymbol "bob" : [ASTNodeInteger 2]))) [ASTNodeInteger 3],
-    -- "define with params " ~: tokOrExprToASTNode [T (TokenInfo TokOpenParen ""), T (TokenInfo TokKeywordDefine ""), A (ASTNodeSymbol "bob"), A (ASTNodeLambda (ASTNodeSymbol "bob") (ASTNodeInteger 1) (ASTNodeInteger 1)), T (TokenInfo TokCloseParen "")] ~?= ASTNodeDefine (ASTNodeSymbol "bob") (Valid (ASTNodeInteger 1)) (expendParamList ASTNodeInteger 1),
-    -- "ASTNode define 32" ~: tokOrExprToASTNode [T (TokenInfo TokOpenParen ""), T (TokenInfo TokKeywordDefine ""), A (ASTNodeSymbol "bob"), A (ASTNodeFunctionCall "foo" [ASTNodeInteger 1]), A (ASTNodeArray [ASTNodeInteger 2]), T (TokenInfo TokCloseParen "")] ~?= ASTNodeDefine (ASTNodeSymbol "bob") (Valid (ASTNodeParamList (ASTNodeSymbol "bob" : [ASTNodeInteger 1]))) (ASTNodeInteger 2),
     "ASTNode define 32" ~: tokOrExprToASTNode [T (TokenInfo TokOpenParen ""), T (TokenInfo TokKeywordDefine ""), A (ASTNodeParamList [ASTNodeSymbol "bob", ASTNodeFunctionCall "foo" [ASTNodeInteger 1], (ASTNodeInteger 2)]), T (TokenInfo TokCloseParen "")] ~?= ASTNodeDefine (ASTNodeSymbol "bob") (Valid (ASTNodeParamList (ASTNodeSymbol "foo" : [ASTNodeInteger 1]))) [ASTNodeInteger 2],
     "ASTNode define 32" ~: tokOrExprToASTNode [T (TokenInfo TokOpenParen ""), T (TokenInfo TokKeywordDefine ""), A (ASTNodeParamList [ASTNodeFunctionCall "foo" [ASTNodeInteger 1], (ASTNodeInteger 2)]), T (TokenInfo TokCloseParen "")] ~?= ASTNodeDefine (ASTNodeSymbol "foo") (Valid (ASTNodeParamList [ASTNodeInteger 1])) [ASTNodeInteger 2],
     "ast node if " ~: tokOrExprToASTNode [T (TokenInfo TokOpenParen ""), T (TokenInfo TokenKeywordIf ""), A (ASTNodeParamList [ASTNodeBoolean True, (ASTNodeInteger 1), (ASTNodeInteger 2)]), T (TokenInfo TokCloseParen "")] ~?= ASTNodeIf (ASTNodeBoolean True) [(ASTNodeInteger 1)] (Valid [(ASTNodeInteger 2)]),
@@ -290,11 +275,6 @@ moreTestsTokOrExprToNode = TestList [
     "ast node error " ~: tokOrExprToASTNode [A (ASTNodeIf (ASTNodeBoolean True) [ASTNodeInteger 1] (Invalid "no else")), A (ASTNodeElif (ASTNodeBoolean True) [] (Invalid "no else"))] ~?= ASTNodeError (TokenInfo TokError "cannot resolve input"),
     "ast node error " ~: tokOrExprToASTNode [A (ASTNodeElif (ASTNodeBoolean True) [ASTNodeInteger 1] (Invalid "no else")), A (ASTNodeElif (ASTNodeBoolean True) [] (Invalid "no else"))] ~?= ASTNodeError (TokenInfo TokError "cannot resolve input"),
     "ast node error " ~: tokOrExprToASTNode [A (ASTNodeSet (ASTNodeBoolean True) (ASTNodeInteger 1)), A (ASTNodeSymbol "")] ~?= ASTNodeError (TokenInfo TokError "cannot resolve input"),
-    -- "ast node error " ~: tokOrExprToASTNode [A (ASTNodeInteger 1), A (ASTNodeVariable  (ASTNodeInteger 1) Gint)] ~?= ASTNodeError (TokenInfo TokError "cannot resolve input"),
-    -- "ast node error " ~: tokOrExprToASTNode [A (ASTNodeVariable "" ""), A (ASTNodeArray "")] ~?= ASTNodeError (TokenInfo TokError "cannot resolve input"),
-    -- "ast node error " ~: tokOrExprToASTNode [A (ASTNodeReturn ""), A (ASTNodeInteger 1)] ~?= ASTNodeError (TokenInfo TokError "cannot resolve input"),
-    -- "astnode param list" ~: tokOrExprToASTNode [A (ASTNodeInteger 1), T (TokenInfo TokenComma _), A (ASTNodeInteger 2)] ~?= ASTNodeParamList [(ASTNodeInteger 1), (ASTNodeInteger 2)],
-    -- "astnode param list" ~: tokOrExprToASTNode [A (ASTNodeParamList [ASTNodeInteger 1]), T (TokenInfo TokenComma ""), A (ASTNodeInteger 2)] ~?= ASTNodeParamList ([ASTNodeInteger 1] ++ [AstNodeInteger 2]),
     "show with cast 1" ~: tokOrExprToASTNode [T (TokenInfo TokenShowKeyword ""), A (ASTNodeParamList [ASTNodeInteger 1]), T (TokenInfo TokenAsKeyword ""), T (TokenInfo TokenType "int"), T (TokenInfo TokenPointComma "")] ~?= ASTNodeShow [ASTNodeInteger 1] (getTypeFromToken (TokenInfo TokenType "int")),
     "show with cast 2" ~: tokOrExprToASTNode [T (TokenInfo TokenShowKeyword ""), A (ASTNodeArray [ASTNodeInteger 1]), T (TokenInfo TokenAsKeyword ""), T (TokenInfo TokenType "int"), T (TokenInfo TokenPointComma "")] ~?= ASTNodeShow [ASTNodeInteger 1] (getTypeFromToken (TokenInfo TokenType "int")),
     "show with cast 3" ~: tokOrExprToASTNode [T (TokenInfo TokenShowKeyword ""), A (ASTNodeInteger 1), T (TokenInfo TokenAsKeyword ""), T (TokenInfo TokenType "int"), T (TokenInfo TokenPointComma "")] ~?= ASTNodeShow [ASTNodeInteger 1] (getTypeFromToken (TokenInfo TokenType "int")),
@@ -306,20 +286,12 @@ moreTestsTokOrExprToNode = TestList [
     "type to int undefined - 1" ~: typeToInt GUndefinedType ~?= 1,
     "type to int int - 2" ~: typeToInt GInt ~?= 2,
     "type to int bool - 3" ~: typeToInt GBool ~?= 3,
-    -- "type to int void - 4" ~: typeToInt Gvoid ~?= 4,
     "type to int ptr - 5" ~: typeToInt GPtr ~?= 5,
-    -- "int to type undefined - 1" ~: intToType (Valid 1) ~?= GUndefinedType,
-    -- "int to type int - 2" ~: intToType (Valid 2) ~?= GInt,
-    -- "int to type bool - 3" ~: intToType (Valid 3) ~?= GBool,
-    -- "int to type void - 4" ~: intToType (Valid 4) ~?= Gvoid,
-    -- "int to type ptr - 5" ~: intToType (Valid 5) ~?= GPtr,
     "int to type invalid" ~: intToType (Invalid "non") ~?= Invalid "non",
     "int to type random val " ~: intToType (Valid 300) ~?= Invalid "invalid type",
     "expand param list" ~: expandParamLists ((ASTNodeParamList [ASTNodeInteger 1]) : [ASTNodeInteger 1]) ~?= [ASTNodeInteger 1] ++ expandParamLists [ASTNodeInteger 1],
     "expand param list" ~: expandParamLists (ASTNodeInteger 1 : [ASTNodeInteger 2]) ~?= (ASTNodeInteger 1) : expandParamLists [ASTNodeInteger 2],
     "expand param list" ~: expandParamLists [] ~?= []
-    -- "contains param list " ~:  containsParamList [ASTNodeInteger 1, ASTNodeParamList [ASTNodeInteger 2]] ~?= True,
-    -- "check check" ~: check ASTNodeInstructionSequence ([ASTNodeInteger 1, ASTNodeParamList [ASTNodeInteger 2]]) ~?= ASTNodeInstructionSequence [ASTNodeInteger 1, ASTNodeInteger 2]
     ]
 
 testIsSymbolAndParamArray :: Test
@@ -339,12 +311,14 @@ moreTestFunctions = TestList
     "getTypeFromToken" ~: getTypeFromToken (TokenInfo TokenType "int") ~?= GInt,
     "getTypeFromToken" ~: getTypeFromToken (TokenInfo TokenType "void") ~?= GVoid,
     "getTypeFromToken" ~: getTypeFromToken (TokenInfo TokenType "@") ~?= GPtr,
+    "getTypeFromToken" ~: getTypeFromToken (TokenInfo TokenKeywordStruct "struct") ~?= GStruct "struct",
     "getTypeFromToken" ~: getTypeFromToken (TokenInfo TokenType "undefined") ~?= GUndefinedType,
     "getTypeFromToken" ~: getTypeFromToken (TokenInfo TokenType "bob") ~?= GUndefinedType,
     "getTypeFromNodeValue" ~: getTypeFromNodeValue (ASTNodeInteger 3) ~?= GInt,
     "getTypeFromNodeValue" ~: getTypeFromNodeValue (ASTNodeBoolean True) ~?= GBool,
     "getTypeFromNodeValue" ~: getTypeFromNodeValue (ASTNodeSymbol "bob") ~?= GUndefinedType,
     "getTypeFromNodeValue" ~: getTypeFromNodeValue (ASTNodeArray []) ~?= GPtr,
+    "getTypeFromNodeValue" ~: getTypeFromNodeValue (ASTNodeStruct "String" []) ~?= GStruct "String",
     "getTypeFromNodeValue" ~: getTypeFromNodeValue (ASTNodeCast (ASTNodeInteger 4) GInt) ~?= GInt,
     "mergeBinOps" ~: mergeBinOps [A (ASTNodeBinOps [])] ~?= ASTNodeBinOps [],
     "mergeBinOps" ~: mergeBinOps [] ~?= ASTNodeError (TokenInfo TokError "Invalid binary operation: []"),
@@ -356,11 +330,13 @@ moreTestFunctions = TestList
     "typeToInt" ~: typeToInt GBool ~?= 3,
     "typeToInt" ~: typeToInt GVoid ~?= 4,
     "typeToInt" ~: typeToInt GPtr ~?= 5,
+    "typeToInt" ~: typeToInt (GStruct "bob") ~?= 6,
     "intToType" ~: intToType (Valid 1) ~?= Valid GUndefinedType,
     "intToType" ~: intToType (Valid 2) ~?= Valid GInt,
     "intToType" ~: intToType (Valid 3) ~?= Valid GBool,
     "intToType" ~: intToType (Valid 4) ~?= Valid GVoid,
     "intToType" ~: intToType (Valid 5) ~?= Valid GPtr,
+    "intToType" ~: intToType (Valid 6) ~?= Valid (GStruct ""),
     "instructionSequenceExpandParamList" ~: instructionSequenceExpandParamList (ASTNodeInstructionSequence []) ~?= ASTNodeInstructionSequence (expandParamLists [])
   ]
 
@@ -390,5 +366,7 @@ testLexerConstructor = TestList
     "ASTNodeCast" ~: show ( astncastee (ASTNodeCast (ASTNodeSymbol "Var") GInt)) ~?= show (ASTNodeSymbol "Var"),
     "ASTNodeCast" ~: show ( astncasttype (ASTNodeCast (ASTNodeSymbol "Var") GInt)) ~?= "GInt",
     "ASTNodeShow" ~: show ( astnsType (ASTNodeShow [] GInt)) ~?= show GInt,
-    "ASTNodeBinOps" ~: show ( astnboChildren (ASTNodeBinOps [])) ~?= "[]"
+    "ASTNodeBinOps" ~: show ( astnboChildren (ASTNodeBinOps [])) ~?= "[]",
+    "ASTNodeStructVariable" ~: show ( astnName (ASTNodeStructVariable (ASTNodeInteger 3) (ASTNodeInteger 4))) ~?= show (ASTNodeInteger 3),
+    "ASTNodeStructVariable" ~: show ( astnVar (ASTNodeStructVariable (ASTNodeInteger 3) (ASTNodeInteger 4))) ~?= show (ASTNodeInteger 4)
   ]

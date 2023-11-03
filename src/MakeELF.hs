@@ -56,14 +56,6 @@ debugLoadAndShowElf path = do
   let elf' = loadDefaultElf
   easyPrintElf elf
 
--- easyPrintElf elf
--- doc <- printElf_ False elf
--- print doc
-
--- | Create an ElfLabel from a its name and a bool that is true if the symbol is to be global.
--- It is assumed that:
---  - the symbol is in the .text section which is the first section of the elf
---  - the symbol is a function
 makeElfLabel :: String -> Bool -> ElfSymbolXX 'ELFCLASS64
 makeElfLabel name isGlobal =
   let steName = name
@@ -97,7 +89,6 @@ serializeSymbol ElfSymbolXX {..} =
       serializeWord64 steSize
     ]
 
--- | Load a default ELF file for an x64 machine, without any symbols or code.
 loadDefaultElf :: Elf
 loadDefaultElf =
   Elf SELFCLASS64 $
@@ -121,7 +112,7 @@ loadDefaultElf =
           esN = ElfSectionIndex 1,
           esLink = 0,
           esInfo = 0,
-          esData = ElfSectionData Data.ByteString.Lazy.Internal.Empty -- update this with the program's code
+          esData = ElfSectionData Data.ByteString.Lazy.Internal.Empty 
         }
       ~: ElfSection
         { esName = ".symtab",
@@ -133,7 +124,7 @@ loadDefaultElf =
           esN = ElfSectionIndex 2,
           esLink = 0,
           esInfo = 0,
-          esData = ElfSectionData (serializeSymbol $ makeElfLabel "_start" True) -- update this with the program's code
+          esData = ElfSectionData (serializeSymbol $ makeElfLabel "_start" True)
         }
       ~: ElfSection
         { esName = ".symtab",
@@ -141,7 +132,7 @@ loadDefaultElf =
           esFlags = 0,
           esAddr = 0,
           esAddrAlign = 16,
-          esEntSize = symbolTableEntrySize ELFCLASS64, -- not 18 like in hello.o? investigate
+          esEntSize = symbolTableEntrySize ELFCLASS64,
           esN = 4,
           esLink = 3,
           esInfo = 1,
@@ -150,7 +141,7 @@ loadDefaultElf =
       ~: ElfListNull
 
 updateElfFromContext :: Context -> Elf -> Elf
-updateElfFromContext context elf = elf -- todo change the elf
+updateElfFromContext context elf = elf
 
 contextToElf :: Context -> Elf
 contextToElf context =
