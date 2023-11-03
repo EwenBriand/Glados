@@ -148,9 +148,6 @@ putShowBool (Invalid s) _ = Invalid s
 putShowBool (Valid c) (ASTNodeBoolean val) = Valid c {instructions = instructions c ++ [ShowBool]}
 putShowBool _ _ = Invalid "Error: invalid argument for show boolean"
 
-putStructInstruction :: ValidState Context -> ASTNode -> [ASTNode] -> ValidState Context
-putStructInstruction (Invalid s) _ _ = Invalid s
-
 paramsRegisters :: [Register]
 paramsRegisters = [EDI, ESI, EDX, ECX]
 

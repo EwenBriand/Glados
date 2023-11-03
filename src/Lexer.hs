@@ -176,7 +176,7 @@ getTypeFromToken (TokenInfo TokenType "bool") = GBool
 getTypeFromToken (TokenInfo TokenType "void") = GVoid
 getTypeFromToken (TokenInfo TokenType "undefined") = GUndefinedType
 getTypeFromToken (TokenInfo TokenType "@") = GPtr
-getTypeFromToken (TokenInfo TokenStruct s) = GStruct s
+getTypeFromToken (TokenInfo TokenKeywordStruct s) = GStruct s
 getTypeFromToken _ = GUndefinedType
 
 getTypeFromNodeValue :: ASTNode -> VarType
@@ -276,7 +276,7 @@ tokOrExprToASTNode [T (TokenInfo TokenReturn _), A n, T (TokenInfo TokenPointCom
 tokOrExprToASTNode [T (TokenInfo TokenType typ), A (ASTNodeSymbol sym)] = ASTNodeVariable (ASTNodeSymbol sym) (getTypeFromToken (TokenInfo TokenType typ))
 
 -- structures
-tokOrExprToASTNode [T (TokenInfo TokenStruct _), T (TokenInfo TokSymbol sym), T (TokenInfo TokOpenCurrBrac _), A (ASTNodeParamList n), T (TokenInfo TokCloseCurrBrac _), T (TokenInfo TokenPointComma _)] = ASTNodeStruct sym n
+tokOrExprToASTNode [T (TokenInfo TokenKeywordStruct _), T (TokenInfo TokSymbol sym), T (TokenInfo TokOpenCurrBrac _), A (ASTNodeParamList n), T (TokenInfo TokCloseCurrBrac _), T (TokenInfo TokenPointComma _)] = ASTNodeStruct sym n
 
 -- Old language
 
