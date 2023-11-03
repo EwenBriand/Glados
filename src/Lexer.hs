@@ -45,6 +45,7 @@ data VarType
   | GBool -- True or False, #t or #f
   | GVoid -- No Prelude.return value
   | GPtr -- Pointer to a value
+  | GStruct String -- A structure
   deriving (Show, Eq, Generic)
 
 instance Binary VarType
@@ -100,6 +101,8 @@ data ASTNode
   | ASTNodeCast {astncastee :: ASTNode, astncasttype :: VarType}
   | ASTNodeBinOps {astnboChildren :: [TokorNode]}
   | ASTNodeShow {astnsChildren :: [ASTNode], astnsType :: VarType}
+  | ASTNodeStruct {astnsName :: String, astnsChildren :: [ASTNode]}
+  | ASTNodeStructVariable {astnName :: ASTNode, astnVar :: ASTNode}
   deriving (Eq, Generic)
 
 instance Binary ASTNode
@@ -140,6 +143,8 @@ instance Show ASTNode where
   show (ASTNodeBinOps l) = "(binops: " ++ show l ++ ")"
   show (ASTNodeShow l t) = "(show: \n\t(type) " ++ show t ++ "\n\t(children) " ++ show l ++ ")"
   show (ASTNodeBinOps l) = "(binops: " ++ show l ++ ")"
+  show (ASTNodeStruct n l) = "(struct: \n\t(name) " ++ n ++ "\n\t(children) " ++ show l ++ ")"
+  show (ASTNodeStructVariable n l) = "(structvariable: \n\t(name) " ++ show n ++ "\n\t(children) " ++ show l ++ ")"
   show _ = "(unknown node)"
 
 isSymbolAndParamArray :: [ASTNode] -> Bool
@@ -171,12 +176,14 @@ getTypeFromToken (TokenInfo TokenType "bool") = GBool
 getTypeFromToken (TokenInfo TokenType "void") = GVoid
 getTypeFromToken (TokenInfo TokenType "undefined") = GUndefinedType
 getTypeFromToken (TokenInfo TokenType "@") = GPtr
+getTypeFromToken (TokenInfo TokenStruct s) = GStruct s
 getTypeFromToken _ = GUndefinedType
 
 getTypeFromNodeValue :: ASTNode -> VarType
 getTypeFromNodeValue (ASTNodeInteger _) = GInt
 getTypeFromNodeValue (ASTNodeBoolean _) = GBool
 getTypeFromNodeValue (ASTNodeArray _) = GPtr
+getTypeFromNodeValue (ASTNodeStruct s _) = GStruct s
 getTypeFromNodeValue (ASTNodeCast _ t) = t
 getTypeFromNodeValue _ = GUndefinedType
 
@@ -196,6 +203,10 @@ tokOrExprToASTNode :: [TokorNode] -> ASTNode
 -- error: empty
 tokOrExprToASTNode [] = ASTNodeError (TokenInfo TokError "")
 -- NEW LANGUAGE
+
+tokOrExprToASTNode [T (TokenInfo TokenKeywordStruct _), A (ASTNodeSymbol name), T (TokenInfo TokOpenCurrBrac _), A (ASTNodeParamList params), T (TokenInfo TokCloseCurrBrac _)] = ASTNodeStruct name params
+tokOrExprToASTNode [T (TokenInfo TokenKeywordStruct _), A (ASTNodeSymbol name), T (TokenInfo TokOpenCurrBrac _), A (ASTNodeVariable nameV typV), T (TokenInfo TokCloseCurrBrac _)] = ASTNodeStruct name [(ASTNodeVariable nameV typV)]
+tokOrExprToASTNode [A (ASTNodeSymbol name), T (TokenInfo TokenPoint _), A (ASTNodeSymbol variable)] = ASTNodeStructVariable (ASTNodeSymbol name) (ASTNodeSymbol variable)
 
 tokOrExprToASTNode [T (TokenInfo TokenKeywordElse _), T (TokenInfo TokOpenCurrBrac _), A body, T (TokenInfo TokCloseCurrBrac _)] = ASTNodeElse [body]
 tokOrExprToASTNode [T (TokenInfo TokenElif _), A (ASTNodeArray cond) , T (TokenInfo TokOpenCurrBrac _), A body, T (TokenInfo TokCloseCurrBrac _)] = ASTNodeElif (head cond) [body] (Invalid "2")
@@ -218,6 +229,7 @@ tokOrExprToASTNode [T (TokenInfo TokenKeywordFor _), T (TokenInfo TokOpenParen _
 
 
 tokOrExprToASTNode [A (ASTNodeSymbol name), T (TokenInfo TokenEq _), A n, T (TokenInfo TokenPointComma _)] = ASTNodeSet (ASTNodeSymbol name) n
+tokOrExprToASTNode [A (ASTNodeStructVariable name variable), T (TokenInfo TokenEq _), A n, T (TokenInfo TokenPointComma _)] = ASTNodeSet (ASTNodeStructVariable name variable) n
 
 tokOrExprToASTNode [A (ASTNodeSymbol name), T (TokenInfo TokOperatorPlus _), T (TokenInfo TokOperatorPlus _), T (TokenInfo TokenPointComma _)] = ASTNodeSet (ASTNodeSymbol name) (ASTNodeSum [ASTNodeSymbol name, ASTNodeInteger 1])
 tokOrExprToASTNode [A (ASTNodeSymbol name), T (TokenInfo TokOperatorMinus _), T (TokenInfo TokOperatorMinus _), T (TokenInfo TokenPointComma _)] = ASTNodeSet (ASTNodeSymbol name) (ASTNodeSub [ASTNodeSymbol name, ASTNodeInteger 1])
@@ -262,6 +274,9 @@ tokOrExprToASTNode [A (ASTNodeVariable sym typ), T (TokenInfo TokenEq _), T (Tok
 tokOrExprToASTNode [T (TokenInfo TokenReturn _), A n, T (TokenInfo TokenPointComma _)] = ASTNodeReturn n
 
 tokOrExprToASTNode [T (TokenInfo TokenType typ), A (ASTNodeSymbol sym)] = ASTNodeVariable (ASTNodeSymbol sym) (getTypeFromToken (TokenInfo TokenType typ))
+
+-- structures
+tokOrExprToASTNode [T (TokenInfo TokenStruct _), T (TokenInfo TokSymbol sym), T (TokenInfo TokOpenCurrBrac _), A (ASTNodeParamList n), T (TokenInfo TokCloseCurrBrac _), T (TokenInfo TokenPointComma _)] = ASTNodeStruct sym n
 
 -- Old language
 
@@ -342,7 +357,7 @@ tokOrExprToASTNode [T (TokenInfo TokenBool val)] = ASTNodeBoolean (val == "true"
 tokOrExprToASTNode [A (ASTNodeIf _ _ _), A (ASTNodeElif _ _ _)] = ASTNodeError (TokenInfo TokError "cannot resolve input")
 tokOrExprToASTNode [A (ASTNodeElif _ _ _), A (ASTNodeElif _ _ _)] = ASTNodeError (TokenInfo TokError "cannot resolve input")
 tokOrExprToASTNode [A (ASTNodeSet _ _), A (ASTNodeSymbol _)] = ASTNodeError (TokenInfo TokError "cannot resolve input")
-tokOrExprToASTNode [A _, A (ASTNodeVariable _ _)] = ASTNodeError (TokenInfo TokError "cannot resolve input")
+-- tokOrExprToASTNode [A _, A (ASTNodeVariable _ _)] = ASTNodeError (TokenInfo TokError "cannot resolve input")
 tokOrExprToASTNode [A (ASTNodeVariable _ _), A (ASTNodeArray _)] = ASTNodeError (TokenInfo TokError "cannot resolve input")
 tokOrExprToASTNode [A (ASTNodeReturn _), A n] = ASTNodeError (TokenInfo TokError "cannot resolve input")
 -- tokOrExprToASTNode [A (ASTNodeParamList _), A (ASTNodeParamList _)] = ASTNodeError (TokenInfo TokError "cannot resolve input")
@@ -373,6 +388,7 @@ typeToInt GInt = 2
 typeToInt GBool = 3
 typeToInt GVoid = 4
 typeToInt GPtr = 5
+typeToInt (GStruct _) = 6
 typeToInt _ = 0
 
 intToType :: ValidState Int -> ValidState VarType
@@ -384,6 +400,7 @@ intToType (Valid i) = case i of
   3 -> Valid GBool
   4 -> Valid GVoid
   5 -> Valid GPtr
+  6 -> Valid (GStruct "")
   _ -> Invalid "invalid type"
 
 -- | @params:

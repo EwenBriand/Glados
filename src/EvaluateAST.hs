@@ -117,6 +117,8 @@ instructionFromAST (ASTNodeWhile cond [(ASTNodeParamList body)]) ctx = putWhileI
 instructionFromAST (ASTNodeWhile cond body) ctx = putWhileInstruction ctx cond body
 instructionFromAST (ASTNodeSet name value) ctx = putSetInstruction ctx name value
 instructionFromAST (ASTNodeReturn value) ctx = putReturnInstruction ctx value
+instructionFromAST (ASTNodeStruct name params) ctx = putStructInstruction ctx (ASTNodeSymbol name) params
+instructionFromAST (ASTNodeStructVariable name value) ctx = putStructVariableInstruction ctx name value
 instructionFromAST (ASTNodeBreak [ASTNodeLambda _ param body, ASTNodeFunctionCall _ params]) ctx = instructionFromAST (ASTNodeBreak [(ASTNodeFunctionCall u_name params)]) (instructionFromAST (ASTNodeLambda (ASTNodeSymbol u_name) param body) (Valid ctx'))
   where
     u_name = "lambda@" ++ ("_" ++ show uuid)
@@ -129,7 +131,6 @@ instructionFromAST (ASTNodeBreak []) ctx = ctx
 instructionFromAST (ASTNodeShow (x:xs) _type) ctx = instructionFromAST (ASTNodeShow xs _type) (putASTNodeShow x _type ctx)
 instructionFromAST (ASTNodeShow [] _type) ctx = ctx
 instructionFromAST a _ = Invalid ("Error: invalid AST" ++ show a)
--- instructionFromAST _ _ = Invalid "Error!!!!"
 
 putASTNodeShow :: ASTNode -> VarType -> ValidState Context -> ValidState Context
 putASTNodeShow n _type c = case _type of
@@ -146,6 +147,9 @@ putShowBool :: ValidState Context -> ASTNode -> ValidState Context
 putShowBool (Invalid s) _ = Invalid s
 putShowBool (Valid c) (ASTNodeBoolean val) = Valid c {instructions = instructions c ++ [ShowBool]}
 putShowBool _ _ = Invalid "Error: invalid argument for show boolean"
+
+putStructInstruction :: ValidState Context -> ASTNode -> [ASTNode] -> ValidState Context
+putStructInstruction (Invalid s) _ _ = Invalid s
 
 paramsRegisters :: [Register]
 paramsRegisters = [EDI, ESI, EDX, ECX]
@@ -215,6 +219,22 @@ putDefineInstruction (Valid c) name params body = case blockAdd (Valid c) (astns
     Valid blk -> case setupBlockParams blk params of
       Invalid s -> Invalid ("While parsing the parameters of the function: \n" ++ s)
       Valid blk' -> evaluateBlock (Valid ctx) (copyParentBlocks ctx blk') params body
+
+putStructInstruction :: ValidState Context -> ASTNode -> [ASTNode] -> ValidState Context
+putStructInstruction (Invalid s) _ _ = Invalid s
+putStructInstruction (Valid c) _ [] = (Valid c)
+putStructInstruction (Valid c) (ASTNodeSymbol name) ((ASTNodeVariable (ASTNodeSymbol nameV) typV):body) = do
+  ctx <- putMutableInstruction typV (ASTNodeSymbol (name ++ "." ++ nameV)) typV value (Valid c)
+  putStructInstruction (Valid ctx) (ASTNodeSymbol name) body
+  where
+    value = case typV of
+      GInt -> ASTNodeInteger 0
+      GBool -> ASTNodeBoolean False
+      _ -> ASTNodeInteger 0
+
+putStructVariableInstruction :: ValidState Context -> ASTNode -> ASTNode -> ValidState Context
+putStructVariableInstruction (Invalid s) _ _ = Invalid s
+putStructVariableInstruction (Valid c) (ASTNodeSymbol name) (ASTNodeSymbol variable) = putSymbolInstruction (name ++ "." ++ variable) (Valid c)
 
 putParamListInstruction :: ValidState Context -> [ASTNode] -> ValidState Context
 putParamListInstruction (Invalid s) _ = Invalid s
@@ -436,6 +456,9 @@ inferTypeFromNode _ (ASTNodeCast _ t) = t
 inferTypeFromNode _ (ASTNodeInteger _) = GInt
 inferTypeFromNode _ (ASTNodeBoolean _) = GBool
 inferTypeFromNode _ (ASTNodeArray _) = GPtr
+inferTypeFromNode c (ASTNodeStructVariable (ASTNodeSymbol name) (ASTNodeSymbol variable)) = case symGetFull c (name ++ "." ++ variable) of
+  (Invalid _) -> GUndefinedType
+  Valid (_, t) -> t
 inferTypeFromNode c (ASTNodeSymbol name) = case symGetFull c name of
   (Invalid _) -> GUndefinedType
   Valid (_, t) -> t
@@ -465,6 +488,15 @@ putMutableInstruction symtyp name valtyp node ctx =
 
 putSetNoErrCheck :: ValidState Context -> ASTNode -> ASTNode -> ValidState Context
 putSetNoErrCheck (Invalid s) _ _ = Invalid s
+putSetNoErrCheck ctx (ASTNodeStructVariable name vartyp) node = do
+  let ctx' = instructionFromAST node ctx
+    in case ctx' of
+      Invalid s -> Invalid s
+      Valid ctx' -> (Valid ctx' {instructions = instructions ctx' ++ [MovStackAddr (Immediate addr) (Reg EAX)]})
+      where
+        addr = case symGet ctx (astnsName name) of
+          Invalid _ -> 0
+          Valid addr' -> addr'
 putSetNoErrCheck ctx name node = do
   let ctx' = instructionFromAST node ctx
     in case ctx' of

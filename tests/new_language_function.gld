@@ -2,10 +2,10 @@ int j = 45;
 int k = 5;
 int func(int arg, int args) {
     int reg = 45;
-    print(reg);
-    return reg;
     int a = 0;
-    print(a);
+    print(j);
+    print(k);
+    return reg;
 }
 func(1, 2);
 func(1, 2);
