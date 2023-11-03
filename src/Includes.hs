@@ -95,7 +95,7 @@ breakMacro src = do
     let (args2, rest') = break (== ')') (tail rest)
     let (def2, rest'') = break (== '\n') (tail rest')
     let rest''' = if null rest'' then [] else tail rest''
-    trace ("Current name: " ++ name) $ (name, args2, def2, rest''')
+    (name, args2, def2, rest''')
 
 
 removeWhitespace :: String -> String
@@ -106,7 +106,7 @@ fetchAllMacros "" = newMacroList
 fetchAllMacros src = do
     let (name, args2, def2, rest') = breakMacro src
     let macro = Macro {name = removeWhitespace name, args2 = words args2, def2 = removeWhitespace def2}
-    trace ("Current macro: " ++ show macro) $ addMacro (fetchAllMacros rest') macro
+    addMacro (fetchAllMacros rest') macro
 
 replaceSubstring :: String -> String -> String -> String
 replaceSubstring str old new = go str
@@ -148,7 +148,7 @@ findsArgs macro src =
     in if null src' then ""
        else let (_, after') = break (== '(') src'
                 (args2, _) = breakEndArgs (tail after') 1
-            in trace ("find args " ++ show args2) $ args2
+            in args2
 
 splitArgs :: String -> [String]
 splitArgs "" = []
@@ -165,20 +165,20 @@ replaceAllMacroCall macro src = do
     let args2 = splitArgs (findsArgs macro src)
     if length args2 > 0 then do
             let src' = replaceMacro macro src args2
-            trace ("replace " ++ show macro ++ " in " ++ src') $ replaceAllMacroCall macro src'
+            replaceAllMacroCall macro src'
         else src
 
 replaceMacroForEach :: MacroList -> String -> String
 replaceMacroForEach (MacroList []) src = src
 replaceMacroForEach (MacroList (m:ms)) src = do
     let src' = replaceAllMacroCall m src
-    trace ("replace for each " ++ show m ++ " in " ++ src') $ replaceMacroForEach (MacroList ms) src'
+    replaceMacroForEach (MacroList ms) src'
 
 replaceMacroForEachCall :: String -> String -> String
 replaceMacroForEachCall macrolist src = do
     let macroList = fetchAllMacros macrolist
     let src' = replaceMacroForEach macroList src
-    trace ("current macrolist" ++ show macrolist ++ " and src is " ++ show src') $ src'
+    src'
 
 resolveMacros :: String -> IO String
 resolveMacros src = if "#macro" `isInfixOf` src then do
