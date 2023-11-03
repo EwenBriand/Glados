@@ -22,6 +22,7 @@ import Lexer
 import Test.HUnit
 import Tokenizer
 import ValidState
+import Lexer
 
 testInstructionList :: Test
 testInstructionList =
@@ -229,6 +230,8 @@ testShowInstanceASTNode = TestList
     "ASTNodeDeref" ~: show (ASTNodeDeref (ASTNodeSymbol "name") (ASTNodeInteger 4)) ~?= "(deref: \n\t(name) " ++ show (ASTNodeSymbol "name") ++ "\n\t(index) " ++ show (ASTNodeInteger 4) ++ ")",
     "ASTNodeShow" ~: show (ASTNodeShow [] GInt) ~?= "(show: \n\t(type) " ++ show GInt ++ "\n\t(children) [])",
     "ASTNodeBinOps" ~: show (ASTNodeBinOps []) ~?= "(binops: [])",
+    "ASTNodeStruct" ~: show (ASTNodeStruct "test" []) ~?= "(struct: \n\t(name) " ++ "test" ++ "\n\t(children) [])",
+    "ASTNodeStructVariable" ~: show (ASTNodeStructVariable (ASTNodeInteger 5) (ASTNodeInteger 5)) ~?= "(structvariable: \n\t(name) " ++ show (ASTNodeInteger 5) ++ "\n\t(children) " ++ show (ASTNodeInteger 5) ++ ")",
     "ASTSuperior Unknown" ~: show (ASTNodeSuperior []) ~?= "(unknown node)"
   ]
 
@@ -339,12 +342,14 @@ moreTestFunctions = TestList
     "getTypeFromToken" ~: getTypeFromToken (TokenInfo TokenType "int") ~?= GInt,
     "getTypeFromToken" ~: getTypeFromToken (TokenInfo TokenType "void") ~?= GVoid,
     "getTypeFromToken" ~: getTypeFromToken (TokenInfo TokenType "@") ~?= GPtr,
+    "getTypeFromToken" ~: getTypeFromToken (TokenInfo TokenKeywordStruct "struct") ~?= GStruct "struct",
     "getTypeFromToken" ~: getTypeFromToken (TokenInfo TokenType "undefined") ~?= GUndefinedType,
     "getTypeFromToken" ~: getTypeFromToken (TokenInfo TokenType "bob") ~?= GUndefinedType,
     "getTypeFromNodeValue" ~: getTypeFromNodeValue (ASTNodeInteger 3) ~?= GInt,
     "getTypeFromNodeValue" ~: getTypeFromNodeValue (ASTNodeBoolean True) ~?= GBool,
     "getTypeFromNodeValue" ~: getTypeFromNodeValue (ASTNodeSymbol "bob") ~?= GUndefinedType,
     "getTypeFromNodeValue" ~: getTypeFromNodeValue (ASTNodeArray []) ~?= GPtr,
+    "getTypeFromNodeValue" ~: getTypeFromNodeValue (ASTNodeStruct "String" []) ~?= GStruct "String",
     "getTypeFromNodeValue" ~: getTypeFromNodeValue (ASTNodeCast (ASTNodeInteger 4) GInt) ~?= GInt,
     "mergeBinOps" ~: mergeBinOps [A (ASTNodeBinOps [])] ~?= ASTNodeBinOps [],
     "mergeBinOps" ~: mergeBinOps [] ~?= ASTNodeError (TokenInfo TokError "Invalid binary operation: []"),
@@ -356,11 +361,13 @@ moreTestFunctions = TestList
     "typeToInt" ~: typeToInt GBool ~?= 3,
     "typeToInt" ~: typeToInt GVoid ~?= 4,
     "typeToInt" ~: typeToInt GPtr ~?= 5,
+    "typeToInt" ~: typeToInt (GStruct "bob") ~?= 6,
     "intToType" ~: intToType (Valid 1) ~?= Valid GUndefinedType,
     "intToType" ~: intToType (Valid 2) ~?= Valid GInt,
     "intToType" ~: intToType (Valid 3) ~?= Valid GBool,
     "intToType" ~: intToType (Valid 4) ~?= Valid GVoid,
     "intToType" ~: intToType (Valid 5) ~?= Valid GPtr,
+    "intToType" ~: intToType (Valid 6) ~?= Valid (GStruct ""),
     "instructionSequenceExpandParamList" ~: instructionSequenceExpandParamList (ASTNodeInstructionSequence []) ~?= ASTNodeInstructionSequence (expandParamLists [])
   ]
 
@@ -390,5 +397,7 @@ testLexerConstructor = TestList
     "ASTNodeCast" ~: show ( astncastee (ASTNodeCast (ASTNodeSymbol "Var") GInt)) ~?= show (ASTNodeSymbol "Var"),
     "ASTNodeCast" ~: show ( astncasttype (ASTNodeCast (ASTNodeSymbol "Var") GInt)) ~?= "GInt",
     "ASTNodeShow" ~: show ( astnsType (ASTNodeShow [] GInt)) ~?= show GInt,
-    "ASTNodeBinOps" ~: show ( astnboChildren (ASTNodeBinOps [])) ~?= "[]"
+    "ASTNodeBinOps" ~: show ( astnboChildren (ASTNodeBinOps [])) ~?= "[]",
+    "ASTNodeStructVariable" ~: show ( astnName (ASTNodeStructVariable (ASTNodeInteger 3) (ASTNodeInteger 4))) ~?= show (ASTNodeInteger 3),
+    "ASTNodeStructVariable" ~: show ( astnVar (ASTNodeStructVariable (ASTNodeInteger 3) (ASTNodeInteger 4))) ~?= show (ASTNodeInteger 4)
   ]

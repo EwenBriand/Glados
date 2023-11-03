@@ -142,7 +142,6 @@ instance Show ASTNode where
   show (ASTNodeDeref n i) = "(deref: \n\t(name) " ++ show n ++ "\n\t(index) " ++ show i ++ ")"
   show (ASTNodeBinOps l) = "(binops: " ++ show l ++ ")"
   show (ASTNodeShow l t) = "(show: \n\t(type) " ++ show t ++ "\n\t(children) " ++ show l ++ ")"
-  show (ASTNodeBinOps l) = "(binops: " ++ show l ++ ")"
   show (ASTNodeStruct n l) = "(struct: \n\t(name) " ++ n ++ "\n\t(children) " ++ show l ++ ")"
   show (ASTNodeStructVariable n l) = "(structvariable: \n\t(name) " ++ show n ++ "\n\t(children) " ++ show l ++ ")"
   show _ = "(unknown node)"
