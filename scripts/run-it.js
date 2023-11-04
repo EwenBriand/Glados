@@ -20,6 +20,20 @@ const fileExtension = '.gld';
 // Hashmap tests output funciton
 const testsOutput = {
   './tests/call_recursive_function.gld': '404',
+  './tests/new_language_closure.gld' : '',
+  './tests/new_language_for.gld': '22',
+  './tests/new_language_if.gld': '7',
+  './tests/new_language_lambda_with_params.gld': '3',
+  './tests/new_language_struct.gld': 'false',
+  './tests/new_language_while.gld': '22',
+  './tests/ptr.gld': 'true',
+  './tests/simpleAdd.gld': '',
+  './tests/simpleFunCall.gld': '',
+  './tests/simpleFuncCallWithArgs.gld': '',
+  './tests/syscall.gld': '',
+  './tests/test_simple_sum.gld': '',
+  './tests/write_test.gld': '',
+  // './tests/includes/code2.gld': '5',
   './tests/test_call_fun_no_args.gld': '3',
   './tests/test_call_fun_with_args.gld': '2',
   './tests/test_call_if_eq.gld': '6',
@@ -46,7 +60,6 @@ const testsOutput = {
   './tests/tests_from_pdf/lambda1.gld': '3',
   './tests/tests_from_pdf/lambda2.gld': '7',
   './tests/tests_from_pdf/superior.gld': 'true',
-  './tests/new_language_if.gld': '7',
 };
 
 function parseLastLine(input) {
